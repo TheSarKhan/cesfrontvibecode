@@ -6,7 +6,8 @@
       "Bash(npm install)",
       "Bash(npm install tailwindcss @tailwindcss/vite axios react-router-dom zustand @tanstack/react-query react-hot-toast lucide-react clsx)",
       "Bash(npm run build)",
-      "Bash(xargs grep -l \"enum\")"
+      "Bash(xargs grep -l \"enum\")",
+      "Bash(xargs grep -l \"paymentType\\\\|PaymentType\")"
     ]
   }
 }
