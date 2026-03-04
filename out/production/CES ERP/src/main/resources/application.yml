@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: ces-erp
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ces_erp
+    username: ces_user
+    password: ces_password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  jwt:
+    secret: ces-erp-super-secret-key-minimum-256-bit-length-required-here
+    access-token-expiry: 86400000     # 24 saat (ms)
+    refresh-token-expiry: 604800000   # 7 gün (ms)
+
+logging:
+  level:
+    com.ces.erp: DEBUG
