@@ -15,14 +15,7 @@ import RequestsPage from './pages/requests/RequestsPage'
 import CoordinatorPage from './pages/coordinator/CoordinatorPage'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import AccountingPage from './pages/accounting/AccountingPage'
-
-function Placeholder({ name }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <p className="text-gray-400 text-sm">{name} modulu — tezliklə.</p>
-    </div>
-  )
-}
+import ServicePage from './pages/service/ServicePage'
 
 export default function App() {
   return (
@@ -54,7 +47,7 @@ export default function App() {
             <Route path="coordinator" element={<CoordinatorPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="accounting" element={<AccountingPage />} />
-            <Route path="service" element={<Placeholder name="Texniki Servis Modulu" />} />
+            <Route path="service" element={<ServicePage />} />
           </Route>
         </Route>
 

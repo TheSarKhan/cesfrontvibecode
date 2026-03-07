@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Search, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Star, ChevronRight } from 'lucide-react'
 import { contractorsApi } from '../../api/contractors'
 import ContractorModal from './ContractorModal'
+import ContractorSlideOver from './ContractorSlideOver'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import { useAuthStore } from '../../store/authStore'
 
 const RISK_CONFIG = {
   LOW: { label: 'Aşağı', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
@@ -28,9 +30,15 @@ function RatingStars({ rating }) {
 }
 
 export default function ContractorsPage() {
+  const hasPermission = useAuthStore(s => s.hasPermission)
+  const canCreate = hasPermission('CONTRACTOR_MANAGEMENT', 'canPost')
+  const canEdit   = hasPermission('CONTRACTOR_MANAGEMENT', 'canPut')
+  const canDelete = hasPermission('CONTRACTOR_MANAGEMENT', 'canDelete')
+
   const [contractors, setContractors] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState({ open: false, editing: null })
+  const [selected, setSelected] = useState(null)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -83,13 +91,15 @@ export default function ContractorsPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Podratçılar</h1>
           <p className="text-xs text-gray-400 mt-0.5">{contractors.length} podratçı</p>
         </div>
-        <button
-          onClick={() => setModal({ open: true, editing: null })}
-          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={16} />
-          Yeni podratçı
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setModal({ open: true, editing: null })}
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={16} />
+            Yeni podratçı
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -160,8 +170,16 @@ export default function ContractorsPage() {
               filtered.map((c) => {
                 const risk = RISK_CONFIG[c.riskLevel] || RISK_CONFIG.LOW
                 const status = STATUS_CONFIG[c.status] || STATUS_CONFIG.ACTIVE
+                const isSelected = selected?.id === c.id
                 return (
-                  <tr key={c.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                  <tr
+                    key={c.id}
+                    onClick={() => setSelected(c)}
+                    className={clsx(
+                      'border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
+                      isSelected ? 'bg-amber-50 dark:bg-amber-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
+                    )}
+                  >
                     <td className="py-3 px-4">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.companyName}</span>
                     </td>
@@ -182,21 +200,26 @@ export default function ContractorsPage() {
                       <RatingStars rating={c.rating} />
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-1 justify-end">
-                        <button
-                          onClick={() => setModal({ open: true, editing: c })}
-                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                          title="Redaktə et"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c)}
-                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                          title="Sil"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                      <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                        {canEdit && (
+                          <button
+                            onClick={() => setModal({ open: true, editing: c })}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+                            title="Redaktə et"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(c)}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Sil"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                        <ChevronRight size={15} className={clsx('transition-colors', isSelected ? 'text-amber-600' : 'text-gray-300')} />
                       </div>
                     </td>
                   </tr>
@@ -212,6 +235,13 @@ export default function ContractorsPage() {
           editing={modal.editing}
           onClose={() => setModal({ open: false, editing: null })}
           onSaved={() => { setModal({ open: false, editing: null }); load() }}
+        />
+      )}
+
+      {selected && (
+        <ContractorSlideOver
+          contractor={selected}
+          onClose={() => setSelected(null)}
         />
       )}
     </div>

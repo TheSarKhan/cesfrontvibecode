@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Search, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign, BarChart3, AlertCircle, CheckCircle, ChevronRight } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign, BarChart3, AlertCircle, CheckCircle, ChevronRight, Printer } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
 import InvoiceModal from './InvoiceModal'
+import InvoicePrintModal from './InvoicePrintModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import { useAuthStore } from '../../store/authStore'
 
 const TYPE_CONFIG = {
   INCOME:             { label: 'A — Gəlir',        short: 'A',  cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
@@ -35,6 +37,11 @@ function StatCard({ icon: Icon, label, value, sub, color, textColor }) {
 }
 
 export default function AccountingPage() {
+  const hasPermission = useAuthStore(s => s.hasPermission)
+  const canCreate = hasPermission('ACCOUNTING', 'canPost')
+  const canEdit   = hasPermission('ACCOUNTING', 'canPut')
+  const canDelete = hasPermission('ACCOUNTING', 'canDelete')
+
   const [invoices, setInvoices] = useState([])
   const [summary, setSummary] = useState(null)
   const [projects, setProjects] = useState([])
@@ -42,6 +49,7 @@ export default function AccountingPage() {
   const [activeTab, setActiveTab] = useState('')
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState({ open: false, editing: null, defaultType: null, preProject: null })
+  const [printInv, setPrintInv] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -112,13 +120,15 @@ export default function AccountingPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Mühasibatlıq — E-Qaimələr</h1>
           <p className="text-xs text-gray-400 mt-0.5">{invoices.length} qaimə</p>
         </div>
-        <button
-          onClick={() => setModal({ open: true, editing: null, defaultType: activeTab || 'INCOME', preProject: null })}
-          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={15} />
-          Yeni Qaimə
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setModal({ open: true, editing: null, defaultType: activeTab || 'INCOME', preProject: null })}
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={15} />
+            Yeni Qaimə
+          </button>
+        )}
       </div>
 
       {/* Gözləyən bağlanmış layihələr */}
@@ -367,19 +377,30 @@ export default function AccountingPage() {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1 justify-end">
                           <button
-                            onClick={() => setModal({ open: true, editing: inv, defaultType: null })}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                            title="Redaktə et"
+                            onClick={() => setPrintInv(inv)}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Çap et"
                           >
-                            <Pencil size={14} />
+                            <Printer size={14} />
                           </button>
-                          <button
-                            onClick={() => handleDelete(inv)}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                            title="Sil"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => setModal({ open: true, editing: inv, defaultType: null })}
+                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+                              title="Redaktə et"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(inv)}
+                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Sil"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -421,6 +442,10 @@ export default function AccountingPage() {
           onClose={() => setModal({ open: false, editing: null, defaultType: null, preProject: null })}
           onSaved={() => { setModal({ open: false, editing: null, defaultType: null, preProject: null }); load() }}
         />
+      )}
+
+      {printInv && (
+        <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />
       )}
     </div>
   )

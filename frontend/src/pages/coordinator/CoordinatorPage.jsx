@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, ClipboardList } from 'lucide-react'
+import { Search, ClipboardList, CheckCircle, XCircle } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import CoordinatorPlanModal from './CoordinatorPlanModal'
 import toast from 'react-hot-toast'
@@ -20,6 +20,37 @@ export default function CoordinatorPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState(null)
+  const [actionLoading, setActionLoading] = useState(null) // requestId
+
+  const handleAccept = async (r, e) => {
+    e.stopPropagation()
+    if (!window.confirm(`"${r.companyName}" üçün təklif təsdiq edilsin? Layihələr moduluna göndəriləcək.`)) return
+    setActionLoading(r.requestId)
+    try {
+      await coordinatorApi.acceptOffer(r.requestId)
+      toast.success('Təklif təsdiq edildi — layihə yaradıldı')
+      load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleReject = async (r, e) => {
+    e.stopPropagation()
+    if (!window.confirm(`"${r.companyName}" üçün təklif ləğv edilsin?`)) return
+    setActionLoading(r.requestId)
+    try {
+      await coordinatorApi.rejectOffer(r.requestId)
+      toast.success('Təklif ləğv edildi')
+      load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const load = async () => {
     setLoading(true)
@@ -91,7 +122,7 @@ export default function CoordinatorPage() {
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Müddət</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ümumi / Xeyir</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan</th>
+                <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
               </tr>
             </thead>
             <tbody>
@@ -160,14 +191,57 @@ export default function CoordinatorPage() {
                           {status.label}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => setSelected(r)}
-                          className="flex items-center gap-1.5 ml-auto text-xs font-medium text-purple-600 hover:text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                        >
-                          <ClipboardList size={14} />
-                          {hasPlan ? 'Planı aç' : 'Plan yarat'}
-                        </button>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                          {/* Plan düyməsi — ACCEPTED/REJECTED-də gizlənmir, həmişə görünür */}
+                          {!['ACCEPTED', 'REJECTED'].includes(r.requestStatus) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelected(r) }}
+                              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 px-2.5 py-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors whitespace-nowrap"
+                            >
+                              <ClipboardList size={13} />
+                              {hasPlan ? 'Planı aç' : 'Plan yarat'}
+                            </button>
+                          )}
+
+                          {/* Təsdiq / Ləğv — yalnız OFFER_SENT statusunda */}
+                          {r.requestStatus === 'OFFER_SENT' && (
+                            <>
+                              <button
+                                disabled={actionLoading === r.requestId}
+                                onClick={(e) => handleAccept(r, e)}
+                                className="flex items-center gap-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                                title="Təklifi təsdiq et — Layihələrə göndər"
+                              >
+                                <CheckCircle size={13} />
+                                Təsdiq
+                              </button>
+                              <button
+                                disabled={actionLoading === r.requestId}
+                                onClick={(e) => handleReject(r, e)}
+                                className="flex items-center gap-1 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                                title="Təklifi ləğv et"
+                              >
+                                <XCircle size={13} />
+                                Ləğv et
+                              </button>
+                            </>
+                          )}
+
+                          {/* Bağlanmış statuslar üçün göstəricilər */}
+                          {r.requestStatus === 'ACCEPTED' && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                              <CheckCircle size={13} />
+                              Layihəyə göndərildi
+                            </span>
+                          )}
+                          {r.requestStatus === 'REJECTED' && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-red-500 dark:text-red-400">
+                              <XCircle size={13} />
+                              Rədd edildi
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )

@@ -227,7 +227,19 @@ export default function ProjectsPage() {
                           </p>
                         )}
                         {p.startDate && <p className="text-[10px] text-gray-400">{fmt(p.startDate)}</p>}
-                        {p.endDate   && <p className="text-[10px] text-gray-400">→ {fmt(p.endDate)}</p>}
+                        {p.endDate && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-[10px] text-gray-400">→ {fmt(p.endDate)}</p>
+                            {p.status === 'ACTIVE' && (() => {
+                              const today = new Date(); today.setHours(0,0,0,0)
+                              const end = new Date(p.endDate); end.setHours(0,0,0,0)
+                              const diff = Math.ceil((end - today) / 86400000)
+                              if (diff < 0) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">Vaxtı keçib</span>
+                              if (diff <= 3) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 whitespace-nowrap">{diff}g qalıb</span>
+                              return null
+                            })()}
+                          </div>
+                        )}
                       </td>
 
                       {/* Müqavilə */}

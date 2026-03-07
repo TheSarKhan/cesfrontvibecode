@@ -15,4 +15,7 @@ export const coordinatorApi = {
     api.delete(`/coordinator/requests/${requestId}/plan/documents/${documentId}`),
   getDocumentDownloadUrl: (requestId, documentId) =>
     `/api/coordinator/requests/${requestId}/plan/documents/${documentId}/download`,
+
+  acceptOffer: (requestId) => api.post(`/coordinator/requests/${requestId}/accept`),
+  rejectOffer: (requestId) => api.post(`/coordinator/requests/${requestId}/reject`),
 }
