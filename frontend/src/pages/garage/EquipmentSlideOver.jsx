@@ -479,11 +479,18 @@ function HistoryTab({ equipmentId }) {
     <div className="space-y-2">
       {history.map((h, i) => (
         <div key={h.id || i} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{h.projectName || h.project?.name || '—'}</span>
-            <span className="text-[10px] text-gray-400">{h.startDate} — {h.endDate || 'davam edir'}</span>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{h.projectName || '—'}</p>
+              {h.notes && <p className="text-[10px] text-gray-400 mt-0.5">{h.notes}</p>}
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] text-gray-400">{h.startDate || '—'} → {h.endDate || 'davam edir'}</p>
+              {h.contractorRevenue > 0 && (
+                <p className="text-[10px] font-medium text-orange-500">{parseFloat(h.contractorRevenue).toLocaleString('az-AZ')} ₼</p>
+              )}
+            </div>
           </div>
-          {h.notes && <p className="text-xs text-gray-500 dark:text-gray-400">{h.notes}</p>}
         </div>
       ))}
     </div>
