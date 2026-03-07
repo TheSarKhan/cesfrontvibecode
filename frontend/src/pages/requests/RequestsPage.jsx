@@ -8,7 +8,7 @@ import { clsx } from 'clsx'
 
 const STATUS_CONFIG = {
   DRAFT:                { label: 'Qaralama',          cls: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
-  PENDING:              { label: 'Gözləyir',           cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  PENDING:              { label: 'Göndərməyə hazırdır', cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
   SENT_TO_COORDINATOR:  { label: 'Kordinatorda',       cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
   OFFER_SENT:           { label: 'Təklif göndərildi', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
   ACCEPTED:             { label: 'Qəbul edildi',       cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
@@ -25,17 +25,6 @@ function ActionMenu({ request, canSendToCoordinator, onRefresh }) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
-  const doSubmit = async () => {
-    setOpen(false)
-    try {
-      await requestsApi.submit(request.id)
-      toast.success('Sorğu Alım-Satım komandasına göndərildi')
-      onRefresh()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
-    }
-  }
 
   const doSendCoordinator = async () => {
     setOpen(false)
@@ -60,12 +49,6 @@ function ActionMenu({ request, canSendToCoordinator, onRefresh }) {
 
       {open && (
         <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-20 overflow-hidden py-1">
-          {request.status === 'DRAFT' && (
-            <button onClick={doSubmit} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-              <Send size={14} />
-              Alım-Satım-a göndər
-            </button>
-          )}
           {request.status === 'PENDING' && canSendToCoordinator && (
             <button onClick={doSendCoordinator} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
               <Send size={14} />
