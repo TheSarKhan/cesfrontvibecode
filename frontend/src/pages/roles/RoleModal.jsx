@@ -51,6 +51,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
             canPost: existing?.canPost || false,
             canPut: existing?.canPut || false,
             canDelete: existing?.canDelete || false,
+            canSendToCoordinator: existing?.canSendToCoordinator || false,
           }
         })
         setPermMap(map)
@@ -70,7 +71,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     setLoading(true)
     try {
       const permissions = Object.entries(permMap)
-        .filter(([, p]) => p.canGet || p.canPost || p.canPut || p.canDelete)
+        .filter(([, p]) => p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator)
         .map(([moduleId, p]) => ({ moduleId: Number(moduleId), ...p }))
 
       const payload = {
@@ -189,6 +190,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
                       {PERM_COLS.map((c) => (
                         <th key={c.key} className="text-left py-2 text-xs font-semibold text-gray-500">{c.label}</th>
                       ))}
+                      <th className="text-left py-2 text-xs font-semibold text-gray-500">Əlavə</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -205,6 +207,19 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
                             />
                           </td>
                         ))}
+                        <td className="py-2.5">
+                          {mod.code === 'REQUESTS' ? (
+                            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={permMap[mod.id]?.canSendToCoordinator || false}
+                                onChange={() => togglePerm(mod.id, 'canSendToCoordinator')}
+                                className="accent-purple-600 w-4 h-4 cursor-pointer"
+                              />
+                              <span className="text-xs text-purple-600 font-medium">Kordinatora göndər</span>
+                            </label>
+                          ) : <span />}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
