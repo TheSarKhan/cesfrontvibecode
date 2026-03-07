@@ -13,6 +13,8 @@ import GaragePage from './pages/garage/GaragePage'
 import CustomersPage from './pages/customers/CustomersPage'
 import RequestsPage from './pages/requests/RequestsPage'
 import CoordinatorPage from './pages/coordinator/CoordinatorPage'
+import ProjectsPage from './pages/projects/ProjectsPage'
+import AccountingPage from './pages/accounting/AccountingPage'
 
 function Placeholder({ name }) {
   return (
@@ -50,8 +52,8 @@ export default function App() {
             <Route path="garage" element={<GaragePage />} />
             <Route path="requests" element={<RequestsPage />} />
             <Route path="coordinator" element={<CoordinatorPage />} />
-            <Route path="projects" element={<Placeholder name="Layihələr Modulu" />} />
-            <Route path="accounting" element={<Placeholder name="Mühasibatlıq Modulu" />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="accounting" element={<AccountingPage />} />
             <Route path="service" element={<Placeholder name="Texniki Servis Modulu" />} />
           </Route>
         </Route>
