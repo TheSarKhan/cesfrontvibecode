@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Plus, Upload, FileText, ClipboardCheck, History, Info } from 'lucide-react'
+import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2 } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -21,6 +21,7 @@ const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
   { id: 'inspections', label: 'Baxışlar', icon: ClipboardCheck },
   { id: 'documents', label: 'Sənədlər', icon: FileText },
+  { id: 'images', label: 'Şəkillər', icon: Image },
   { id: 'history', label: 'Tarixçə', icon: History },
 ]
 
@@ -30,6 +31,12 @@ function InfoRow({ label, value }) {
       <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
       <span className="text-xs font-medium text-gray-800 dark:text-gray-200 text-right max-w-[60%]">{value || '—'}</span>
     </div>
+  )
+}
+
+function SectionDivider({ children }) {
+  return (
+    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest pt-3 pb-1">{children}</p>
   )
 }
 
@@ -349,6 +356,108 @@ function DocumentsTab({ equipmentId }) {
   )
 }
 
+function ImagesTab({ equipmentId }) {
+  const [images, setImages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState(null)
+  const fileRef = useRef()
+
+  useEffect(() => {
+    garageApi.getById(equipmentId)
+      .then((res) => {
+        const eq = res.data.data || res.data
+        setImages(eq.images || [])
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [equipmentId])
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) return toast.error('Yalnız şəkil faylları yüklənə bilər')
+    setUploading(true)
+    try {
+      const res = await garageApi.addImage(equipmentId, file)
+      setImages((prev) => [...prev, res.data.data || res.data])
+      toast.success('Şəkil yükləndi')
+    } catch {
+      toast.error('Yükləmə uğursuz oldu')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const handleDelete = async (img) => {
+    if (!window.confirm('Şəkili silmək istəyirsiniz?')) return
+    setDeleting(img.id)
+    try {
+      await garageApi.deleteImage(equipmentId, img.id)
+      setImages((prev) => prev.filter((i) => i.id !== img.id))
+      toast.success('Şəkil silindi')
+    } catch {
+      toast.error('Silmə uğursuz oldu')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  if (loading) return <div className="py-8 text-center text-sm text-gray-400">Yüklənir...</div>
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500 dark:text-gray-400">{images.length} şəkil</span>
+        <label className={clsx(
+          'flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 cursor-pointer transition-colors',
+          uploading && 'opacity-50 pointer-events-none'
+        )}>
+          {uploading
+            ? <span className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
+            : <Upload size={13} />
+          }
+          Şəkil yüklə
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+        </label>
+      </div>
+
+      {images.length === 0 ? (
+        <p className="text-center text-sm text-gray-400 py-6">Hələ şəkil yoxdur</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {images.map((img) => (
+            <div key={img.id} className="relative group rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-video">
+              <img
+                src={garageApi.getImageViewUrl(equipmentId, img.id)}
+                alt={img.imageName || 'Şəkil'}
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.style.display = 'none' }}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <button
+                  onClick={() => handleDelete(img)}
+                  disabled={deleting === img.id}
+                  className="p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+                >
+                  {deleting === img.id
+                    ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin block" />
+                    : <Trash2 size={13} />
+                  }
+                </button>
+              </div>
+              <p className="absolute bottom-0 left-0 right-0 text-[9px] text-white bg-black/40 px-1.5 py-0.5 truncate">
+                {img.imageName || `Şəkil ${img.id}`}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HistoryTab({ equipmentId }) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -426,13 +535,13 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700 shrink-0">
+        <div className="flex border-b border-gray-100 dark:border-gray-700 shrink-0 overflow-x-auto">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={clsx(
-                'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2',
+                'flex-shrink-0 flex items-center justify-center gap-1.5 py-2.5 px-3 text-xs font-medium transition-colors border-b-2',
                 activeTab === id
                   ? 'border-amber-600 text-amber-600'
                   : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
@@ -448,26 +557,57 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit }) {
         <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
           {activeTab === 'info' && (
             <div>
+              <SectionDivider>Ümumi məlumatlar</SectionDivider>
               <InfoRow label="Texnika kodu" value={equipment.equipmentCode} />
-              <InfoRow label="Növ" value={equipment.type} />
-              <InfoRow label="Mülkiyyət növü" value={OWNERSHIP_LABELS[equipment.ownershipType]} />
+              <InfoRow label="Növ / Kateqoriya" value={equipment.type} />
               <InfoRow label="Seriya nömrəsi" value={equipment.serialNumber} />
-              <InfoRow label="İstehsal ili" value={equipment.year} />
-              <InfoRow label="Günlük tarif" value={equipment.dailyRate ? `${equipment.dailyRate} AZN` : null} />
+              <InfoRow label="Brend" value={equipment.brand} />
+              <InfoRow label="Model" value={equipment.model} />
+              <InfoRow label="İstehsal ili" value={equipment.manufactureYear} />
+              <InfoRow label="Alınma tarixi" value={equipment.purchaseDate
+                ? new Date(equipment.purchaseDate).toLocaleDateString('az-AZ') : null} />
+              <InfoRow label="Alış qiyməti" value={equipment.purchasePrice != null ? `${equipment.purchasePrice} AZN` : null} />
+              <InfoRow label="Cari bazar dəyəri" value={equipment.currentMarketValue != null ? `${equipment.currentMarketValue} AZN` : null} />
+              <InfoRow label="Amortizasiya faizi" value={equipment.depreciationRate != null ? `${equipment.depreciationRate}%` : null} />
+              <InfoRow label="Saat / KM göstəricisi" value={equipment.hourKmCounter} />
+              <InfoRow label="Saxlanma yeri" value={equipment.storageLocation} />
+              <InfoRow label="Məsul şəxs" value={equipment.responsibleUserName} />
+
+              <SectionDivider>Texniki baxış</SectionDivider>
+              <InfoRow label="Son texniki baxış" value={equipment.lastInspectionDate
+                ? new Date(equipment.lastInspectionDate).toLocaleDateString('az-AZ') : null} />
+              <InfoRow label="Növbəti texniki baxış" value={equipment.nextInspectionDate
+                ? new Date(equipment.nextInspectionDate).toLocaleDateString('az-AZ') : null} />
+
+              <SectionDivider>Statuslar</SectionDivider>
+              <InfoRow label="Mülkiyyət növü" value={OWNERSHIP_LABELS[equipment.ownershipType]} />
+              <InfoRow label="Status" value={status.label} />
+              <InfoRow label="Texniki hazırlıq" value={equipment.technicalReadinessStatus} />
+              <InfoRow label="Təmir statusu" value={equipment.repairStatus} />
+
               {equipment.ownershipType === 'INVESTOR' && (
                 <>
-                  <InfoRow label="İnvestorun adı" value={equipment.investorName} />
-                  <InfoRow label="İnvestor VÖEN" value={equipment.investorVoen} />
-                  <InfoRow label="İnvestor telefon" value={equipment.investorPhone} />
+                  <SectionDivider>İnvestor məlumatları</SectionDivider>
+                  <InfoRow label="İnvestorun adı, soyadı" value={equipment.ownerInvestorName} />
+                  <InfoRow label="İnvestor VÖEN" value={equipment.ownerInvestorVoen} />
+                  <InfoRow label="Əlaqə nömrəsi" value={equipment.ownerInvestorPhone} />
                 </>
               )}
+
               {equipment.ownershipType === 'CONTRACTOR' && (
-                <InfoRow label="Podratçı" value={equipment.contractor?.companyName} />
+                <>
+                  <SectionDivider>Podratçı məlumatları</SectionDivider>
+                  <InfoRow label="Podratçı adı" value={equipment.ownerContractorName} />
+                  <InfoRow label="Podratçı VÖEN" value={equipment.ownerContractorVoen} />
+                  <InfoRow label="Podratçı əlaqə nömrəsi" value={equipment.ownerContractorPhone} />
+                  <InfoRow label="Əlaqədar şəxs" value={equipment.ownerContractorContact} />
+                </>
               )}
-              {equipment.description && (
+
+              {equipment.notes && (
                 <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Qeydlər</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{equipment.description}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{equipment.notes}</p>
                 </div>
               )}
             </div>
@@ -475,6 +615,7 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit }) {
 
           {activeTab === 'inspections' && <InspectionsTab equipmentId={equipment.id} />}
           {activeTab === 'documents' && <DocumentsTab equipmentId={equipment.id} />}
+          {activeTab === 'images' && <ImagesTab equipmentId={equipment.id} />}
           {activeTab === 'history' && <HistoryTab equipmentId={equipment.id} />}
         </div>
       </div>

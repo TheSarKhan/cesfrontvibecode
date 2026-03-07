@@ -38,6 +38,18 @@ export const garageApi = {
     api.get(`/garage/equipment/${id}/inspections/${inspectionId}/download`, { responseType: 'blob' })
       .then((res) => triggerDownload(res.data, fileName)),
 
+  // Images (embedded in getById response as `images` array)
+  addImage: (id, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/garage/equipment/${id}/images`, fd, { headers: { 'Content-Type': undefined } })
+  },
+  deleteImage: (id, imageId) => api.delete(`/garage/equipment/${id}/images/${imageId}`),
+  getImageViewUrl: (id, imageId) => {
+    const base = api.defaults.baseURL || ''
+    return `${base}/garage/equipment/${id}/images/${imageId}/view`
+  },
+
   // Project history
   getProjectHistory: (id) => api.get(`/garage/equipment/${id}/project-history`),
 }

@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Calculator,
   Wrench,
+  Banknote,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -25,6 +26,13 @@ export const NAV_ITEMS = [
     path: '/contractors',
     icon: HardHat,
     module: 'CONTRACTOR_MANAGEMENT',
+  },
+  {
+    id: 'investors',
+    label: 'İnvestorlar',
+    path: '/investors',
+    icon: Banknote,
+    module: 'INVESTORS',
   },
   {
     id: 'users',
