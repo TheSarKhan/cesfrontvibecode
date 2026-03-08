@@ -16,6 +16,7 @@ import CoordinatorPage from './pages/coordinator/CoordinatorPage'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import AccountingPage from './pages/accounting/AccountingPage'
 import ServicePage from './pages/service/ServicePage'
+import OperatorsPage from './pages/operators/OperatorsPage'
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="accounting" element={<AccountingPage />} />
             <Route path="service" element={<ServicePage />} />
+            <Route path="operators" element={<OperatorsPage />} />
           </Route>
         </Route>
 

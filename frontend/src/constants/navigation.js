@@ -10,6 +10,7 @@ import {
   Calculator,
   Wrench,
   Banknote,
+  UserCheck,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -89,5 +90,12 @@ export const NAV_ITEMS = [
     path: '/service',
     icon: Wrench,
     module: 'SERVICE_MANAGEMENT',
+  },
+  {
+    id: 'operators',
+    label: 'Operatorlar',
+    path: '/operators',
+    icon: UserCheck,
+    module: 'OPERATORS',
   },
 ]
