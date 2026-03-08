@@ -36,6 +36,13 @@ export const NAV_ITEMS = [
     module: 'INVESTORS',
   },
   {
+    id: 'operators',
+    label: 'Operatorlar',
+    path: '/operators',
+    icon: UserCheck,
+    module: 'OPERATORS',
+  },
+  {
     id: 'users',
     label: 'İstifadəçilər',
     path: '/users',
@@ -90,12 +97,5 @@ export const NAV_ITEMS = [
     path: '/service',
     icon: Wrench,
     module: 'SERVICE_MANAGEMENT',
-  },
-  {
-    id: 'operators',
-    label: 'Operatorlar',
-    path: '/operators',
-    icon: UserCheck,
-    module: 'OPERATORS',
   },
 ]

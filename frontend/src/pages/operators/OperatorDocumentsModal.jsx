@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { X, Upload, Trash2, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { X, Upload, Trash2, CheckCircle, AlertCircle, Download, Eye } from 'lucide-react'
 import { operatorsApi } from '../../api/operators'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -64,6 +64,11 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
     a.href = url
     a.download = doc.fileName || 'sened'
     a.click()
+  }
+
+  const handleView = (doc) => {
+    const url = operatorsApi.getDownloadUrl(operator.id, doc.id)
+    window.open(url, '_blank')
   }
 
   const completedCount = uploaded.size
@@ -134,6 +139,13 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
                 <div className="flex items-center gap-1.5 shrink-0">
                   {isUploaded && (
                     <>
+                      <button
+                        onClick={() => handleView(doc)}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                        title="Bax"
+                      >
+                        <Eye size={14} />
+                      </button>
                       <button
                         onClick={() => handleDownload(doc)}
                         className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"

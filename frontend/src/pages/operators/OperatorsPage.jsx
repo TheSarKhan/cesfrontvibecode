@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search, FileText, CheckCircle, AlertCircle, Phone, MapPin } from 'lucide-react'
 import { operatorsApi } from '../../api/operators'
-import { useAuthStore } from '../../store/authStore'
 import OperatorModal from './OperatorModal'
 import OperatorDocumentsModal from './OperatorDocumentsModal'
 import toast from 'react-hot-toast'
@@ -14,11 +13,6 @@ export default function OperatorsPage() {
   const [docFilter, setDocFilter] = useState('') // '' | 'complete' | 'incomplete'
   const [modal, setModal] = useState({ open: false, editing: null })
   const [docsModal, setDocsModal] = useState(null) // operator object
-
-  const hasPermission = useAuthStore((s) => s.hasPermission)
-  const canCreate = hasPermission('OPERATORS', 'POST')
-  const canEdit   = hasPermission('OPERATORS', 'PUT')
-  const canDelete = hasPermission('OPERATORS', 'DELETE')
 
   const load = async () => {
     setLoading(true)
@@ -79,15 +73,13 @@ export default function OperatorsPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Operatorlar</h1>
           <p className="text-xs text-gray-400 mt-0.5">{operators.length} operator</p>
         </div>
-        {canCreate && (
-          <button
-            onClick={() => setModal({ open: true, editing: null })}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <Plus size={16} />
-            Yeni operator
-          </button>
-        )}
+        <button
+          onClick={() => setModal({ open: true, editing: null })}
+          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+        >
+          <Plus size={16} />
+          Yeni operator
+        </button>
       </div>
 
       {/* Stats */}
@@ -217,24 +209,20 @@ export default function OperatorsPage() {
                       {/* Əməliyyatlar */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1 justify-end">
-                          {canEdit && (
-                            <button
-                              onClick={() => setModal({ open: true, editing: o })}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                              title="Redaktə et"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              onClick={() => handleDelete(o)}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                              title="Sil"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setModal({ open: true, editing: o })}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+                            title="Redaktə et"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(o)}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Sil"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </div>
                       </td>
                     </tr>
