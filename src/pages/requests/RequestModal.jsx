@@ -1,21 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Plus, Trash2, Search } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { customersApi } from '../../api/customers'
-import { garageApi } from '../../api/garage'
+import { inputCls, labelCls, sectionCls, PROJECT_TYPES } from '../../constants/requests'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import PrintButton from '../../components/common/PrintButton'
-
-const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
-const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
-const sectionCls = 'text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1'
-
-const PROJECT_TYPES = [
-  { value: 'DAILY', label: 'Günlük' },
-  { value: 'MONTHLY', label: 'Aylıq' },
-]
 
 const EMPTY = {
   customerId: null,
@@ -33,8 +24,8 @@ const EMPTY = {
 }
 
 export default function RequestModal({ editing, onClose, onSaved }) {
-  useEscapeKey(onClose)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [customers, setCustomers] = useState([])
@@ -42,13 +33,27 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   const [searchLoading, setSearchLoading] = useState(false)
   const searchTimeout = useRef(null)
 
+  const isDirty = useMemo(() => {
+    if (!initialForm) return false
+    return JSON.stringify(form) !== JSON.stringify(initialForm)
+  }, [form, initialForm])
+
+  const handleClose = () => {
+    if (isDirty) {
+      if (!window.confirm('Saxlanılmamış dəyişikliklər var. Çıxmaq istəyirsiniz?')) return
+    }
+    onClose()
+  }
+
+  useEscapeKey(handleClose)
+
   useEffect(() => {
     customersApi.getAll().then((r) => setCustomers(r.data.data || r.data || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (editing) {
-      setForm({
+      const f = {
         customerId: editing.customerId || null,
         companyName: editing.companyName || '',
         contactPerson: editing.contactPerson || '',
@@ -61,10 +66,13 @@ export default function RequestModal({ editing, onClose, onSaved }) {
         transportationRequired: editing.transportationRequired || false,
         params: editing.params ? editing.params.map((p) => ({ ...p })) : [],
         notes: editing.notes || '',
-      })
+      }
+      setForm(f)
+      setInitialForm(JSON.parse(JSON.stringify(f)))
       if (editing.companyName) setCustomerSearch(editing.companyName)
     } else {
       setForm(EMPTY)
+      setInitialForm(JSON.parse(JSON.stringify(EMPTY)))
       setCustomerSearch('')
     }
   }, [editing])
@@ -151,7 +159,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">{editing ? 'Məlumatları redaktə et' : 'Bütün lazımi məlumatları doldurun'}</p>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0">
+          <button onClick={handleClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0">
             <X size={14} className="text-white" />
           </button>
         </div>
@@ -303,9 +311,10 @@ export default function RequestModal({ editing, onClose, onSaved }) {
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {editing ? 'Yadda saxla' : 'Yarat'}
             </button>
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <button type="button" onClick={handleClose} className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               Ləğv et
             </button>
+            {isDirty && <span className="flex items-center text-xs text-amber-500 ml-auto">Dəyişikliklər var</span>}
             <PrintButton className="ml-auto" />
           </div>
         </form>
