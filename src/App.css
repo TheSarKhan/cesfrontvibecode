@@ -1,0 +1,4 @@
+/* App-level overrides — Tailwind handles the rest */
+#root {
+  height: 100vh;
+}
