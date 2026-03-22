@@ -4,21 +4,7 @@ import { garageApi } from '../../api/garage'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-
-const STATUS_CONFIG = {
-  AVAILABLE: { label: 'Mövcud', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  RENTED: { label: 'İcarədə', cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  IN_TRANSIT: { label: 'Yolda', cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' },
-  IN_INSPECTION: { label: 'Baxışdadır', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
-  DEFECTIVE: { label: 'Nasaz', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
-}
-
-const OWNERSHIP_LABELS = {
-  COMPANY: 'Şirkət',
-  INVESTOR: 'İnvestor',
-  CONTRACTOR: 'Podratçı',
-}
+import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, inspectionCountdown, validateFileUpload } from '../../constants/garage'
 
 const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
@@ -27,18 +13,6 @@ const TABS = [
   { id: 'images', label: 'Şəkillər', icon: Image },
   { id: 'history', label: 'Tarixçə', icon: History },
 ]
-
-function inspectionCountdown(nextDate) {
-  if (!nextDate) return null
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const next = new Date(nextDate); next.setHours(0, 0, 0, 0)
-  const diff = Math.ceil((next - today) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return { days: diff, label: `${Math.abs(diff)} gün gecikib`, cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' }
-  if (diff === 0) return { days: 0, label: 'Bu gün', cls: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' }
-  if (diff <= 7) return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' }
-  if (diff <= 30) return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' }
-  return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' }
-}
 
 function InfoCard({ title, icon: Icon, children, className }) {
   return (
@@ -100,6 +74,10 @@ function InspectionsTab({ equipmentId }) {
   const handleAdd = async (e) => {
     e.preventDefault()
     if (!form.inspectionDate) return toast.error('Tarix tələb olunur')
+    if (file) {
+      const fileError = validateFileUpload(file, 'document')
+      if (fileError) return toast.error(fileError)
+    }
     setSaving(true)
     try {
       // If editing, delete the old inspection first
@@ -400,6 +378,8 @@ function DocumentsTab({ equipmentId }) {
   const handleUpload = async (e) => {
     e.preventDefault()
     if (!selectedFile) return toast.error('Fayl seçin')
+    const fileError = validateFileUpload(selectedFile, 'document')
+    if (fileError) return toast.error(fileError)
     setUploading(true)
     try {
       const res = await garageApi.addDocument(equipmentId, selectedFile, docName || selectedFile.name)
@@ -621,7 +601,8 @@ function ImagesTab({ equipmentId }) {
 
   const uploadFile = async (file) => {
     if (!file) return
-    if (!file.type.startsWith('image/')) return toast.error('Yalnız şəkil faylları yüklənə bilər')
+    const error = validateFileUpload(file, 'image')
+    if (error) return toast.error(error)
     setUploading(true)
     try {
       const res = await garageApi.addImage(equipmentId, file)
@@ -800,9 +781,18 @@ const STATUS_LABELS = {
 
 export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone }) {
   const [activeTab, setActiveTab] = useState('info')
+  const [depreciatedValue, setDepreciatedValue] = useState(null)
 
-  const status = STATUS_CONFIG[equipment.status] || STATUS_CONFIG.AVAILABLE
+  const status = STATUS_CFG[equipment.status] || STATUS_CFG.AVAILABLE
   const nextInsp = useMemo(() => inspectionCountdown(equipment.nextInspectionDate), [equipment.nextInspectionDate])
+
+  useEffect(() => {
+    if (equipment.depreciationRate != null && equipment.purchasePrice != null) {
+      garageApi.getDepreciatedValue(equipment.id)
+        .then(res => setDepreciatedValue(res.data.data ?? res.data))
+        .catch(() => {})
+    }
+  }, [equipment.id, equipment.depreciationRate, equipment.purchasePrice])
 
   return (
     <>
@@ -899,6 +889,9 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                   <InfoField label="Alış qiyməti" value={equipment.purchasePrice != null ? `${Number(equipment.purchasePrice).toLocaleString()} ₼` : null} />
                   <InfoField label="Cari bazar dəyəri" value={equipment.currentMarketValue != null ? `${Number(equipment.currentMarketValue).toLocaleString()} ₼` : null} />
                   <InfoField label="Amortizasiya" value={equipment.depreciationRate != null ? `${equipment.depreciationRate}%` : null} />
+                  {depreciatedValue != null && (
+                    <InfoField label="Amortizasiya dəyəri" value={`${Number(depreciatedValue).toLocaleString()} ₼`} />
+                  )}
                 </div>
               </InfoCard>
 
@@ -934,7 +927,7 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                       {status.label}
                     </span>
                   </div>
-                  <InfoField label="Mülkiyyət növü" value={OWNERSHIP_LABELS[equipment.ownershipType]} />
+                  <InfoField label="Mülkiyyət növü" value={OWN_LABEL[equipment.ownershipType]} />
                 </div>
               </InfoCard>
 

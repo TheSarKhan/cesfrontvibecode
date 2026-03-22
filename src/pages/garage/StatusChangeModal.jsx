@@ -2,26 +2,7 @@ import { useState } from 'react'
 import { X, ArrowRight } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-
-const STATUS_CFG = {
-  AVAILABLE:      { label: 'Mövcud',              cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
-  RENTED:         { label: 'İcarədə',             cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  IN_TRANSIT:     { label: 'Yolda',               cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' },
-  IN_INSPECTION:  { label: 'Baxışdadır',          cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
-  DEFECTIVE:      { label: 'Nasaz',               cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda',   cls: 'bg-gray-100 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
-}
-
-// Status keçid qaydaları (backend ilə sinxron)
-// RENTED → manual dəyişiklik yoxdur (layihə bağlandıqda avtomatik IN_TRANSIT olur)
-const ALLOWED_TRANSITIONS = {
-  AVAILABLE:      ['RENTED', 'DEFECTIVE', 'OUT_OF_SERVICE'],
-  RENTED:         [],
-  IN_TRANSIT:     ['IN_INSPECTION'],
-  IN_INSPECTION:  ['AVAILABLE', 'DEFECTIVE'],
-  DEFECTIVE:      ['AVAILABLE', 'OUT_OF_SERVICE'],
-  OUT_OF_SERVICE: ['AVAILABLE', 'DEFECTIVE'],
-}
+import { STATUS_CFG, ALLOWED_TRANSITIONS } from '../../constants/garage'
 
 export default function StatusChangeModal({ item, onClose, onConfirm, bulkMode }) {
   useEscapeKey(onClose)

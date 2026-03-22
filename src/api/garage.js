@@ -3,12 +3,17 @@ import api from './axios'
 export const garageApi = {
   // Equipment CRUD
   getAll: (params) => api.get('/garage/equipment', { params }),
+  getAllPaged: (params) => api.get('/garage/equipment/paged', { params }),
   getById: (id) => api.get(`/garage/equipment/${id}`),
   create: (data) => api.post('/garage/equipment', data),
   update: (id, data) => api.put(`/garage/equipment/${id}`, data),
   delete: (id) => api.delete(`/garage/equipment/${id}`),
   updateStatus: (id, status, reason) => api.patch(`/garage/equipment/${id}/status`, { status, reason }),
   getStatusHistory: (id) => api.get(`/garage/equipment/${id}/status-history`),
+
+  // Status transitions & depreciation
+  getStatusTransitions: () => api.get('/garage/equipment/status-transitions'),
+  getDepreciatedValue: (id) => api.get(`/garage/equipment/${id}/depreciation`),
 
   // Inspections (no GET endpoint — inspections come embedded in getById)
   addInspection: (id, data) =>

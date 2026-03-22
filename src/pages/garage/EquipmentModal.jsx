@@ -74,15 +74,26 @@ function StepIndicator({ steps, current }) {
 }
 
 export default function EquipmentModal({ editing, onClose, onSaved }) {
-  useEscapeKey(onClose)
   const isClone = editing?._clone
   const isEditing = editing && !isClone
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
   const [contractors, setContractors] = useState([])
   const [investors, setInvestors] = useState([])
   const [errors, setErrors] = useState({})
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
+
+  const handleClose = () => {
+    if (isDirty) {
+      if (!window.confirm('Dəyişikliklər yadda saxlanmayıb. Bağlamaq istəyirsiniz?')) return
+    }
+    onClose()
+  }
+
+  useEscapeKey(handleClose)
 
   useEffect(() => {
     contractorsApi.getAll()
@@ -101,7 +112,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       } else if (editing.ownerInvestorName) {
         investorId = investors.find(i => i.companyName === editing.ownerInvestorName)?.id ?? ''
       }
-      setForm({
+      const data = {
         equipmentCode: editing.equipmentCode || '',
         name: editing.name || '',
         type: editing.type || '',
@@ -120,9 +131,12 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
         notes: editing.notes || '',
         ownerInvestorId: investorId ? String(investorId) : '',
         ownerContractorId: editing.ownerContractorId ?? '',
-      })
+      }
+      setForm(data)
+      setInitialForm(data)
     } else {
       setForm(EMPTY)
+      setInitialForm(EMPTY)
     }
   }, [editing, investors])
 
@@ -220,7 +234,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0"
           >
             <X size={14} className="text-white" />
@@ -429,7 +443,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
           <div className="flex-1" />
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             Ləğv et
