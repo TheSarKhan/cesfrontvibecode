@@ -30,13 +30,14 @@ export const garageApi = {
     api.delete(`/garage/equipment/${id}/inspections/${inspectionId}`),
 
   // Documents (no GET endpoint — documents come embedded in getById)
-  addDocument: (id, file, documentName) => {
+  addDocument: (id, file, documentName, documentType) => {
     const fd = new FormData()
     fd.append('file', file)
-    const url = documentName
-      ? `/garage/equipment/${id}/documents?documentName=${encodeURIComponent(documentName)}`
-      : `/garage/equipment/${id}/documents`
-    return api.post(url, fd, { headers: { 'Content-Type': undefined } })
+    const params = new URLSearchParams()
+    if (documentName) params.set('documentName', documentName)
+    if (documentType) params.set('documentType', documentType)
+    const qs = params.toString()
+    return api.post(`/garage/equipment/${id}/documents${qs ? '?' + qs : ''}`, fd, { headers: { 'Content-Type': undefined } })
   },
 
   deleteDocument: (id, docId) =>

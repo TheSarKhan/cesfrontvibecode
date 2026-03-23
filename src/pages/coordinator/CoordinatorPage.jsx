@@ -1,20 +1,31 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Search, ClipboardList, CheckCircle, XCircle } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import { useAuthStore } from '../../store/authStore'
 import CoordinatorPlanModal from './CoordinatorPlanModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 
 const STATUS_CONFIG = {
-  SENT_TO_COORDINATOR: { label: 'Koordinatorda', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-  OFFER_SENT:          { label: 'Gözdən keçirilir', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  ACCEPTED:            { label: 'Qəbul edildi', cls: 'bg-green-50 text-green-700 border-green-200' },
-  REJECTED:            { label: 'Rədd edildi', cls: 'bg-red-50 text-red-700 border-red-200' },
+  SENT_TO_COORDINATOR: { label: 'Koordinatorda', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
+  OFFER_SENT:          { label: 'Gözdən keçirilir', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+  ACCEPTED:            { label: 'Qəbul edildi', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  REJECTED:            { label: 'Rədd edildi', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
 }
 
 const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
+
+const STAT_CARDS = [
+  { id: 'ALL', label: 'Hamısı', icon: FileText, color: 'text-gray-500' },
+  { id: 'SENT_TO_COORDINATOR', label: 'Koordinatorda', icon: Send, color: 'text-purple-500' },
+  { id: 'OFFER_SENT', label: 'Gözdən keçirilir', icon: AlertCircle, color: 'text-amber-500' },
+  { id: 'ACCEPTED', label: 'Qəbul', icon: CheckCircle, color: 'text-green-500' },
+  { id: 'REJECTED', label: 'Rədd', icon: XCircle, color: 'text-red-500' },
+]
+
+const OWN_LABELS = { COMPANY: 'Şirkət', CONTRACTOR: 'Podratçı', INVESTOR: 'İnvestor' }
 
 export default function CoordinatorPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -26,8 +37,24 @@ export default function CoordinatorPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [regionFilter, setRegionFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
+  const [quickFilter, setQuickFilter] = useState('ALL')
+  const [filterOpen, setFilterOpen] = useState(false)
   const [selected, setSelected] = useState(null)
-  const [actionLoading, setActionLoading] = useState(null) // requestId
+  const [actionLoading, setActionLoading] = useState(null)
+  const filterRef = useRef(null)
+  const searchRef = useRef(null)
+
+  usePageShortcuts({ searchRef })
+
+  // Click outside filter
+  useEffect(() => {
+    if (!filterOpen) return
+    const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [filterOpen])
 
   const handleAccept = async (r, e) => {
     e.stopPropagation()
@@ -73,6 +100,17 @@ export default function CoordinatorPage() {
 
   useEffect(() => { load() }, [])
 
+  // Stats
+  const stats = useMemo(() => {
+    const s = { ALL: requests.length }
+    Object.keys(STATUS_CONFIG).forEach(k => { s[k] = requests.filter(r => r.requestStatus === k).length })
+    return s
+  }, [requests])
+
+  // Unique values for filters
+  const uniqueRegions = useMemo(() => [...new Set(requests.map(r => r.region).filter(Boolean))].sort(), [requests])
+
+  // Filtered data
   const filtered = useMemo(() => {
     return requests.filter((r) => {
       const q = search.toLowerCase()
@@ -81,42 +119,140 @@ export default function CoordinatorPage() {
         r.companyName?.toLowerCase().includes(q) ||
         r.projectName?.toLowerCase().includes(q) ||
         r.region?.toLowerCase().includes(q)
-      const matchStatus = !statusFilter || r.requestStatus === statusFilter
-      return matchSearch && matchStatus
+      const effectiveStatus = quickFilter !== 'ALL' ? quickFilter : statusFilter
+      const matchStatus = !effectiveStatus || r.requestStatus === effectiveStatus
+      const matchRegion = !regionFilter || r.region === regionFilter
+      const matchSource = !sourceFilter || r.ownershipType === sourceFilter
+      return matchSearch && matchStatus && matchRegion && matchSource
     })
-  }, [requests, search, statusFilter])
+  }, [requests, search, statusFilter, regionFilter, sourceFilter, quickFilter])
+
+  // Filter helpers
+  const activeFilterCount = [statusFilter, regionFilter, sourceFilter].filter(Boolean).length
+  const clearFilters = () => {
+    setSearch('')
+    setStatusFilter('')
+    setRegionFilter('')
+    setSourceFilter('')
+    setQuickFilter('ALL')
+    setFilterOpen(false)
+  }
+
+  const selectCls = "w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+  const filterLabelCls = "block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Koordinator Modulu</h1>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Koordinator</h1>
           <p className="text-xs text-gray-400 mt-0.5">{requests.length} sorğu</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* ── Stat cards ── */}
+      <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none">
+        {STAT_CARDS.map(s => {
+          const Icon = s.icon
+          return (
+            <button
+              key={s.id}
+              onClick={() => setQuickFilter(s.id)}
+              className={clsx(
+                'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[90px]',
+                quickFilter === s.id
+                  ? 'bg-purple-50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700'
+              )}
+            >
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Icon size={10} className={s.color} />
+                {s.label}
+              </p>
+              <p className={clsx('text-lg font-bold mt-0.5', s.color)}>{stats[s.id] ?? 0}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Search + Filter popover ── */}
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1 min-w-0">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Sorğu ID, şirkət, layihə, bölgə..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="">Bütün statuslar</option>
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
+        <div className="relative" ref={filterRef}>
+          <button
+            onClick={() => setFilterOpen(p => !p)}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-1.5 text-xs border rounded-lg transition-colors',
+              activeFilterCount > 0
+                ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            )}
+          >
+            <SlidersHorizontal size={13} />
+            Filtrlər
+            {activeFilterCount > 0 && (
+              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-purple-600 text-white text-[9px] font-bold">{activeFilterCount}</span>
+            )}
+          </button>
+          {filterOpen && (
+            <div className="absolute right-0 top-full mt-1.5 z-30 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 space-y-3">
+              {/* Status */}
+              <div>
+                <label className={filterLabelCls}>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
+                  <option value="">Hamısı</option>
+                  {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+              </div>
+              {/* Bölgə + Mənbə */}
+              <div className="grid grid-cols-2 gap-2">
+                {uniqueRegions.length > 0 && (
+                  <div>
+                    <label className={filterLabelCls}>Bölgə</label>
+                    <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className={selectCls}>
+                      <option value="">Hamısı</option>
+                      {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className={filterLabelCls}>Mənbə</label>
+                  <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className={selectCls}>
+                    <option value="">Hamısı</option>
+                    {Object.entries(OWN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
+                {activeFilterCount > 0 ? (
+                  <button onClick={clearFilters} className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
+                    Filtrləri təmizlə
+                  </button>
+                ) : <span />}
+                <button onClick={() => setFilterOpen(false)} className="text-[11px] text-purple-600 hover:text-purple-700 font-semibold transition-colors">
+                  Bağla
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <button onClick={load} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-600 transition-colors" title="Yenilə">
+          <RefreshCw size={13} />
+        </button>
       </div>
 
+      {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px]">
@@ -134,7 +270,7 @@ export default function CoordinatorPage() {
             </thead>
             <tbody>
               {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
+                Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
                     {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="py-3 px-4"><div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /></td>
@@ -183,7 +319,7 @@ export default function CoordinatorPage() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
-                        {r.projectType ? `${PROJECT_TYPE_LABEL[r.projectType]} · ${r.dayCount || '—'}` : '—'}
+                        {r.projectType ? `${r.dayCount ? `${r.dayCount} ${r.projectType === 'DAILY' ? 'gün' : 'ay'}` : PROJECT_TYPE_LABEL[r.projectType]}` : '—'}
                       </td>
                       <td className="py-3 px-4">
                         {hasPlan ? (
@@ -202,7 +338,6 @@ export default function CoordinatorPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1.5 justify-end flex-wrap">
-                          {/* Plan düyməsi — ACCEPTED/REJECTED-də gizlənmir, həmişə görünür */}
                           {!['ACCEPTED', 'REJECTED'].includes(r.requestStatus) && canGet && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelected(r) }}
@@ -213,7 +348,6 @@ export default function CoordinatorPage() {
                             </button>
                           )}
 
-                          {/* Təsdiq / Ləğv — yalnız OFFER_SENT statusunda */}
                           {r.requestStatus === 'OFFER_SENT' && canPut && (
                             <>
                               <button
@@ -237,7 +371,6 @@ export default function CoordinatorPage() {
                             </>
                           )}
 
-                          {/* Bağlanmış statuslar üçün göstəricilər */}
                           {r.requestStatus === 'ACCEPTED' && (
                             <span className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
                               <CheckCircle size={13} />

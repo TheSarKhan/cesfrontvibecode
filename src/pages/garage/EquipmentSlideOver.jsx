@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock } from 'lucide-react'
+import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock, CheckCircle } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -332,16 +332,23 @@ function InspectionsTab({ equipmentId }) {
   )
 }
 
+const MANDATORY_DOCS = [
+  { value: 'REGISTRATION_CERT', label: 'Qeydiyyat şəhadətnaməsi' },
+  { value: 'THIRD_PARTY_INSPECTION', label: '3-cü tərəf texniki baxış sənədi' },
+  { value: 'TECHNICAL_INSPECTION', label: 'Texniki baxış sənədi' },
+]
+
 function DocumentsTab({ equipmentId }) {
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploading, setUploading] = useState(null) // null or docType string or 'extra'
+  const [extraForm, setExtraForm] = useState(false)
   const [docName, setDocName] = useState('')
-  const [selectedFile, setSelectedFile] = useState(null)
   const [downloading, setDownloading] = useState(null)
   const [deleting, setDeleting] = useState(null)
-  const fileRef = useRef()
+  const [selectedFile, setSelectedFile] = useState(null)
+  const mandatoryRefs = useRef({})
+  const extraRef = useRef()
 
   useEffect(() => {
     garageApi.getById(equipmentId)
@@ -367,32 +374,51 @@ function DocumentsTab({ equipmentId }) {
     }
   }
 
-  const handleFileSelect = (e) => {
+  const handleMandatoryUpload = async (e, docType) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fileError = validateFileUpload(file, 'document')
+    if (fileError) { toast.error(fileError); e.target.value = ''; return }
+    const label = MANDATORY_DOCS.find(d => d.value === docType)?.label || docType
+    setUploading(docType)
+    try {
+      const res = await garageApi.addDocument(equipmentId, file, label, docType)
+      setDocuments((prev) => [...prev, res.data.data || res.data])
+      toast.success('Sənəd yükləndi')
+    } catch {
+      toast.error('Yükləmə uğursuz oldu')
+    } finally {
+      setUploading(null)
+      e.target.value = ''
+    }
+  }
+
+  const handleExtraFileSelect = (e) => {
     const f = e.target.files?.[0]
     if (!f) return
     setSelectedFile(f)
     if (!docName) setDocName(f.name.replace(/\.[^/.]+$/, ''))
-    setShowForm(true)
+    setExtraForm(true)
   }
 
-  const handleUpload = async (e) => {
+  const handleExtraUpload = async (e) => {
     e.preventDefault()
     if (!selectedFile) return toast.error('Fayl seçin')
     const fileError = validateFileUpload(selectedFile, 'document')
     if (fileError) return toast.error(fileError)
-    setUploading(true)
+    setUploading('extra')
     try {
       const res = await garageApi.addDocument(equipmentId, selectedFile, docName || selectedFile.name)
       setDocuments((prev) => [...prev, res.data.data || res.data])
       toast.success('Sənəd yükləndi')
-      setShowForm(false)
+      setExtraForm(false)
       setDocName('')
       setSelectedFile(null)
-      if (fileRef.current) fileRef.current.value = ''
+      if (extraRef.current) extraRef.current.value = ''
     } catch {
       toast.error('Yükləmə uğursuz oldu')
     } finally {
-      setUploading(false)
+      setUploading(null)
     }
   }
 
@@ -409,99 +435,155 @@ function DocumentsTab({ equipmentId }) {
 
   if (loading) return <div className="py-8 text-center text-sm text-gray-400">Yüklənir...</div>
 
+  const uploadedTypes = documents.map(d => d.documentType).filter(Boolean)
+  const extraDocs = documents.filter(d => !MANDATORY_DOCS.some(m => m.value === d.documentType))
+  const completedCount = MANDATORY_DOCS.filter(m => uploadedTypes.includes(m.value)).length
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 dark:text-gray-400">{documents.length} sənəd</span>
-        <label className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 cursor-pointer transition-colors">
-          <Upload size={13} />
-          Fayl seç
-          <input ref={fileRef} type="file" className="hidden" onChange={handleFileSelect} />
-        </label>
+    <div className="space-y-4">
+      {/* Məcburi sənədlər */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Məcburi sənədlər</p>
+          <span className={clsx(
+            'text-[10px] font-semibold px-1.5 py-0.5 rounded',
+            completedCount === MANDATORY_DOCS.length
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+          )}>
+            {completedCount}/{MANDATORY_DOCS.length} {completedCount === MANDATORY_DOCS.length ? '✓ Tam' : 'Natamam'}
+          </span>
+        </div>
+        <div className="space-y-1.5">
+          {MANDATORY_DOCS.map((mDoc) => {
+            const doc = documents.find(d => d.documentType === mDoc.value)
+            const isUploading = uploading === mDoc.value
+            return (
+              <div key={mDoc.value} className={clsx(
+                'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-colors',
+                doc
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  : 'bg-gray-50 dark:bg-gray-750 border-gray-200 dark:border-gray-700'
+              )}>
+                <CheckCircle size={14} className={doc ? 'text-green-500 shrink-0' : 'text-gray-300 dark:text-gray-600 shrink-0'} />
+                <div className="flex-1 min-w-0">
+                  <p className={clsx('text-xs font-medium', doc ? 'text-green-700 dark:text-green-300' : 'text-gray-500 dark:text-gray-400')}>
+                    {mDoc.label}
+                  </p>
+                  {doc && (
+                    <p className="text-[10px] text-gray-400 truncate">
+                      {doc.documentName}{doc.uploadedByUserName ? ` · ${doc.uploadedByUserName}` : ''}{doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString('az-AZ')}` : ''}
+                    </p>
+                  )}
+                </div>
+                {doc ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => handleDownload(doc)} disabled={downloading === doc.id}
+                      className="text-[10px] font-medium text-green-600 hover:text-green-700 px-2 py-1 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+                      {downloading === doc.id ? <span className="w-3 h-3 border border-green-600 border-t-transparent rounded-full animate-spin inline-block" /> : 'Endir'}
+                    </button>
+                    <button onClick={() => handleDelete(doc)} disabled={deleting === doc.id}
+                      className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors">
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className={clsx(
+                    'flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors shrink-0',
+                    isUploading ? 'opacity-50 cursor-wait' : 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                  )}>
+                    {isUploading
+                      ? <span className="w-3 h-3 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
+                      : <Upload size={11} />
+                    }
+                    {isUploading ? 'Yüklənir...' : 'Yüklə'}
+                    <input
+                      ref={el => mandatoryRefs.current[mDoc.value] = el}
+                      type="file" className="hidden" disabled={isUploading}
+                      onChange={(e) => handleMandatoryUpload(e, mDoc.value)}
+                    />
+                  </label>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {showForm && selectedFile && (
-        <form onSubmit={handleUpload} className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3 bg-amber-50/40 dark:bg-amber-900/10">
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <FileText size={13} className="text-amber-500 shrink-0" />
-            <span className="truncate">{selectedFile.name}</span>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sənədin adı</label>
-            <input
-              type="text"
-              value={docName}
-              onChange={(e) => setDocName(e.target.value)}
-              placeholder="Müqavilə, Texniki pasport..."
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={uploading}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              {uploading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              Yüklə
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowForm(false); setSelectedFile(null); setDocName(''); if (fileRef.current) fileRef.current.value = '' }}
-              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              Ləğv et
-            </button>
-          </div>
-        </form>
-      )}
-
-      {documents.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-6">Hələ sənəd yoxdur</p>
-      ) : (
-        <div className="space-y-2">
-          {documents.map((doc) => (
-            <div key={doc.id} className="flex items-center gap-3 p-3 border border-gray-100 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-              <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
-                <FileText size={14} className="text-amber-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
-                  {doc.documentName || `Sənəd ${doc.id}`}
-                </p>
-                <p className="text-[10px] text-gray-400">
-                  {doc.uploadedByUserName && `${doc.uploadedByUserName} · `}
-                  {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('az-AZ') : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => handleDownload(doc)}
-                  disabled={downloading === doc.id}
-                  className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-700 disabled:opacity-50 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                >
-                  {downloading === doc.id
-                    ? <span className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
-                    : <Upload size={10} className="rotate-180" />
-                  }
-                  Endir
-                </button>
-                <button
-                  onClick={() => handleDelete(doc)}
-                  disabled={deleting === doc.id}
-                  className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                  title="Sil"
-                >
-                  {deleting === doc.id
-                    ? <span className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                    : <Trash2 size={12} />
-                  }
-                </button>
-              </div>
-            </div>
-          ))}
+      {/* Əlavə sənədlər */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Əlavə sənədlər</p>
+          <label className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 cursor-pointer transition-colors">
+            <Upload size={11} />
+            Fayl seç
+            <input ref={extraRef} type="file" className="hidden" onChange={handleExtraFileSelect} />
+          </label>
         </div>
-      )}
+
+        {extraForm && selectedFile && (
+          <form onSubmit={handleExtraUpload} className="border border-amber-200 dark:border-amber-800 rounded-xl p-3 space-y-2.5 bg-amber-50/40 dark:bg-amber-900/10 mb-2">
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <FileText size={12} className="text-amber-500 shrink-0" />
+              <span className="truncate text-[11px]">{selectedFile.name}</span>
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-gray-600 dark:text-gray-400 mb-1">Sənədin adı</label>
+              <input type="text" value={docName} onChange={(e) => setDocName(e.target.value)}
+                placeholder="Avtomatik"
+                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={uploading === 'extra'}
+                className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                {uploading === 'extra' && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Yüklə
+              </button>
+              <button type="button"
+                onClick={() => { setExtraForm(false); setSelectedFile(null); setDocName(''); if (extraRef.current) extraRef.current.value = '' }}
+                className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                Ləğv et
+              </button>
+            </div>
+          </form>
+        )}
+
+        {extraDocs.length === 0 ? (
+          <p className="text-center text-[11px] text-gray-400 py-4">Əlavə sənəd yoxdur</p>
+        ) : (
+          <div className="space-y-1.5">
+            {extraDocs.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-2.5 p-2.5 border border-gray-100 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
+                  <FileText size={12} className="text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium text-gray-800 dark:text-gray-200 truncate">{doc.documentName || `Sənəd ${doc.id}`}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {doc.uploadedByUserName && `${doc.uploadedByUserName} · `}
+                    {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('az-AZ') : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => handleDownload(doc)} disabled={downloading === doc.id}
+                    className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-700 disabled:opacity-50 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                    {downloading === doc.id
+                      ? <span className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
+                      : <Upload size={10} className="rotate-180" />}
+                    Endir
+                  </button>
+                  <button onClick={() => handleDelete(doc)} disabled={deleting === doc.id}
+                    className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" title="Sil">
+                    {deleting === doc.id
+                      ? <span className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                      : <Trash2 size={12} />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
