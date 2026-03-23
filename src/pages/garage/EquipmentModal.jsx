@@ -3,6 +3,7 @@ import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
+import ComboInput from '../../components/common/ComboInput'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -261,15 +262,15 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                     placeholder="EQ-001" className={inputCls('equipmentCode')} />
                 </Field>
                 <Field label="Növ / Kateqoriya" required error={errors.type}>
-                  <input type="text" value={form.type} onChange={(e) => set('type', e.target.value)}
-                    placeholder="Ekskavator, Kran..." className={inputCls('type')} />
+                  <ComboInput category="EQUIPMENT_TYPE" value={form.type} onChange={(v) => set('type', v)}
+                    placeholder="Ekskavator, Kran..." className={errors.type ? 'border-red-400 focus:ring-red-400' : ''} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Brend">
-                  <input type="text" value={form.brand} onChange={(e) => set('brand', e.target.value)}
-                    placeholder="Caterpillar" className={inputCls('')} />
+                  <ComboInput category="EQUIPMENT_BRAND" value={form.brand} onChange={(v) => set('brand', v)}
+                    placeholder="Caterpillar" />
                 </Field>
                 <Field label="Model">
                   <input type="text" value={form.model} onChange={(e) => set('model', e.target.value)}
@@ -326,8 +327,8 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                     onChange={(e) => set('motoHours', e.target.value)} placeholder="0.00" className={inputCls('')} />
                 </Field>
                 <Field label="Saxlanma yeri">
-                  <input type="text" value={form.storageLocation} onChange={(e) => set('storageLocation', e.target.value)}
-                    placeholder="Anbar, Sahə..." className={inputCls('')} />
+                  <ComboInput category="STORAGE_LOCATION" value={form.storageLocation} onChange={(v) => set('storageLocation', v)}
+                    placeholder="Anbar, Sahə..." />
                 </Field>
               </div>
 

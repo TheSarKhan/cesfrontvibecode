@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Pencil, Trash2, Search, ChevronDown, ChevronLeft, ChevronRight, Send, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Save, Bookmark, X, Eye, CheckSquare, Edit3 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Send, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye, Edit3, SlidersHorizontal, FileText, Clock, CheckCircle, XCircle, Send as SendIcon, AlertCircle } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { useAuthStore } from '../../store/authStore'
 import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
 import RequestModal from './RequestModal'
-import StatusChangeModal from './StatusChangeModal'
 import RequestSlideOver from './RequestSlideOver'
 import BulkEditModal from './BulkEditModal'
 import toast from 'react-hot-toast'
@@ -17,7 +16,16 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import { useRequestsWebSocket } from '../../hooks/useRequestsWebSocket'
 
 const PAGE_SIZES = [15, 25, 50, 100]
-const PRESET_KEY = 'requests_filter_presets'
+
+const STAT_CARDS = [
+  { id: 'ALL', label: 'Hamısı', icon: FileText, color: 'text-gray-500' },
+  { id: 'DRAFT', label: 'Qaralama', icon: FileText, color: 'text-gray-400' },
+  { id: 'PENDING', label: 'Hazırdır', icon: Clock, color: 'text-blue-500' },
+  { id: 'SENT_TO_COORDINATOR', label: 'Kordinatorda', icon: SendIcon, color: 'text-purple-500' },
+  { id: 'OFFER_SENT', label: 'Gözdən keçirilir', icon: AlertCircle, color: 'text-amber-500' },
+  { id: 'ACCEPTED', label: 'Qəbul', icon: CheckCircle, color: 'text-green-500' },
+  { id: 'REJECTED', label: 'Rədd', icon: XCircle, color: 'text-red-500' },
+]
 
 function SortHeader({ label, field, sortBy, sortDir, onSort }) {
   const active = sortBy === field
@@ -41,19 +49,25 @@ function SortHeader({ label, field, sortBy, sortDir, onSort }) {
 export default function RequestsPage() {
   // ─── State ──────────────────────────────────────────
   const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 25 })
+  const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState({ open: false, editing: null })
-  const [statusModal, setStatusModal] = useState({ open: false, request: null })
   const [slideOver, setSlideOver] = useState(null)
   const [bulkModal, setBulkModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterRef = useRef(null)
   const searchRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Filter state from URL
-  const search = searchParams.get('q') || ''
-  const statusFilter = searchParams.get('status') || ''
-  const regionFilter = searchParams.get('region') || ''
+  // Filter state
+  const [search, setSearch] = useState(searchParams.get('q') || '')
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
+  const [regionFilter, setRegionFilter] = useState(searchParams.get('region') || '')
+  const [projectTypeFilter, setProjectTypeFilter] = useState(searchParams.get('projectType') || '')
+  const [transportFilter, setTransportFilter] = useState(searchParams.get('transport') || '')
+  const [quickFilter, setQuickFilter] = useState(searchParams.get('quick') || 'ALL')
+
   const page = parseInt(searchParams.get('page') || '0')
   const size = parseInt(searchParams.get('size') || '25')
   const sortBy = searchParams.get('sortBy') || 'createdAt'
@@ -69,46 +83,45 @@ export default function RequestsPage() {
   const canSendToCoordinator = hasPermission('REQUESTS', 'canSendToCoordinator')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  // ─── Presets ────────────────────────────────────────
-  const [presets, setPresets] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(PRESET_KEY)) || [] } catch { return [] }
-  })
-  const savePresets = (p) => { setPresets(p); localStorage.setItem(PRESET_KEY, JSON.stringify(p)) }
-
-  const handleSavePreset = () => {
-    const name = prompt('Preset adı:')
-    if (!name?.trim()) return
-    const preset = { name: name.trim(), search, status: statusFilter, region: regionFilter, sortBy, sortDir }
-    savePresets([...presets, preset])
-    toast.success('Preset saxlanıldı')
-  }
-
-  const handleLoadPreset = (preset) => {
-    setSearchParams(p => {
-      const n = new URLSearchParams(p)
-      preset.search ? n.set('q', preset.search) : n.delete('q')
-      preset.status ? n.set('status', preset.status) : n.delete('status')
-      preset.region ? n.set('region', preset.region) : n.delete('region')
-      preset.sortBy ? n.set('sortBy', preset.sortBy) : n.delete('sortBy')
-      preset.sortDir ? n.set('sortDir', preset.sortDir) : n.delete('sortDir')
-      n.delete('page')
-      return n
+  // ─── Sync filters → URL ─────────────────────────────
+  useEffect(() => {
+    const p = {}
+    if (search) p.q = search
+    if (statusFilter) p.status = statusFilter
+    if (regionFilter) p.region = regionFilter
+    if (projectTypeFilter) p.projectType = projectTypeFilter
+    if (transportFilter) p.transport = transportFilter
+    if (quickFilter !== 'ALL') p.quick = quickFilter
+    setSearchParams(prev => {
+      const n = new URLSearchParams(prev)
+      // preserve page/size/sort
+      const keep = ['page', 'size', 'sortBy', 'sortDir']
+      const result = new URLSearchParams()
+      keep.forEach(k => { if (n.has(k)) result.set(k, n.get(k)) })
+      Object.entries(p).forEach(([k, v]) => result.set(k, v))
+      return result
     }, { replace: true })
-  }
+  }, [search, statusFilter, regionFilter, projectTypeFilter, transportFilter, quickFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDeletePreset = (index) => {
-    savePresets(presets.filter((_, i) => i !== index))
-    toast.success('Preset silindi')
-  }
+  // ─── Click outside filter ─────────────────────────────
+  useEffect(() => {
+    if (!filterOpen) return
+    const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [filterOpen])
 
   // ─── Data loading ───────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     try {
+      const effectiveStatus = quickFilter !== 'ALL' ? quickFilter : (statusFilter || undefined)
       const params = { page, size, sortBy, sortDir }
       if (search) params.search = search
-      if (statusFilter) params.status = statusFilter
+      if (effectiveStatus) params.status = effectiveStatus
       if (regionFilter) params.region = regionFilter
+      if (projectTypeFilter) params.projectType = projectTypeFilter
+      if (transportFilter) params.transportationRequired = transportFilter === 'YES'
       const res = await requestsApi.getAllPaged(params)
       setData(res.data.data || res.data)
     } catch {
@@ -116,9 +129,19 @@ export default function RequestsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, size, sortBy, sortDir, search, statusFilter, regionFilter])
+  }, [page, size, sortBy, sortDir, search, statusFilter, regionFilter, projectTypeFilter, transportFilter, quickFilter])
 
   useEffect(() => { load() }, [load])
+
+  // Load all for stats
+  useEffect(() => {
+    requestsApi.getAll().then(res => setAllRequests(res.data.data || res.data || [])).catch(() => {})
+  }, [])
+
+  // Reload stats when data changes
+  useEffect(() => {
+    requestsApi.getAll().then(res => setAllRequests(res.data.data || res.data || [])).catch(() => {})
+  }, [data])
 
   // ─── WebSocket ──────────────────────────────────────
   useRequestsWebSocket(() => load())
@@ -175,13 +198,38 @@ export default function RequestsPage() {
     }
   }
 
-  // ─── Unique regions for filter ──────────────────────
-  const regions = [...new Set(data.content.map(r => r.region).filter(Boolean))]
+  // ─── Stats ─────────────────────────────────────────
+  const stats = useMemo(() => {
+    const s = { ALL: allRequests.length }
+    Object.keys(STATUS_CFG).forEach(k => { s[k] = allRequests.filter(r => r.status === k).length })
+    return s
+  }, [allRequests])
+
+  // ─── Unique values for filter dropdowns ─────────────
+  const uniqueRegions = useMemo(() => [...new Set(allRequests.map(r => r.region).filter(Boolean))].sort(), [allRequests])
+
+  // ─── Filter helpers ─────────────────────────────────
+  const activeFilterCount = [statusFilter, regionFilter, projectTypeFilter, transportFilter].filter(Boolean).length
+  const clearFilters = () => {
+    setSearch('')
+    setStatusFilter('')
+    setRegionFilter('')
+    setProjectTypeFilter('')
+    setTransportFilter('')
+    setQuickFilter('ALL')
+    setFilterOpen(false)
+  }
+
+  // Reset page on filter change
+  useEffect(() => { setPage(0) }, [search, statusFilter, regionFilter, projectTypeFilter, transportFilter, quickFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectCls = "w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+  const filterLabelCls = "block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Sorğular</h1>
           <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} sorğu</p>
@@ -190,7 +238,7 @@ export default function RequestsPage() {
           {selectedIds.length > 0 && canEditPerm && (
             <button
               onClick={() => setBulkModal(true)}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors"
             >
               <Edit3 size={14} />
               Toplu ({selectedIds.length})
@@ -199,72 +247,129 @@ export default function RequestsPage() {
           {canCreate && (
             <button
               onClick={() => setModal({ open: true, editing: null })}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors"
             >
-              <Plus size={16} />
+              <Plus size={14} />
               Yeni sorğu
             </button>
           )}
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* ── Stat cards ── */}
+      <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none">
+        {STAT_CARDS.map(s => {
+          const Icon = s.icon
+          return (
+            <button
+              key={s.id}
+              onClick={() => setQuickFilter(s.id)}
+              className={clsx(
+                'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[90px]',
+                quickFilter === s.id
+                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700'
+              )}
+            >
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Icon size={10} className={s.color} />
+                {s.label}
+              </p>
+              <p className={clsx('text-lg font-bold mt-0.5', s.color)}>{stats[s.id] ?? 0}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Search + Filter popover ── */}
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1 min-w-0">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             ref={searchRef}
             value={search}
-            onChange={(e) => { setParam('q', e.target.value); setParam('page', '') }}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Sorğu ID, şirkət, layihə, bölgə..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => { setParam('status', e.target.value); setParam('page', '') }}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="">Bütün statuslar</option>
-          {Object.entries(STATUS_CFG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
-        <select
-          value={regionFilter}
-          onChange={(e) => { setParam('region', e.target.value); setParam('page', '') }}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="">Bütün bölgələr</option>
-          {regions.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
-
-        {/* Presets */}
-        <div className="flex items-center gap-1">
-          <button onClick={handleSavePreset} className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Preset saxla">
-            <Save size={14} />
+        <div className="relative" ref={filterRef}>
+          <button
+            onClick={() => setFilterOpen(p => !p)}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-1.5 text-xs border rounded-lg transition-colors',
+              activeFilterCount > 0
+                ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
+                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            )}
+          >
+            <SlidersHorizontal size={13} />
+            Filtrlər
+            {activeFilterCount > 0 && (
+              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-amber-600 text-white text-[9px] font-bold">{activeFilterCount}</span>
+            )}
           </button>
-          {presets.map((p, i) => (
-            <div key={i} className="flex items-center">
-              <button onClick={() => handleLoadPreset(p)} className="px-2 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-amber-600 border border-gray-200 dark:border-gray-600 rounded-l-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title={`Preset: ${p.name}`}>
-                <Bookmark size={11} className="inline mr-1" />{p.name}
-              </button>
-              <button onClick={() => handleDeletePreset(i)} className="px-1 py-1.5 text-xs text-gray-400 hover:text-red-500 border border-l-0 border-gray-200 dark:border-gray-600 rounded-r-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                <X size={11} />
-              </button>
+          {filterOpen && (
+            <div className="absolute right-0 top-full mt-1.5 z-30 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 space-y-3">
+              {/* Status */}
+              <div>
+                <label className={filterLabelCls}>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
+                  <option value="">Hamısı</option>
+                  {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+              </div>
+              {/* Bölgə */}
+              {uniqueRegions.length > 0 && (
+                <div>
+                  <label className={filterLabelCls}>Bölgə</label>
+                  <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className={selectCls}>
+                    <option value="">Hamısı</option>
+                    {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+              )}
+              {/* Layihə tipi + Daşınma */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={filterLabelCls}>Layihə tipi</label>
+                  <select value={projectTypeFilter} onChange={(e) => setProjectTypeFilter(e.target.value)} className={selectCls}>
+                    <option value="">Hamısı</option>
+                    {PROJECT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabelCls}>Daşınma</label>
+                  <select value={transportFilter} onChange={(e) => setTransportFilter(e.target.value)} className={selectCls}>
+                    <option value="">Hamısı</option>
+                    <option value="YES">Bəli</option>
+                    <option value="NO">Xeyr</option>
+                  </select>
+                </div>
+              </div>
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
+                {activeFilterCount > 0 ? (
+                  <button onClick={clearFilters} className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
+                    Filtrləri təmizlə
+                  </button>
+                ) : <span />}
+                <button onClick={() => setFilterOpen(false)} className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold transition-colors">
+                  Bağla
+                </button>
+              </div>
             </div>
-          ))}
+          )}
         </div>
-
-        <button onClick={load} className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Yenilə">
-          <RefreshCw size={14} />
+        <button onClick={load} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Yenilə">
+          <RefreshCw size={13} />
         </button>
       </div>
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
                 <th className="py-3 px-4 w-8">
@@ -274,7 +379,6 @@ export default function RequestsPage() {
                 <SortHeader label="Şirkət / Layihə" field="companyName" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Bölgə" field="region" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Daşınma</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
                 <SortHeader label="Status" field="status" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Tarix" field="createdAt" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
@@ -282,7 +386,7 @@ export default function RequestsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <TableSkeleton cols={9} rows={6} />
+                <TableSkeleton cols={8} rows={6} />
               ) : data.content.length === 0 ? (
                 <EmptyState
                   icon={ClipboardList}
@@ -325,25 +429,9 @@ export default function RequestsPage() {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        {r.selectedEquipmentName ? (
-                          <div>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">{r.selectedEquipmentName}</p>
-                            <p className="text-xs text-gray-400">{r.selectedEquipmentCode}</p>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">Seçilməyib</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setStatusModal({ open: true, request: r })}
-                          className="group"
-                          title="Status dəyiş"
-                        >
-                          <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border group-hover:ring-2 group-hover:ring-amber-300 transition-all', status.cls)}>
-                            {status.label}
-                          </span>
-                        </button>
+                        <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', status.cls)}>
+                          {status.label}
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-xs text-gray-400">{fmtDate(r.createdAt)}</td>
                       <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
@@ -449,13 +537,6 @@ export default function RequestsPage() {
           editing={modal.editing}
           onClose={() => setModal({ open: false, editing: null })}
           onSaved={() => { setModal({ open: false, editing: null }); load() }}
-        />
-      )}
-      {statusModal.open && (
-        <StatusChangeModal
-          request={statusModal.request}
-          onClose={() => setStatusModal({ open: false, request: null })}
-          onSaved={() => { setStatusModal({ open: false, request: null }); load() }}
         />
       )}
       {slideOver && (

@@ -107,7 +107,7 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
               <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">{perm.moduleNameAz}</span>
             </td>
             <td className="py-2 px-4" colSpan={3}>
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 flex-wrap">
                 {PERM_LABELS.map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-1.5 cursor-default">
                     <input
@@ -119,6 +119,18 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
                     <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
                   </label>
                 ))}
+                {perm.canSendToCoordinator && (
+                  <label className="flex items-center gap-1.5 cursor-default">
+                    <input type="checkbox" readOnly checked className="accent-purple-600 w-3.5 h-3.5 cursor-default" />
+                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Kordinatora göndər</span>
+                  </label>
+                )}
+                {perm.canSubmitOffer && (
+                  <label className="flex items-center gap-1.5 cursor-default">
+                    <input type="checkbox" readOnly checked className="accent-purple-600 w-3.5 h-3.5 cursor-default" />
+                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Təklif göndər</span>
+                  </label>
+                )}
               </div>
             </td>
           </tr>
