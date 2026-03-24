@@ -624,11 +624,15 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                     disabled={isReadonly}
                   >
                     <option value="">Operator seçin</option>
-                    {operators.map(op => (
-                      <option key={op.id} value={op.id}>
-                        {op.fullName}{op.specialization ? ` — ${op.specialization}` : ''}
-                      </option>
-                    ))}
+                    {operators.map(op => {
+                      const isCurrent = String(op.id) === String(form.operatorId)
+                      const busyOther = op.busy && !isCurrent
+                      return (
+                        <option key={op.id} value={op.id} disabled={busyOther}>
+                          {busyOther ? '🔒 ' : ''}{op.fullName}{op.specialization ? ` — ${op.specialization}` : ''}{busyOther ? ' (Məşğuldur)' : ''}
+                        </option>
+                      )
+                    })}
                   </select>
 
                   {/* Operator details card */}
