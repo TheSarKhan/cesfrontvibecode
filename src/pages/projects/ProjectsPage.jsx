@@ -79,9 +79,14 @@ export default function ProjectsPage() {
     const pending   = projects.filter(p => p.status === 'PENDING').length
     const active    = projects.filter(p => p.status === 'ACTIVE').length
     const completed = projects.filter(p => p.status === 'COMPLETED').length
-    const totalNet  = projects
+    const totalNet = projects
       .filter(p => ['ACTIVE', 'COMPLETED'].includes(p.status))
-      .reduce((s, p) => s + parseFloat(p.netProfit ?? 0), 0)
+      .reduce((s, p) => {
+        const rev = parseFloat(p.totalRevenue || 0) + parseFloat(p.planEquipmentPrice || 0)
+        const exp = parseFloat(p.totalExpense  || 0) + parseFloat(p.planTransportationPrice || 0)
+                  + parseFloat(p.planOperatorPayment || 0) + parseFloat(p.contractorPayment || 0)
+        return s + (rev - exp)
+      }, 0)
     return { pending, active, completed, totalNet }
   }, [projects])
 
@@ -164,7 +169,13 @@ export default function ProjectsPage() {
               ) : (
                 filtered.map((p) => {
                   const status = STATUS_CONFIG[p.status] || STATUS_CONFIG.PENDING
-                  const net = parseFloat(p.netProfit ?? (parseFloat(p.totalRevenue ?? 0) - parseFloat(p.totalExpense ?? 0)))
+                  const planRevenue  = parseFloat(p.planEquipmentPrice    || 0)
+                  const planExpenses = parseFloat(p.planTransportationPrice || 0)
+                                     + parseFloat(p.planOperatorPayment    || 0)
+                                     + parseFloat(p.contractorPayment      || 0)
+                  const totalRevAll  = parseFloat(p.totalRevenue || 0) + planRevenue
+                  const totalExpAll  = parseFloat(p.totalExpense || 0) + planExpenses
+                  const net          = totalRevAll - totalExpAll
                   const isSelected = selected?.id === p.id
 
                   return (
@@ -202,7 +213,12 @@ export default function ProjectsPage() {
                         {p.equipmentName ? (
                           <div>
                             <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{p.equipmentName}</p>
-                            <p className="text-[10px] text-gray-400">{p.equipmentCode}</p>
+                            <p className="text-[10px] text-gray-400">
+                              {[p.equipmentCode, p.equipmentBrand, p.equipmentModel].filter(Boolean).join(' · ')}
+                            </p>
+                            {p.equipmentType && (
+                              <p className="text-[10px] text-gray-400">{p.equipmentType}</p>
+                            )}
                             <span className={clsx('text-[10px] font-medium',
                               p.ownershipType === 'CONTRACTOR' ? 'text-orange-500' :
                               p.ownershipType === 'INVESTOR'   ? 'text-blue-500' : 'text-green-500'
@@ -212,6 +228,9 @@ export default function ProjectsPage() {
                             {p.ownershipType === 'CONTRACTOR' && p.contractorName && (
                               <p className="text-[10px] text-orange-400">{p.contractorName}</p>
                             )}
+                            {p.ownershipType === 'INVESTOR' && p.investorName && (
+                              <p className="text-[10px] text-blue-400">{p.investorName}</p>
+                            )}
                           </div>
                         ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
@@ -220,16 +239,16 @@ export default function ProjectsPage() {
                       <td className="py-3 px-4">
                         {p.projectType && (
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {PROJ_TYPE[p.projectType]} · {p.dayCount || '—'} gün
+                            {PROJ_TYPE[p.projectType]} · {p.planDayCount ?? p.dayCount ?? '—'} gün
                           </p>
                         )}
-                        {p.startDate && <p className="text-[10px] text-gray-400">{fmt(p.startDate)}</p>}
-                        {p.endDate && (
+                        {(p.startDate ?? p.planStartDate) && <p className="text-[10px] text-gray-400">{fmt(p.startDate ?? p.planStartDate)}</p>}
+                        {(p.endDate ?? p.planEndDate) && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-[10px] text-gray-400">→ {fmt(p.endDate)}</p>
+                            <p className="text-[10px] text-gray-400">→ {fmt(p.endDate ?? p.planEndDate)}</p>
                             {p.status === 'ACTIVE' && (() => {
                               const today = new Date(); today.setHours(0,0,0,0)
-                              const end = new Date(p.endDate); end.setHours(0,0,0,0)
+                              const end = new Date(p.endDate ?? p.planEndDate); end.setHours(0,0,0,0)
                               const diff = Math.ceil((end - today) / 86400000)
                               if (diff < 0) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">Vaxtı keçib</span>
                               if (diff <= 3) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 whitespace-nowrap">{diff}g qalıb</span>
@@ -253,16 +272,14 @@ export default function ProjectsPage() {
 
                       {/* Maliyyə */}
                       <td className="py-3 px-4">
-                        {(p.totalRevenue != null || p.totalExpense != null) ? (
-                          <div>
-                            <p className="text-[10px] text-red-500">−{fmtMoney(p.totalExpense)} ₼</p>
-                            <p className="text-[10px] text-green-600">+{fmtMoney(p.totalRevenue)} ₼</p>
-                            <p className={clsx('text-xs font-bold border-t border-gray-100 dark:border-gray-700 pt-0.5 mt-0.5',
-                              net >= 0 ? 'text-green-600' : 'text-red-500')}>
-                              {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
-                            </p>
-                          </div>
-                        ) : <span className="text-xs text-gray-400">—</span>}
+                        <div>
+                          <p className="text-[10px] text-green-600">+{fmtMoney(totalRevAll)} ₼</p>
+                          <p className="text-[10px] text-red-500">−{fmtMoney(totalExpAll)} ₼</p>
+                          <p className={clsx('text-xs font-bold border-t border-gray-100 dark:border-gray-700 pt-0.5 mt-0.5',
+                            net >= 0 ? 'text-green-600' : 'text-red-500')}>
+                            {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
+                          </p>
+                        </div>
                       </td>
 
                       {/* Status */}
@@ -270,9 +287,9 @@ export default function ProjectsPage() {
                         <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', status.cls)}>
                           {status.label}
                         </span>
-                        {p.ownershipType === 'CONTRACTOR' && p.contractorAmount > 0 && (
+                        {p.ownershipType === 'CONTRACTOR' && p.contractorPayment > 0 && (
                           <p className="text-[10px] text-orange-500 mt-1">
-                            Podratçı: {fmtMoney(p.contractorAmount)} ₼
+                            Podratçı: {fmtMoney(p.contractorPayment)} ₼
                           </p>
                         )}
                       </td>

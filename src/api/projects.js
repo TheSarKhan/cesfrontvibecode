@@ -4,10 +4,12 @@ export const projectsApi = {
   getAll: (params) => api.get('/projects', { params }),
   getById: (id) => api.get(`/projects/${id}`),
 
-  uploadContract: (id, formData) =>
-    api.post(`/projects/${id}/contract`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+  uploadContract: (id, formData, startDate) => {
+    const url = startDate
+      ? `/projects/${id}/contract?startDate=${startDate}`
+      : `/projects/${id}/contract`
+    return api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
 
   getFinances: (id) => api.get(`/projects/${id}/finances`),
   addExpense: (id, data) => api.post(`/projects/${id}/expenses`, data),
