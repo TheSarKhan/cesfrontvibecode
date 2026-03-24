@@ -417,7 +417,7 @@ function FinanceTab({ project }) {
   const [revVal, setRevVal] = useState('')
   const [addingExp, setAddingExp] = useState(false)
   const [addingRev, setAddingRev] = useState(false)
-  const readOnly = project.status === 'COMPLETED'
+  const readOnly = project.status !== 'ACTIVE'
 
   const load = async () => {
     try {
