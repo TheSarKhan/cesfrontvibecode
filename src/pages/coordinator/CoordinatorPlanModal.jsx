@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Upload, Trash2, Download, FileText, CheckCircle, Search, Wrench, Building2, Phone, MapPin, User, Calendar, DollarSign, ShieldCheck, StickyNote, ChevronRight, Save, Send } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
+import { configApi } from '../../api/config'
 import { garageApi } from '../../api/garage'
 import { operatorsApi } from '../../api/operators'
 import { useAuthStore } from '../../store/authStore'
@@ -80,7 +81,7 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
     try {
       const res = await coordinatorApi.selectEquipment(requestId, eq.id)
       toast.success(`${eq.name} seçildi`)
-      onSelected(res.data.data)
+      onSelected(res.data.data, eq)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Seçim uğursuz oldu')
     } finally {
@@ -114,19 +115,33 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
           ) : filtered.length === 0 ? (
             <p className="py-10 text-center text-sm text-gray-400">Texnika tapılmadı</p>
           ) : (
-            filtered.map((eq) => (
-              <button key={eq.id} onClick={() => handleSelect(eq)} disabled={selecting}
-                className="w-full text-left p-4 border border-gray-200 dark:border-gray-600 rounded-xl hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all disabled:opacity-50 group">
+            filtered.map((eq) => {
+              const isRented = eq.status === 'RENTED'
+              return (
+              <button key={eq.id} onClick={() => !isRented && handleSelect(eq)} disabled={selecting || isRented}
+                className={clsx(
+                  'w-full text-left p-4 border rounded-xl transition-all group',
+                  isRented
+                    ? 'border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10 opacity-70 cursor-not-allowed'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50'
+                )}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
+                    <span className={clsx('text-sm font-semibold transition-colors',
+                      isRented ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200 group-hover:text-purple-700 dark:group-hover:text-purple-300'
+                    )}>
                       {eq.name}
                     </span>
                     <span className={clsx('text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0', EQ_OWNERSHIP_CLS[eq.ownershipType])}>
                       {EQ_OWNERSHIP_LABEL[eq.ownershipType]}
                     </span>
+                    {isRented && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-700">
+                        🔒 İcarədədir
+                      </span>
+                    )}
                   </div>
-                  {eq.status && (
+                  {eq.status && !isRented && (
                     <span className={clsx('text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0', EQ_STATUS_CLS[eq.status] || 'bg-gray-100 text-gray-500')}>
                       {EQ_STATUS_LABEL[eq.status] || eq.status}
                     </span>
@@ -169,7 +184,7 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
                   </div>
                 )}
               </button>
-            ))
+            )})
           )}
         </div>
       </div>
@@ -192,10 +207,14 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
   const fileInputRef = useRef()
 
   const [operators, setOperators] = useState([])
+  const [safetyTypes, setSafetyTypes] = useState([])
 
   useEffect(() => {
     operatorsApi.getAll()
       .then(r => setOperators(r.data.data || r.data || []))
+      .catch(() => {})
+    configApi.getActiveByCategory('SAFETY_EQUIPMENT')
+      .then(r => setSafetyTypes(r.data.data || []))
       .catch(() => {})
   }, [])
 
@@ -208,9 +227,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
     transportationPrice: '',
     startDate: '',
     endDate: '',
-    hasFlashingLights: false,
-    hasFireExtinguisher: false,
-    hasFirstAid: false,
+    safetyEquipmentIds: [],
     notes: '',
   })
   const [docForm, setDocForm] = useState({ documentType: 'REGISTRATION_CERT', documentName: '' })
@@ -230,9 +247,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
             transportationPrice: p.transportationPrice ?? '',
             startDate: p.startDate || '',
             endDate: p.endDate || '',
-            hasFlashingLights: p.hasFlashingLights || false,
-            hasFireExtinguisher: p.hasFireExtinguisher || false,
-            hasFirstAid: p.hasFirstAid || false,
+            safetyEquipmentIds: p.safetyEquipment?.map(s => s.id) || [],
             notes: p.notes || '',
           })
         }
@@ -285,9 +300,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       companyProfit: companyProfit || null,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
-      hasFlashingLights: form.hasFlashingLights,
-      hasFireExtinguisher: form.hasFireExtinguisher,
-      hasFirstAid: form.hasFirstAid,
+      safetyEquipmentIds: form.safetyEquipmentIds || [],
       notes: form.notes || null,
     }
     const res = await coordinatorApi.savePlan(request.requestId, payload)
@@ -361,9 +374,13 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
     }
   }
 
-  const handleEquipmentSelected = (updatedPlan) => {
+  const handleEquipmentSelected = (updatedPlan, selectedEq) => {
     setPlan(updatedPlan)
     setEqPicker(false)
+    // Texnikanın təhlükəsizlik avadanlıqlarını plana ön-doldur
+    if (selectedEq?.safetyEquipment?.length > 0) {
+      set('safetyEquipmentIds', selectedEq.safetyEquipment.map(s => s.id))
+    }
     onSaved()
   }
 
@@ -918,24 +935,30 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Təhlükəsizlik avadanlıqları</p>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { key: 'hasFlashingLights', label: 'Sayrışan işıqlar' },
-                      { key: 'hasFireExtinguisher', label: 'Yanğınsöndürən' },
-                      { key: 'hasFirstAid', label: 'Apteçka' },
-                    ].map(({ key, label }) => (
-                      <label key={key} className={clsx(
-                        'flex items-center gap-2.5 cursor-pointer rounded-xl border p-3 transition-all',
-                        form[key]
-                          ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
-                      )}>
-                        <input type="checkbox" checked={form[key]} onChange={(e) => set(key, e.target.checked)}
-                          className="accent-green-600 w-4 h-4" disabled={isReadonly} />
-                        <span className={clsx('text-sm', form[key] ? 'text-green-700 dark:text-green-300 font-medium' : 'text-gray-600 dark:text-gray-400')}>
-                          {label}
-                        </span>
-                      </label>
-                    ))}
+                    {safetyTypes.map((st) => {
+                      const checked = (form.safetyEquipmentIds || []).includes(st.id)
+                      return (
+                        <label key={st.id} className={clsx(
+                          'flex items-center gap-2.5 cursor-pointer rounded-xl border p-3 transition-all',
+                          checked
+                            ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                        )}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => {
+                              const ids = form.safetyEquipmentIds || []
+                              set('safetyEquipmentIds', checked ? ids.filter(id => id !== st.id) : [...ids, st.id])
+                            }}
+                            className="accent-green-600 w-4 h-4" disabled={isReadonly} />
+                          <span className={clsx('text-sm', checked ? 'text-green-700 dark:text-green-300 font-medium' : 'text-gray-600 dark:text-gray-400')}>
+                            {st.key}
+                          </span>
+                        </label>
+                      )
+                    })}
+                    {safetyTypes.length === 0 && (
+                      <p className="col-span-3 text-xs text-gray-400 italic">Konfiqurasiyada təhlükəsizlik avadanlığı yoxdur</p>
+                    )}
                   </div>
                 </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock, CheckCircle } from 'lucide-react'
+import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock, CheckCircle, ShieldCheck, Save } from 'lucide-react'
 import { garageApi } from '../../api/garage'
+import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -861,20 +862,68 @@ const STATUS_LABELS = {
   OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' },
 }
 
-export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone }) {
+export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone, onSaved }) {
   const [activeTab, setActiveTab] = useState('info')
   const [depreciatedValue, setDepreciatedValue] = useState(null)
+  const [safetyTypes, setSafetyTypes] = useState([])
+  const [safetyIds, setSafetyIds] = useState(equipment.safetyEquipment?.map(s => s.id) || [])
+  const [savingSafety, setSavingSafety] = useState(false)
+  const safetyDirty = JSON.stringify([...safetyIds].sort()) !== JSON.stringify([...(equipment.safetyEquipment?.map(s => s.id) || [])].sort())
 
   const status = STATUS_CFG[equipment.status] || STATUS_CFG.AVAILABLE
   const nextInsp = useMemo(() => inspectionCountdown(equipment.nextInspectionDate), [equipment.nextInspectionDate])
 
   useEffect(() => {
+    configApi.getActiveByCategory('SAFETY_EQUIPMENT')
+      .then(r => setSafetyTypes(r.data.data || []))
+      .catch(() => {})
     if (equipment.depreciationRate != null && equipment.purchasePrice != null) {
       garageApi.getDepreciatedValue(equipment.id)
         .then(res => setDepreciatedValue(res.data.data ?? res.data))
         .catch(() => {})
     }
   }, [equipment.id, equipment.depreciationRate, equipment.purchasePrice])
+
+  const handleSaveSafety = async () => {
+    setSavingSafety(true)
+    try {
+      await garageApi.update(equipment.id, {
+        equipmentCode: equipment.equipmentCode,
+        name: equipment.name,
+        type: equipment.type,
+        serialNumber: equipment.serialNumber || null,
+        brand: equipment.brand || null,
+        model: equipment.model || null,
+        manufactureYear: equipment.manufactureYear || null,
+        purchaseDate: equipment.purchaseDate || null,
+        purchasePrice: equipment.purchasePrice || null,
+        currentMarketValue: equipment.currentMarketValue || null,
+        depreciationRate: equipment.depreciationRate || null,
+        hourKmCounter: equipment.hourKmCounter || null,
+        motoHours: equipment.motoHours || null,
+        storageLocation: equipment.storageLocation || null,
+        responsibleUserId: equipment.responsibleUserId || null,
+        ownershipType: equipment.ownershipType,
+        ownerContractorId: equipment.ownerContractorId || null,
+        ownerInvestorName: equipment.ownerInvestorName || null,
+        ownerInvestorVoen: equipment.ownerInvestorVoen || null,
+        ownerInvestorPhone: equipment.ownerInvestorPhone || null,
+        lastInspectionDate: equipment.lastInspectionDate || null,
+        nextInspectionDate: equipment.nextInspectionDate || null,
+        technicalReadinessStatus: equipment.technicalReadinessStatus || null,
+        status: equipment.status,
+        repairStatus: equipment.repairStatus || null,
+        notes: equipment.notes || null,
+        safetyEquipmentIds: safetyIds,
+      })
+      toast.success('Təhlükəsizlik avadanlıqları yadda saxlandı')
+      onSaved?.()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Yadda saxlama uğursuz oldu')
+    } finally {
+      setSavingSafety(false)
+    }
+  }
 
   return (
     <>
@@ -1033,6 +1082,42 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                     <InfoField label="Əlaqə nömrəsi" value={equipment.ownerContractorPhone} />
                     <InfoField label="Əlaqədar şəxs" value={equipment.ownerContractorContact} />
                   </div>
+                </InfoCard>
+              )}
+
+              {/* Safety Equipment */}
+              {safetyTypes.length > 0 && (
+                <InfoCard title="Təhlükəsizlik avadanlıqları" icon={ShieldCheck}>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {safetyTypes.map((st) => {
+                      const checked = safetyIds.includes(st.id)
+                      return (
+                        <label key={st.id} className={clsx(
+                          'flex items-center gap-2 cursor-pointer rounded-lg border p-2 transition-all text-xs',
+                          checked
+                            ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50 text-green-700 dark:text-green-300 font-medium'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'
+                        )}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => setSafetyIds(prev =>
+                              checked ? prev.filter(id => id !== st.id) : [...prev, st.id]
+                            )}
+                            className="accent-green-600 w-3.5 h-3.5 shrink-0" />
+                          {st.key}
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {safetyDirty && (
+                    <button
+                      onClick={handleSaveSafety}
+                      disabled={savingSafety}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-60 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <Save size={12} />
+                      {savingSafety ? 'Saxlanılır...' : 'Yadda saxla'}
+                    </button>
+                  )}
                 </InfoCard>
               )}
 

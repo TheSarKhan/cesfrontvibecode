@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { garageApi } from '../../api/garage'
+import { configApi } from '../../api/config'
 import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
 import ComboInput from '../../components/common/ComboInput'
@@ -27,6 +28,7 @@ const EMPTY = {
   depreciationRate: '', hourKmCounter: '', motoHours: '', storageLocation: '',
   ownershipType: 'COMPANY',
   notes: '', ownerInvestorId: '', ownerContractorId: '',
+  safetyEquipmentIds: [],
 }
 
 function Field({ label, required, children, error }) {
@@ -83,6 +85,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
   const [loading, setLoading] = useState(false)
   const [contractors, setContractors] = useState([])
   const [investors, setInvestors] = useState([])
+  const [safetyTypes, setSafetyTypes] = useState([])
   const [errors, setErrors] = useState({})
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
@@ -102,6 +105,9 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       .catch(() => {})
     investorsApi.getAll()
       .then((res) => setInvestors(res.data.data || res.data || []))
+      .catch(() => {})
+    configApi.getActiveByCategory('SAFETY_EQUIPMENT')
+      .then((res) => setSafetyTypes(res.data.data || []))
       .catch(() => {})
   }, [])
 
@@ -132,6 +138,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
         notes: editing.notes || '',
         ownerInvestorId: investorId ? String(investorId) : '',
         ownerContractorId: editing.ownerContractorId ?? '',
+        safetyEquipmentIds: editing.safetyEquipment?.map(s => s.id) || [],
       }
       setForm(data)
       setInitialForm(data)
@@ -190,6 +197,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       ownershipType: form.ownershipType,
       status: isEditing ? editing.status : 'AVAILABLE',
       notes: form.notes || null,
+      safetyEquipmentIds: form.safetyEquipmentIds || [],
     }
 
     if (form.ownershipType === 'INVESTOR') {
@@ -331,6 +339,33 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                     placeholder="Anbar, Sahə..." />
                 </Field>
               </div>
+
+              {safetyTypes.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Təhlükəsizlik avadanlıqları</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {safetyTypes.map((st) => {
+                      const checked = (form.safetyEquipmentIds || []).includes(st.id)
+                      return (
+                        <label key={st.id} className={clsx(
+                          'flex items-center gap-2 cursor-pointer rounded-lg border p-2.5 transition-all text-sm',
+                          checked
+                            ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50 text-green-700 dark:text-green-300 font-medium'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                        )}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => {
+                              const ids = form.safetyEquipmentIds || []
+                              set('safetyEquipmentIds', checked ? ids.filter(id => id !== st.id) : [...ids, st.id])
+                            }}
+                            className="accent-green-600 w-4 h-4" />
+                          {st.key}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
             </>
           )}

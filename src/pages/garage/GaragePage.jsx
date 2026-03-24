@@ -1207,6 +1207,7 @@ export default function GaragePage() {
           onClose={() => setSlideOver(null)}
           onEdit={() => openEdit(slideOver)}
           onClone={canCreate ? () => openClone(slideOver) : undefined}
+          onSaved={load}
         />
       )}
       {statusModal && (

@@ -11,10 +11,11 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 
 const CATEGORY_LABELS = {
-  EQUIPMENT_BRAND: 'Texnika brendləri',
-  EQUIPMENT_TYPE:  'Texnika növləri',
-  REGION:          'Bölgələr',
-  TECH_PARAM:      'Texniki parametrlər',
+  EQUIPMENT_BRAND:   'Texnika brendləri',
+  EQUIPMENT_TYPE:    'Texnika növləri',
+  REGION:            'Bölgələr',
+  TECH_PARAM:        'Texniki parametrlər',
+  SAFETY_EQUIPMENT:  'Təhlükəsizlik avadanlıqları',
 }
 
 const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat
