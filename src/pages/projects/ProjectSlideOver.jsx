@@ -3,7 +3,8 @@ import {
   X, Info, DollarSign, CheckCircle,
   Upload, FileText, Plus, Trash2,
   TrendingUp, TrendingDown, Calendar,
-  AlertCircle, Phone, User, MapPin, Wrench, Building2
+  AlertCircle, Phone, User, MapPin, Wrench, Building2,
+  Shield, Clock
 } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import toast from 'react-hot-toast'
@@ -12,9 +13,9 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import PrintButton from '../../components/common/PrintButton'
 
 const STATUS_CONFIG = {
-  PENDING:   { label: 'Gözləmədə',  cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  ACTIVE:    { label: 'Aktiv',       cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  COMPLETED: { label: 'Bağlanmış',   cls: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+  PENDING:   { label: 'Gözləmədə',  cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  ACTIVE:    { label: 'Aktiv',       cls: 'bg-green-50 text-green-700 border-green-200' },
+  COMPLETED: { label: 'Bağlanmış',   cls: 'bg-gray-100 text-gray-600 border-gray-200' },
 }
 
 const TABS = [
@@ -23,11 +24,26 @@ const TABS = [
   { id: 'complete', label: 'Bağlanış',  icon: CheckCircle },
 ]
 
+const OWNERSHIP = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
+const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
+
+function calcDuration(p, overrideStart, overrideEnd) {
+  const s = overrideStart ?? p.startDate ?? p.planStartDate
+  const e = overrideEnd   ?? p.endDate   ?? p.planEndDate
+  if (s && e) {
+    const days = Math.ceil((new Date(e) - new Date(s)) / 86400000)
+    return p.projectType === 'MONTHLY' ? `${Math.round(days / 30)} ay` : `${days} gün`
+  }
+  const n = p.planDayCount ?? p.dayCount
+  if (!n) return '—'
+  return p.projectType === 'MONTHLY' ? `${n} ay` : `${n} gün`
+}
+
 function InfoRow({ label, value, children }) {
   return (
-    <div className="flex justify-between items-start py-2 border-b border-gray-100 dark:border-gray-700 last:border-0 gap-4">
-      <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{label}</span>
-      <span className="text-xs font-medium text-gray-800 dark:text-gray-200 text-right">
+    <div className="flex justify-between items-start py-2 border-b border-gray-100 last:border-0 gap-4">
+      <span className="text-xs text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs font-medium text-gray-800 text-right">
         {children ?? (value || '—')}
       </span>
     </div>
@@ -43,30 +59,77 @@ function Section({ children, title }) {
   )
 }
 
+// ─── Start Date Dialog ─────────────────────────────────────────────────────────
+
+function StartDateDialog({ onConfirm, onCancel }) {
+  const [date, setDate] = useState(new Date().toISOString().substring(0, 10))
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative z-10 bg-white rounded-2xl p-6 w-80 shadow-2xl">
+        <h3 className="text-sm font-bold text-gray-800 mb-1">Başlanğıc tarixini seçin</h3>
+        <p className="text-xs text-gray-400 mb-4">Layihənin başlanğıc tarixi. Boş buraxsanız bu gün istifadə ediləcək.</p>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
+        />
+        <div className="flex gap-2">
+          <button onClick={onCancel}
+            className="flex-1 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            Ləğv
+          </button>
+          <button onClick={() => onConfirm(date)}
+            className="flex-1 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors">
+            Davam et
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Məlumat Tab ──────────────────────────────────────────────────────────────
 
 function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
   const inputRef = useRef()
   const [uploading, setUploading] = useState(false)
+  const [showStartDateDialog, setShowStartDateDialog] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null)
+
   const [editingDate, setEditingDate] = useState(false)
   const [date, setDate] = useState(project.endDate?.substring(0, 10) || '')
   const [savingDate, setSavingDate] = useState(false)
 
-  const handleContractUpload = async (e) => {
+  const [editingStartDate, setEditingStartDate] = useState(false)
+  const [startDate, setStartDate] = useState(project.startDate?.substring(0, 10) || '')
+  const [savingStartDate, setSavingStartDate] = useState(false)
+
+  const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setPendingFile(file)
+    setShowStartDateDialog(true)
+    e.target.value = ''
+  }
+
+  const handleContractUpload = async (startDate) => {
+    setShowStartDateDialog(false)
+    if (!pendingFile) return
     setUploading(true)
     try {
       const fd = new FormData()
-      fd.append('file', file)
-      await projectsApi.uploadContract(project.id, fd)
+      fd.append('file', pendingFile)
+      await projectsApi.uploadContract(project.id, fd, startDate)
       toast.success('Müqavilə yükləndi. Layihə aktiv oldu.')
       onContractUploaded()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Müqavilə yüklənmədi')
     } finally {
       setUploading(false)
-      e.target.value = ''
+      setPendingFile(null)
     }
   }
 
@@ -85,13 +148,33 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
     }
   }
 
+  const saveStartDate = async () => {
+    if (!startDate) return
+    setSavingStartDate(true)
+    try {
+      await projectsApi.updateStartDate(project.id, { startDate })
+      toast.success('Başlanğıc tarixi yeniləndi')
+      setEditingStartDate(false)
+      onEndDateUpdated()
+    } catch {
+      toast.error('Tarix yenilənmədi')
+    } finally {
+      setSavingStartDate(false)
+    }
+  }
+
   const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
   const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
-  const OWNERSHIP = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
-  const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 
   return (
     <div>
+      {showStartDateDialog && (
+        <StartDateDialog
+          onConfirm={handleContractUpload}
+          onCancel={() => { setShowStartDateDialog(false); setPendingFile(null) }}
+        />
+      )}
+
       {/* Layihə məlumatları */}
       <Section title="Layihə məlumatları">
         <InfoRow label="Şirkət" value={project.companyName} />
@@ -122,15 +205,37 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </InfoRow>
         <InfoRow label="Növ / Müddət">
           {project.projectType
-            ? `${PROJ_TYPE[project.projectType] || project.projectType} · ${project.dayCount || '—'} gün`
+            ? `${PROJ_TYPE[project.projectType] || project.projectType} · ${calcDuration(project, editingStartDate ? startDate : null, editingDate ? date : null)}`
             : '—'}
         </InfoRow>
+        {project.transportationRequired && (
+          <InfoRow label="Daşınma">
+            <span className="text-blue-600 font-semibold text-[10px]">Tələb olunur</span>
+          </InfoRow>
+        )}
+        {project.requestDate && (
+          <InfoRow label="Sorğu tarixi" value={fmt(project.requestDate)} />
+        )}
       </Section>
+
+      {/* Texniki parametrlər */}
+      {project.requestParams?.length > 0 && (
+        <Section title="Texniki parametrlər">
+          {project.requestParams.map((p, i) => (
+            <InfoRow key={i} label={p.key} value={p.value} />
+          ))}
+        </Section>
+      )}
 
       {/* Texnika */}
       <Section title="Texnika">
-        <InfoRow label="Texnika adı" value={project.equipmentName} />
-        <InfoRow label="Texnika kodu" value={project.equipmentCode} />
+        <InfoRow label="Ad" value={project.equipmentName} />
+        <InfoRow label="Kod" value={project.equipmentCode} />
+        {project.equipmentType && <InfoRow label="Növ" value={project.equipmentType} />}
+        {project.equipmentBrand && <InfoRow label="Brend" value={project.equipmentBrand} />}
+        {project.equipmentModel && <InfoRow label="Model" value={project.equipmentModel} />}
+        {project.equipmentSerialNumber && <InfoRow label="Seriya №" value={project.equipmentSerialNumber} />}
+        {project.equipmentPlateNumber && <InfoRow label="Qeydiyyat nişanı" value={project.equipmentPlateNumber} />}
         <InfoRow label="Mülkiyyət növü">
           {project.ownershipType ? (
             <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-semibold border',
@@ -142,36 +247,132 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
             </span>
           ) : '—'}
         </InfoRow>
-        {project.ownershipType === 'CONTRACTOR' && (
-          <InfoRow label="Podratçı">
+      </Section>
+
+      {/* Podratçı məlumatları */}
+      {project.ownershipType === 'CONTRACTOR' && (
+        <Section title="Podratçı">
+          <InfoRow label="Şirkət">
             <span className="flex items-center gap-1">
               <Building2 size={10} className="text-orange-500" />
               {project.contractorName || '—'}
             </span>
           </InfoRow>
-        )}
-        {project.ownershipType === 'CONTRACTOR' && (
-          <InfoRow label="Podratçı ödənişi">
-            <span className="text-orange-600 font-semibold">
-              {fmtMoney(project.contractorAmount)}
-            </span>
-          </InfoRow>
-        )}
-      </Section>
+          {project.contractorVoen && <InfoRow label="VÖEN" value={project.contractorVoen} />}
+          {project.contractorPhone && (
+            <InfoRow label="Telefon">
+              <a href={`tel:${project.contractorPhone}`} className="flex items-center gap-1 text-amber-600 hover:underline">
+                <Phone size={10} />
+                {project.contractorPhone}
+              </a>
+            </InfoRow>
+          )}
+          {project.contractorContactPerson && (
+            <InfoRow label="Əlaqədar şəxs">
+              <span className="flex items-center gap-1">
+                <User size={10} className="text-gray-400" />
+                {project.contractorContactPerson}
+              </span>
+            </InfoRow>
+          )}
+          {project.contractorPayment != null && (
+            <InfoRow label="Podratçı ödənişi">
+              <span className="text-orange-600 font-semibold">{fmtMoney(project.contractorPayment)}</span>
+            </InfoRow>
+          )}
+        </Section>
+      )}
+
+      {/* İnvestor məlumatları */}
+      {project.ownershipType === 'INVESTOR' && (
+        <Section title="İnvestor">
+          <InfoRow label="Ad" value={project.investorName} />
+          {project.investorVoen && <InfoRow label="VÖEN" value={project.investorVoen} />}
+          {project.investorPhone && (
+            <InfoRow label="Telefon">
+              <a href={`tel:${project.investorPhone}`} className="flex items-center gap-1 text-amber-600 hover:underline">
+                <Phone size={10} />
+                {project.investorPhone}
+              </a>
+            </InfoRow>
+          )}
+        </Section>
+      )}
+
+      {/* Koordinator planı */}
+      {(project.planEquipmentPrice != null || project.operatorName || project.planDayCount) && (
+        <Section title="Koordinator planı">
+          {project.planDayCount && <InfoRow label="Planlaşdırılan gün" value={`${project.planDayCount} gün`} />}
+          {project.planStartDate && <InfoRow label="Plan başlanğıc" value={fmt(project.planStartDate)} />}
+          {project.planEndDate && <InfoRow label="Plan bitmə" value={fmt(project.planEndDate)} />}
+          {project.operatorName && (
+            <InfoRow label="Operator">
+              <span className="flex items-center gap-1">
+                <User size={10} className="text-gray-400" />
+                {project.operatorName}
+              </span>
+            </InfoRow>
+          )}
+          {project.planEquipmentPrice != null && (
+            <InfoRow label="Texnika qiyməti">
+              <span className="text-amber-600 font-semibold">{fmtMoney(project.planEquipmentPrice)}</span>
+            </InfoRow>
+          )}
+          {project.planTransportationPrice != null && (
+            <InfoRow label="Nəqliyyat xərci">
+              <span className="font-semibold">{fmtMoney(project.planTransportationPrice)}</span>
+            </InfoRow>
+          )}
+          {project.planOperatorPayment != null && (
+            <InfoRow label="Operator haqqı">
+              <span className="font-semibold">{fmtMoney(project.planOperatorPayment)}</span>
+            </InfoRow>
+          )}
+          {project.planNotes && <InfoRow label="Qeyd" value={project.planNotes} />}
+        </Section>
+      )}
 
       {/* Müddət */}
       <Section title="Müddət">
-        <InfoRow label="Başlanğıc tarixi" value={fmt(project.startDate)} />
-        <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 gap-4">
-          <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">Bitmə tarixi</span>
-          {project.status === 'ACTIVE' ? (
+        <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-4">
+          <span className="text-xs text-gray-500 shrink-0">Başlanğıc tarixi</span>
+          {project.status !== 'COMPLETED' ? (
+            editingStartDate ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                <button onClick={saveStartDate} disabled={savingStartDate}
+                  className="text-xs text-green-600 font-semibold hover:text-green-700 disabled:opacity-50">
+                  {savingStartDate ? '...' : 'Saxla'}
+                </button>
+                <button onClick={() => setEditingStartDate(false)} className="text-xs text-gray-400 hover:text-gray-600">Ləğv</button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingStartDate(true)}
+                className="flex items-center gap-1 text-xs font-medium text-gray-800 hover:text-amber-600 transition-colors">
+                <Calendar size={11} className="text-gray-400" />
+                {fmt(project.startDate ?? project.planStartDate)}
+                <span className="text-[10px] text-amber-600 ml-1">(dəyiş)</span>
+              </button>
+            )
+          ) : (
+            <span className="text-xs font-medium text-gray-800">{fmt(project.startDate ?? project.planStartDate)}</span>
+          )}
+        </div>
+        <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-4">
+          <span className="text-xs text-gray-500 shrink-0">Bitmə tarixi</span>
+          {project.status !== 'COMPLETED' ? (
             editingDate ? (
               <div className="flex items-center gap-1.5">
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                 />
                 <button onClick={saveDate} disabled={savingDate}
                   className="text-xs text-green-600 font-semibold hover:text-green-700 disabled:opacity-50">
@@ -181,14 +382,14 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
               </div>
             ) : (
               <button onClick={() => setEditingDate(true)}
-                className="flex items-center gap-1 text-xs font-medium text-gray-800 dark:text-gray-200 hover:text-amber-600 transition-colors">
+                className="flex items-center gap-1 text-xs font-medium text-gray-800 hover:text-amber-600 transition-colors">
                 <Calendar size={11} className="text-gray-400" />
-                {fmt(project.endDate)}
+                {fmt(project.endDate ?? project.planEndDate)}
                 <span className="text-[10px] text-amber-600 ml-1">(dəyiş)</span>
               </button>
             )
           ) : (
-            <span className="text-xs font-medium text-gray-800 dark:text-gray-200">{fmt(project.endDate)}</span>
+            <span className="text-xs font-medium text-gray-800">{fmt(project.endDate ?? project.planEndDate)}</span>
           )}
         </div>
       </Section>
@@ -214,11 +415,11 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         {project.status === 'PENDING' && (
           <div className="pt-2">
             <input ref={inputRef} type="file" className="hidden"
-              accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleContractUpload} />
+              accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileSelected} />
             <button
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-xl text-xs font-medium text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-amber-300 rounded-xl text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
             >
               <Upload size={13} />
               {uploading ? 'Yüklənir...' : 'Müqavilə sənədini yüklə'}
@@ -233,10 +434,10 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
           <InfoRow label="Evakuator xərci">
             <span className="text-red-500 font-semibold">{fmtMoney(project.evacuationCost)}</span>
           </InfoRow>
-          <InfoRow label="Planlaşdırılan iş saatı">
+          <InfoRow label="Planlaşdırılan saat">
             {project.scheduledHours != null ? `${project.scheduledHours} saat` : '—'}
           </InfoRow>
-          <InfoRow label="Faktiki iş saatı">
+          <InfoRow label="Faktiki saat">
             {project.actualHours != null ? (
               <span className={clsx('font-semibold',
                 parseFloat(project.actualHours) >= parseFloat(project.scheduledHours)
@@ -245,6 +446,19 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
               </span>
             ) : '—'}
           </InfoRow>
+          {project.overtimeHours > 0 && (
+            <>
+              <InfoRow label="Əlavə vaxt saatı">
+                <span className="text-orange-600 font-semibold">{project.overtimeHours} saat</span>
+              </InfoRow>
+              <InfoRow label="Əlavə vaxt dərəcəsi">
+                <span className="text-orange-600 font-semibold">{project.overtimeRate}×</span>
+              </InfoRow>
+              <InfoRow label="Əlavə vaxt haqqı">
+                <span className="text-orange-600 font-semibold">{fmtMoney(project.overtimePay)}</span>
+              </InfoRow>
+            </>
+          )}
         </Section>
       )}
     </div>
@@ -263,7 +477,7 @@ function FinanceTab({ project }) {
   const [revVal, setRevVal] = useState('')
   const [addingExp, setAddingExp] = useState(false)
   const [addingRev, setAddingRev] = useState(false)
-  const readOnly = project.status === 'COMPLETED'
+  const readOnly = project.status !== 'ACTIVE'
 
   const load = async () => {
     try {
@@ -278,9 +492,15 @@ function FinanceTab({ project }) {
 
   useEffect(() => { load() }, [project.id])
 
-  const totalExp = (finances.expenses || []).reduce((s, e) => s + parseFloat(e.value || 0), 0)
-  const totalRev = (finances.revenues || []).reduce((s, r) => s + parseFloat(r.value || 0), 0)
-  const net = totalRev - totalExp
+  const manualExp = (finances.expenses || []).reduce((s, e) => s + parseFloat(e.value || 0), 0)
+  const manualRev = (finances.revenues || []).reduce((s, r) => s + parseFloat(r.value || 0), 0)
+  const planRevenue  = parseFloat(project.planEquipmentPrice    || 0)
+  const planExpenses = parseFloat(project.planTransportationPrice || 0)
+                     + parseFloat(project.planOperatorPayment    || 0)
+                     + parseFloat(project.contractorPayment      || 0)
+  const totalExp = manualExp
+  const totalRev = manualRev
+  const net = (manualRev + planRevenue) - (manualExp + planExpenses)
 
   const addExpense = async () => {
     if (!expKey.trim() || !expVal || parseFloat(expVal) <= 0) return toast.error('Növ və məbləğ daxil edin')
@@ -322,23 +542,54 @@ function FinanceTab({ project }) {
 
   return (
     <div className="space-y-4">
+      {/* Koordinator plan qiymət xülasəsi */}
+      {project.planEquipmentPrice != null && (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 space-y-1.5">
+          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-2">Koordinator planı</p>
+          {project.planEquipmentPrice != null && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Texnika qiyməti</span>
+              <span className="font-semibold text-gray-700">{fmtMoney(project.planEquipmentPrice)} ₼</span>
+            </div>
+          )}
+          {project.planTransportationPrice != null && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Nəqliyyat</span>
+              <span className="font-semibold text-gray-700">{fmtMoney(project.planTransportationPrice)} ₼</span>
+            </div>
+          )}
+          {project.planOperatorPayment != null && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Operator haqqı</span>
+              <span className="font-semibold text-gray-700">{fmtMoney(project.planOperatorPayment)} ₼</span>
+            </div>
+          )}
+          {project.contractorPayment > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Podratçı ödənişi</span>
+              <span className="font-semibold text-orange-600">{fmtMoney(project.contractorPayment)} ₼</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Xərclər */}
-      <div className="rounded-xl border border-red-100 dark:border-red-900/30 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5 bg-red-50 dark:bg-red-900/20">
+      <div className="rounded-xl border border-red-100 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2.5 bg-red-50">
           <div className="flex items-center gap-1.5">
             <TrendingDown size={13} className="text-red-500" />
-            <span className="text-xs font-semibold text-red-700 dark:text-red-400">Xərclər</span>
+            <span className="text-xs font-semibold text-red-700">Xərclər</span>
           </div>
-          <span className="text-xs font-bold text-red-600 dark:text-red-400">{fmtMoney(totalExp)} ₼</span>
+          <span className="text-xs font-bold text-red-600">{fmtMoney(totalExp)} ₼</span>
         </div>
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="divide-y divide-gray-100">
           {finances.expenses?.length === 0 && (
             <p className="text-xs text-gray-400 py-3 text-center">Hələ xərc yoxdur</p>
           )}
           {finances.expenses?.map((e) => (
-            <div key={e.id} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800">
+            <div key={e.id} className="flex items-center gap-2 px-3 py-2 bg-white">
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{e.key}</p>
+                <p className="text-xs font-medium text-gray-800 truncate">{e.key}</p>
                 <p className="text-[10px] text-gray-400">
                   {e.date ? new Date(e.date).toLocaleDateString('az-AZ') : ''}
                 </p>
@@ -346,7 +597,7 @@ function FinanceTab({ project }) {
               <span className="text-xs font-semibold text-red-600 whitespace-nowrap">{fmtMoney(e.value)} ₼</span>
               {!readOnly && (
                 <button onClick={() => delExpense(e.id)}
-                  className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                   <Trash2 size={12} />
                 </button>
               )}
@@ -354,13 +605,13 @@ function FinanceTab({ project }) {
           ))}
         </div>
         {!readOnly && (
-          <div className="flex gap-2 px-3 py-2.5 border-t border-red-100 dark:border-red-900/30 bg-white dark:bg-gray-800">
+          <div className="flex gap-2 px-3 py-2.5 border-t border-red-100 bg-white">
             <input value={expKey} onChange={(e) => setExpKey(e.target.value)}
               placeholder="Növ (Benzin...)" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
-              className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
             <input type="number" value={expVal} onChange={(e) => setExpVal(e.target.value)}
               placeholder="AZN" min="0" step="0.01" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
-              className="w-20 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
             <button onClick={addExpense} disabled={addingExp}
               className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg transition-colors">
               <Plus size={13} />
@@ -370,22 +621,22 @@ function FinanceTab({ project }) {
       </div>
 
       {/* Gəlirlər */}
-      <div className="rounded-xl border border-green-100 dark:border-green-900/30 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5 bg-green-50 dark:bg-green-900/20">
+      <div className="rounded-xl border border-green-100 overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2.5 bg-green-50">
           <div className="flex items-center gap-1.5">
             <TrendingUp size={13} className="text-green-600" />
-            <span className="text-xs font-semibold text-green-700 dark:text-green-400">Gəlirlər</span>
+            <span className="text-xs font-semibold text-green-700">Gəlirlər</span>
           </div>
-          <span className="text-xs font-bold text-green-600 dark:text-green-400">{fmtMoney(totalRev)} ₼</span>
+          <span className="text-xs font-bold text-green-600">{fmtMoney(totalRev)} ₼</span>
         </div>
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+        <div className="divide-y divide-gray-100">
           {finances.revenues?.length === 0 && (
             <p className="text-xs text-gray-400 py-3 text-center">Hələ gəlir yoxdur</p>
           )}
           {finances.revenues?.map((r) => (
-            <div key={r.id} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800">
+            <div key={r.id} className="flex items-center gap-2 px-3 py-2 bg-white">
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{r.key}</p>
+                <p className="text-xs font-medium text-gray-800 truncate">{r.key}</p>
                 <p className="text-[10px] text-gray-400">
                   {r.date ? new Date(r.date).toLocaleDateString('az-AZ') : ''}
                 </p>
@@ -393,7 +644,7 @@ function FinanceTab({ project }) {
               <span className="text-xs font-semibold text-green-600 whitespace-nowrap">{fmtMoney(r.value)} ₼</span>
               {!readOnly && (
                 <button onClick={() => delRevenue(r.id)}
-                  className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                   <Trash2 size={12} />
                 </button>
               )}
@@ -401,13 +652,13 @@ function FinanceTab({ project }) {
           ))}
         </div>
         {!readOnly && (
-          <div className="flex gap-2 px-3 py-2.5 border-t border-green-100 dark:border-green-900/30 bg-white dark:bg-gray-800">
+          <div className="flex gap-2 px-3 py-2.5 border-t border-green-100 bg-white">
             <input value={revKey} onChange={(e) => setRevKey(e.target.value)}
               placeholder="Növ (Texnika icarəsi...)" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
-              className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
             <input type="number" value={revVal} onChange={(e) => setRevVal(e.target.value)}
               placeholder="AZN" min="0" step="0.01" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
-              className="w-20 px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+              className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
             <button onClick={addRevenue} disabled={addingRev}
               className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors">
               <Plus size={13} />
@@ -418,15 +669,28 @@ function FinanceTab({ project }) {
 
       {/* Xalis gəlir */}
       <div className={clsx(
-        'flex items-center justify-between rounded-xl px-4 py-3 border',
-        net >= 0
-          ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30'
-          : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30'
+        'rounded-xl px-4 py-3 border space-y-1.5',
+        net >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
       )}>
-        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Xalis Gəlir</span>
-        <span className={clsx('text-lg font-bold', net >= 0 ? 'text-green-600' : 'text-red-600')}>
-          {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
-        </span>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Ümumi gəlir</span>
+          <span className="font-semibold text-green-600">
+            +{fmtMoney(manualRev + planRevenue)} ₼
+          </span>
+        </div>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Ümumi xərc</span>
+          <span className="font-semibold text-red-500">
+            −{fmtMoney(manualExp + planExpenses)} ₼
+          </span>
+        </div>
+        <div className={clsx('flex items-center justify-between border-t pt-1.5',
+          net >= 0 ? 'border-green-200' : 'border-red-200')}>
+          <span className="text-sm font-semibold text-gray-700">Xalis Gəlir</span>
+          <span className={clsx('text-lg font-bold', net >= 0 ? 'text-green-600' : 'text-red-600')}>
+            {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
+          </span>
+        </div>
       </div>
       <ConfirmDialog />
     </div>
@@ -439,26 +703,37 @@ function CompleteTab({ project, onCompleted }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [form, setForm] = useState({
     evacuationCost: project.evacuationCost ?? '',
-    scheduledHours: project.scheduledHours ?? '',
     actualHours:    project.actualHours    ?? '',
+    overtimeRate:   '1.0',
   })
   const [saving, setSaving] = useState(false)
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }))
   const isCompleted = project.status === 'COMPLETED'
   const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
 
+  // Calculated scheduled hours from coordinator plan or request dayCount
+  const scheduledHours = (project.planDayCount || project.dayCount || 0) * 9
+
+  // Preview overtime calc
+  const actualH = parseFloat(form.actualHours || 0)
+  const overtimeH = Math.max(0, actualH - scheduledHours)
+  const dailyPrice = project.planEquipmentPrice && (project.planDayCount || project.dayCount)
+    ? parseFloat(project.planEquipmentPrice) / (project.planDayCount || project.dayCount)
+    : 0
+  const hourlyRate = dailyPrice / 9
+  const overtimePay = overtimeH * hourlyRate * parseFloat(form.overtimeRate || 1)
+
   const handleComplete = async () => {
-    if (!form.evacuationCost || parseFloat(form.evacuationCost) < 0) return toast.error('Evakuator xərcini daxil edin')
-    if (!form.scheduledHours || parseFloat(form.scheduledHours) <= 0) return toast.error('Planlaşdırılan iş saatını daxil edin')
-    if (!form.actualHours   || parseFloat(form.actualHours)    <= 0) return toast.error('Faktiki iş saatını daxil edin')
+    if (form.evacuationCost === '' || parseFloat(form.evacuationCost) < 0) return toast.error('Evakuator xərcini daxil edin')
+    if (!form.actualHours || parseFloat(form.actualHours) <= 0) return toast.error('Faktiki iş saatını daxil edin')
     if (!(await confirm({ title: 'Layihəni bağla', message: 'Layihəni bağlamaq istəyirsiniz? Bu əməliyyat geri alına bilməz.', confirmText: 'Bağla' }))) return
 
     setSaving(true)
     try {
       await projectsApi.complete(project.id, {
         evacuationCost: parseFloat(form.evacuationCost),
-        scheduledHours: parseFloat(form.scheduledHours),
         actualHours:    parseFloat(form.actualHours),
+        overtimeRate:   parseFloat(form.overtimeRate),
       })
       toast.success('Layihə bağlandı. Mühasibatlığa yönləndirildi.')
       onCompleted()
@@ -473,7 +748,7 @@ function CompleteTab({ project, onCompleted }) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <AlertCircle size={36} className="text-amber-400 mb-3" />
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Layihə hələ aktiv deyil</p>
+        <p className="text-sm font-medium text-gray-600">Layihə hələ aktiv deyil</p>
         <p className="text-xs text-gray-400 mt-1">Əvvəlcə müqavilə sənədi yükləyin</p>
       </div>
     )
@@ -482,26 +757,41 @@ function CompleteTab({ project, onCompleted }) {
   return (
     <div className="space-y-5">
       {isCompleted && (
-        <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
           <CheckCircle size={15} className="text-green-600 shrink-0" />
-          <p className="text-xs text-green-700 dark:text-green-400 font-medium">
+          <p className="text-xs text-green-700 font-medium">
             Layihə bağlanmışdır. Mühasibatlıq moduluna yönləndirilmişdir.
           </p>
         </div>
       )}
 
       {!isCompleted && (
-        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+          <p className="text-xs text-amber-700">
             Bağlandıqdan sonra layihə <strong>Mühasibatlıq</strong> moduluna avtomatik yönləndiriləcək.
           </p>
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* Planlaşdırılan saatlar — avtomatik (read-only) */}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Clock size={12} className="text-blue-500" />
+            <span className="text-xs font-semibold text-blue-700">Planlaşdırılan iş saatı</span>
+          </div>
+          <p className="text-lg font-bold text-blue-700">
+            {scheduledHours > 0 ? `${scheduledHours} saat` : '—'}
+          </p>
+          <p className="text-[10px] text-blue-400 mt-0.5">
+            {project.planDayCount || project.dayCount || 0} gün × 9 saat/gün
+          </p>
+        </div>
+
+        {/* Evakuator xərci */}
         <div>
-          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
             Evakuator Xərci (AZN) {!isCompleted && <span className="text-red-500">*</span>}
           </label>
           {isCompleted ? (
@@ -509,57 +799,106 @@ function CompleteTab({ project, onCompleted }) {
           ) : (
             <input type="number" value={form.evacuationCost} onChange={(e) => set('evacuationCost', e.target.value)}
               placeholder="0.00" min="0" step="0.01"
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
-              Planlaşdırılan Saat {!isCompleted && <span className="text-red-500">*</span>}
-            </label>
-            {isCompleted ? (
-              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{project.scheduledHours} saat</p>
-            ) : (
-              <input type="number" value={form.scheduledHours} onChange={(e) => set('scheduledHours', e.target.value)}
-                placeholder="0" min="0" step="0.5"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-            )}
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
-              Faktiki Saat {!isCompleted && <span className="text-red-500">*</span>}
-            </label>
-            {isCompleted ? (
-              <p className={clsx('text-sm font-bold',
-                parseFloat(project.actualHours) >= parseFloat(project.scheduledHours) ? 'text-green-600' : 'text-red-500')}>
-                {project.actualHours} saat
-              </p>
-            ) : (
-              <input type="number" value={form.actualHours} onChange={(e) => set('actualHours', e.target.value)}
-                placeholder="0" min="0" step="0.5"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-            )}
-          </div>
+        {/* Faktiki saat */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+            Faktiki İş Saatı {!isCompleted && <span className="text-red-500">*</span>}
+          </label>
+          {isCompleted ? (
+            <p className={clsx('text-sm font-bold',
+              parseFloat(project.actualHours) >= parseFloat(project.scheduledHours) ? 'text-green-600' : 'text-red-500')}>
+              {project.actualHours} saat
+            </p>
+          ) : (
+            <input type="number" value={form.actualHours} onChange={(e) => set('actualHours', e.target.value)}
+              placeholder="0" min="0" step="0.5"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          )}
         </div>
 
-        {/* Preview */}
-        {!isCompleted && (form.scheduledHours || form.actualHours || form.evacuationCost) && (
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 space-y-1.5">
-            {form.scheduledHours && form.actualHours && (
+        {/* Əlavə vaxt dərəcəsi */}
+        {!isCompleted && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Əlavə Vaxt Dərəcəsi
+            </label>
+            <div className="flex gap-2">
+              {['1.0', '1.5'].map((rate) => (
+                <button
+                  key={rate}
+                  onClick={() => set('overtimeRate', rate)}
+                  className={clsx(
+                    'flex-1 py-2.5 text-sm font-semibold rounded-lg border transition-colors',
+                    form.overtimeRate === rate
+                      ? 'bg-amber-600 text-white border-amber-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-amber-400'
+                  )}
+                >
+                  {rate}× {rate === '1.0' ? '(adi)' : '(əlavə)'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Overtime preview */}
+        {!isCompleted && form.actualHours && scheduledHours > 0 && (
+          <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1.5">
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>Planlaşdırılan saat</span>
+              <span className="font-medium text-gray-700">{scheduledHours} saat</span>
+            </div>
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>Faktiki saat</span>
+              <span className={clsx('font-medium', actualH >= scheduledHours ? 'text-green-600' : 'text-red-500')}>
+                {actualH} saat
+              </span>
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 border-t border-gray-200 pt-1.5 mt-1">
+              <span>Əlavə vaxt</span>
+              <span className={clsx('font-semibold', overtimeH > 0 ? 'text-orange-600' : 'text-gray-400')}>
+                {overtimeH.toFixed(1)} saat
+              </span>
+            </div>
+            {overtimeH > 0 && (
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Saat fərqi (faktiki − planlı)</span>
-                <span className={parseFloat(form.actualHours) >= parseFloat(form.scheduledHours) ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
-                  {(parseFloat(form.actualHours || 0) - parseFloat(form.scheduledHours || 0)).toFixed(1)} saat
+                <span>Əlavə vaxt haqqı ({form.overtimeRate}×)</span>
+                <span className="font-semibold text-orange-600">
+                  +{overtimePay.toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
                 </span>
               </div>
             )}
             {form.evacuationCost && (
               <div className="flex justify-between text-xs text-gray-500">
                 <span>Evakuator xərci</span>
-                <span className="text-red-500 font-semibold">−{parseFloat(form.evacuationCost || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼</span>
+                <span className="text-red-500 font-semibold">
+                  −{parseFloat(form.evacuationCost || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
+                </span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Completed summary */}
+        {isCompleted && project.overtimeHours > 0 && (
+          <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 space-y-1.5">
+            <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1.5">Əlavə vaxt</p>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Saatlar</span>
+              <span className="font-semibold text-orange-600">{project.overtimeHours} saat</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Dərəcə</span>
+              <span className="font-semibold text-orange-600">{project.overtimeRate}×</span>
+            </div>
+            <div className="flex justify-between text-xs border-t border-orange-200 pt-1.5">
+              <span className="text-gray-500">Əlavə haqqı</span>
+              <span className="font-bold text-orange-600">{fmtMoney(project.overtimePay)}</span>
+            </div>
           </div>
         )}
       </div>
@@ -582,20 +921,16 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
   const [activeTab, setActiveTab] = useState('info')
   const status = STATUS_CONFIG[project.status] || STATUS_CONFIG.PENDING
 
-  const tabs = project.status === 'PENDING'
-    ? TABS.filter(t => t.id !== 'complete') // hide complete tab for PENDING with no contract
-    : TABS
-
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-gray-100 dark:border-gray-700 shrink-0">
+        <div className="flex items-start justify-between p-5 border-b border-gray-100 shrink-0">
           <div className="flex-1 min-w-0 pr-3">
             <div className="flex items-center gap-2 mb-0.5">
-              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">
+              <h2 className="text-base font-bold text-gray-800">
                 {project.projectCode || `PRJ-${String(project.id).padStart(4, '0')}`}
               </h2>
               <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0', status.cls)}>
@@ -619,7 +954,7 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700 shrink-0">
+        <div className="flex border-b border-gray-100 shrink-0">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -628,7 +963,7 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
                 'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2',
                 activeTab === id
                   ? 'border-amber-600 text-amber-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
               )}
             >
               <Icon size={13} />

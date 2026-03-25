@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { garageApi } from '../../api/garage'
+import { configApi } from '../../api/config'
 import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
+import ComboInput from '../../components/common/ComboInput'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -26,6 +28,7 @@ const EMPTY = {
   depreciationRate: '', hourKmCounter: '', motoHours: '', storageLocation: '',
   ownershipType: 'COMPANY',
   notes: '', ownerInvestorId: '', ownerContractorId: '',
+  safetyEquipmentIds: [],
 }
 
 function Field({ label, required, children, error }) {
@@ -74,15 +77,27 @@ function StepIndicator({ steps, current }) {
 }
 
 export default function EquipmentModal({ editing, onClose, onSaved }) {
-  useEscapeKey(onClose)
   const isClone = editing?._clone
   const isEditing = editing && !isClone
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
   const [contractors, setContractors] = useState([])
   const [investors, setInvestors] = useState([])
+  const [safetyTypes, setSafetyTypes] = useState([])
   const [errors, setErrors] = useState({})
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
+
+  const handleClose = () => {
+    if (isDirty) {
+      if (!window.confirm('Dəyişikliklər yadda saxlanmayıb. Bağlamaq istəyirsiniz?')) return
+    }
+    onClose()
+  }
+
+  useEscapeKey(handleClose)
 
   useEffect(() => {
     contractorsApi.getAll()
@@ -90,6 +105,9 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       .catch(() => {})
     investorsApi.getAll()
       .then((res) => setInvestors(res.data.data || res.data || []))
+      .catch(() => {})
+    configApi.getActiveByCategory('SAFETY_EQUIPMENT')
+      .then((res) => setSafetyTypes(res.data.data || []))
       .catch(() => {})
   }, [])
 
@@ -101,7 +119,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       } else if (editing.ownerInvestorName) {
         investorId = investors.find(i => i.companyName === editing.ownerInvestorName)?.id ?? ''
       }
-      setForm({
+      const data = {
         equipmentCode: editing.equipmentCode || '',
         name: editing.name || '',
         type: editing.type || '',
@@ -120,9 +138,13 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
         notes: editing.notes || '',
         ownerInvestorId: investorId ? String(investorId) : '',
         ownerContractorId: editing.ownerContractorId ?? '',
-      })
+        safetyEquipmentIds: editing.safetyEquipment?.map(s => s.id) || [],
+      }
+      setForm(data)
+      setInitialForm(data)
     } else {
       setForm(EMPTY)
+      setInitialForm(EMPTY)
     }
   }, [editing, investors])
 
@@ -175,6 +197,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       ownershipType: form.ownershipType,
       status: isEditing ? editing.status : 'AVAILABLE',
       notes: form.notes || null,
+      safetyEquipmentIds: form.safetyEquipmentIds || [],
     }
 
     if (form.ownershipType === 'INVESTOR') {
@@ -220,7 +243,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0"
           >
             <X size={14} className="text-white" />
@@ -247,15 +270,15 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                     placeholder="EQ-001" className={inputCls('equipmentCode')} />
                 </Field>
                 <Field label="Növ / Kateqoriya" required error={errors.type}>
-                  <input type="text" value={form.type} onChange={(e) => set('type', e.target.value)}
-                    placeholder="Ekskavator, Kran..." className={inputCls('type')} />
+                  <ComboInput category="EQUIPMENT_TYPE" value={form.type} onChange={(v) => set('type', v)}
+                    placeholder="Ekskavator, Kran..." className={errors.type ? 'border-red-400 focus:ring-red-400' : ''} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Brend">
-                  <input type="text" value={form.brand} onChange={(e) => set('brand', e.target.value)}
-                    placeholder="Caterpillar" className={inputCls('')} />
+                  <ComboInput category="EQUIPMENT_BRAND" value={form.brand} onChange={(v) => set('brand', v)}
+                    placeholder="Caterpillar" />
                 </Field>
                 <Field label="Model">
                   <input type="text" value={form.model} onChange={(e) => set('model', e.target.value)}
@@ -312,10 +335,37 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                     onChange={(e) => set('motoHours', e.target.value)} placeholder="0.00" className={inputCls('')} />
                 </Field>
                 <Field label="Saxlanma yeri">
-                  <input type="text" value={form.storageLocation} onChange={(e) => set('storageLocation', e.target.value)}
-                    placeholder="Anbar, Sahə..." className={inputCls('')} />
+                  <ComboInput category="STORAGE_LOCATION" value={form.storageLocation} onChange={(v) => set('storageLocation', v)}
+                    placeholder="Anbar, Sahə..." />
                 </Field>
               </div>
+
+              {safetyTypes.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Təhlükəsizlik avadanlıqları</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {safetyTypes.map((st) => {
+                      const checked = (form.safetyEquipmentIds || []).includes(st.id)
+                      return (
+                        <label key={st.id} className={clsx(
+                          'flex items-center gap-2 cursor-pointer rounded-lg border p-2.5 transition-all text-sm',
+                          checked
+                            ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50 text-green-700 dark:text-green-300 font-medium'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                        )}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => {
+                              const ids = form.safetyEquipmentIds || []
+                              set('safetyEquipmentIds', checked ? ids.filter(id => id !== st.id) : [...ids, st.id])
+                            }}
+                            className="accent-green-600 w-4 h-4" />
+                          {st.key}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
             </>
           )}
@@ -429,7 +479,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
           <div className="flex-1" />
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             Ləğv et

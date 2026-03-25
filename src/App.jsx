@@ -20,6 +20,7 @@ import OperatorsPage from './pages/operators/OperatorsPage'
 import ApprovalPage from './pages/approval/ApprovalPage'
 import TrashPage from './pages/trash/TrashPage'
 import AuditPage from './pages/audit/AuditPage'
+import ConfigPage from './pages/config/ConfigPage'
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="approval" element={<ApprovalPage />} />
             <Route path="trash" element={<TrashPage />} />
+            <Route path="config" element={<ConfigPage />} />
             <Route path="audit" element={<AuditPage />} />
           </Route>
         </Route>

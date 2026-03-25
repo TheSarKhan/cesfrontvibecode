@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight, Users, ChevronUp, ChevronDown, Download, UserCheck, UserX, Shield } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight, Users, Download, UserCheck, UserX, Shield } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { clsx } from 'clsx'
 import { usersApi } from '../../api/users'
@@ -13,18 +13,12 @@ import { useSearchParams } from 'react-router-dom'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
+import Pagination from '../../components/common/Pagination'
 
 const AVATAR_COLORS = [
   '#3b82f6', '#8b5cf6', '#10b981', '#ec4899',
   '#6366f1', '#14b8a6', '#f43f5e', '#f59e0b',
 ]
-
-function SortIcon({ field, sortField, sortDir }) {
-  if (sortField !== field) return <ChevronUp size={12} className="text-gray-300 dark:text-gray-600" />
-  return sortDir === 'asc'
-    ? <ChevronUp size={12} className="text-amber-500" />
-    : <ChevronDown size={12} className="text-amber-500" />
-}
 
 export default function UsersPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -33,7 +27,7 @@ export default function UsersPage() {
   const canDelete = hasPermission('EMPLOYEE_MANAGEMENT', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [users, setUsers] = useState([])
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState({ open: false, editing: null })
@@ -46,81 +40,56 @@ export default function UsersPage() {
   const search = searchParams.get('q') || ''
   const filterDept = searchParams.get('dept') || ''
   const filterStatus = searchParams.get('status') || ''
+  const page = Number(searchParams.get('page') || '0')
+  const size = Number(searchParams.get('size') || '15')
 
-  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); return n }, { replace: true })
-  const setFilterDept = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('dept', v) : n.delete('dept'); return n }, { replace: true })
+  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
+  const setFilterDept = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('dept', v) : n.delete('dept'); n.delete('page'); return n }, { replace: true })
   const setFilterStatus = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('status', v) : n.delete('status'); return n }, { replace: true })
-
-  const [quickFilter, setQuickFilter] = useState('ALL')
-  const [sortField, setSortField] = useState('fullName')
-  const [sortDir, setSortDir] = useState('asc')
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); p > 0 ? n.set('page', String(p)) : n.delete('page'); return n }, { replace: true })
+  const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); s !== 15 ? n.set('size', String(s)) : n.delete('size'); n.delete('page'); return n }, { replace: true })
 
   usePageShortcuts({
     onNew: canCreate ? () => setModal({ open: true, editing: null }) : undefined,
     searchRef,
   })
 
-  const loadData = async () => {
+  const loadDepts = useCallback(async () => {
+    try {
+      const deptsRes = await departmentsApi.getAll()
+      setDepartments(deptsRes.data.data || [])
+    } catch { /* silent */ }
+  }, [])
+
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [usersRes, deptsRes] = await Promise.all([
-        usersApi.getAll(),
-        departmentsApi.getAll(),
-      ])
-      const data = usersRes.data.data || []
-      setUsers(data)
-      setDepartments(deptsRes.data.data || [])
+      const params = { page, size, ...(search && { q: search }), ...(filterDept && { departmentId: filterDept }) }
+      const usersRes = await usersApi.getAllPaged(params)
+      const pageData = usersRes.data.data || usersRes.data
+      setData(pageData)
       setSelectedIds(new Set())
-      setSlideOver(prev => prev ? (data.find(u => u.id === prev.id) ?? prev) : null)
+      setSlideOver(prev => prev ? (pageData.content.find(u => u.id === prev.id) ?? prev) : null)
     } catch {
       toast.error('Məlumatlar yüklənmədi')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, size, search, filterDept])
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadDepts() }, [loadDepts])
+  useEffect(() => { loadData() }, [loadData])
 
-  const stats = useMemo(() => ({
-    total:    users.length,
-    active:   users.filter(u => u.active).length,
-    inactive: users.filter(u => !u.active).length,
-  }), [users])
-
-  const filtered = useMemo(() => {
-    return users.filter((u) => {
-      if (search) {
-        const q = search.toLowerCase()
-        if (!u.fullName?.toLowerCase().includes(q) &&
-            !u.email?.toLowerCase().includes(q) &&
-            !u.phone?.toLowerCase().includes(q)) return false
-      }
-      if (filterDept && u.departmentId !== Number(filterDept)) return false
-      if (filterStatus === 'active' && !u.active) return false
-      if (filterStatus === 'inactive' && u.active) return false
-      if (quickFilter === 'active' && !u.active) return false
-      if (quickFilter === 'inactive' && u.active) return false
-      return true
-    })
-  }, [users, search, filterDept, filterStatus, quickFilter])
-
-  const handleSort = (field) => {
-    setSortDir(prev => sortField === field ? (prev === 'asc' ? 'desc' : 'asc') : 'asc')
-    setSortField(field)
-  }
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const av = a[sortField] ?? ''
-      const bv = b[sortField] ?? ''
-      const cmp = String(av).localeCompare(String(bv), 'az')
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-  }, [filtered, sortField, sortDir])
+  // Client-side status filter
+  const filtered = data.content.filter(u => {
+    if (filterStatus === 'active' && !u.active) return false
+    if (filterStatus === 'inactive' && u.active) return false
+    return true
+  })
 
   const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const allSelected = sorted.length > 0 && sorted.every(x => selectedIds.has(x.id))
-  const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(sorted.map(x => x.id)))
+  const allSelected = filtered.length > 0 && filtered.every(x => selectedIds.has(x.id))
+  const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(x => x.id)))
 
   const handleBulkDelete = async () => {
     if (!(await confirm({ title: 'Toplu silmə', message: `${selectedIds.size} istifadəçi silinsin?` }))) return
@@ -164,7 +133,7 @@ export default function UsersPage() {
   const fmtFull = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'
 
   const exportExcel = () => {
-    const rows = sorted.map(u => ({
+    const rows = filtered.map(u => ({
       'Ad Soyad':   u.fullName || '',
       'Email':      u.email || '',
       'Telefon':    u.phone || '',
@@ -187,7 +156,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">İstifadəçilər</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{stats.total} istifadəçi</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} istifadəçi</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -212,18 +181,18 @@ export default function UsersPage() {
       {/* Stat cards / quick filters */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { id: 'ALL',      label: 'Cəmi',    value: stats.total,    color: 'text-gray-700 dark:text-gray-200', icon: Users },
-          { id: 'active',   label: 'Aktiv',    value: stats.active,   color: 'text-green-600 dark:text-green-400', icon: UserCheck },
-          { id: 'inactive', label: 'Deaktiv',  value: stats.inactive, color: 'text-red-500 dark:text-red-400', icon: UserX },
+          { id: '',         label: 'Cəmi',    value: data.totalElements,                                         color: 'text-gray-700 dark:text-gray-200', icon: Users },
+          { id: 'active',   label: 'Aktiv',    value: data.content.filter(u => u.active).length,                 color: 'text-green-600 dark:text-green-400', icon: UserCheck },
+          { id: 'inactive', label: 'Deaktiv',  value: data.content.filter(u => !u.active).length,                color: 'text-red-500 dark:text-red-400', icon: UserX },
         ].map(s => {
           const Icon = s.icon
           return (
             <button
               key={s.id}
-              onClick={() => setQuickFilter(s.id)}
+              onClick={() => setFilterStatus(s.id)}
               className={clsx(
                 'rounded-xl border px-4 py-3 text-left transition-colors',
-                quickFilter === s.id
+                filterStatus === s.id
                   ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-700'
                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700'
               )}
@@ -305,28 +274,12 @@ export default function UsersPage() {
                   <input type="checkbox" checked={allSelected} onChange={toggleAll}
                     className="w-4 h-4 accent-amber-500 cursor-pointer" />
                 </th>
-                {[
-                  { label: 'Ad Soyad',  field: 'fullName' },
-                  { label: 'Email',     field: 'email' },
-                  { label: 'Telefon',   field: null },
-                  { label: 'Şöbə',     field: 'departmentName' },
-                  { label: 'Rol',       field: 'roleName' },
-                  { label: 'Yaradılma',  field: 'createdAt' },
-                  { label: 'Son giriş', field: 'lastLoginAt' },
-                  { label: 'Status',    field: null },
-                ].map(col => (
+                {['Ad Soyad', 'Email', 'Telefon', 'Şöbə', 'Rol', 'Yaradılma', 'Son giriş', 'Status'].map(label => (
                   <th
-                    key={col.label}
-                    onClick={col.field ? () => handleSort(col.field) : undefined}
-                    className={clsx(
-                      'text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide',
-                      col.field && 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none'
-                    )}
+                    key={label}
+                    className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
                   >
-                    <div className="flex items-center gap-1">
-                      {col.label}
-                      {col.field && <SortIcon field={col.field} sortField={sortField} sortDir={sortDir} />}
-                    </div>
+                    {label}
                   </th>
                 ))}
                 <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Əməliyyat</th>
@@ -335,7 +288,7 @@ export default function UsersPage() {
             <tbody>
               {loading ? (
                 <TableSkeleton cols={10} rows={6} />
-              ) : sorted.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <EmptyState
                   icon={Users}
                   title="İstifadəçi tapılmadı"
@@ -344,7 +297,7 @@ export default function UsersPage() {
                   actionLabel={canCreate ? 'Yeni İstifadəçi' : undefined}
                 />
               ) : (
-                sorted.map((user) => (
+                filtered.map((user) => (
                   <tr
                     key={user.id}
                     onClick={() => setSlideOver(user)}
@@ -435,6 +388,14 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={data.page + 1}
+          pageSize={data.size}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPage={(p) => setPage(p - 1)}
+          onPageSize={(s) => setPageSize(s)}
+        />
       </div>
 
       {modal.open && (

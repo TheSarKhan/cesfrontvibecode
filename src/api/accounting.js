@@ -3,6 +3,7 @@ import api from './axios'
 export const accountingApi = {
   // ── Invoices (E-Qaimələr) ──
   getAll: (params) => api.get('/accounting/invoices', { params }),
+  getAllPaged: (params) => api.get('/accounting/invoices/paged', { params }),
   getSummary: () => api.get('/accounting/invoices/summary'),
   getById: (id) => api.get(`/accounting/invoices/${id}`),
   create: (data) => api.post('/accounting/invoices', data),

@@ -4,7 +4,7 @@ import {
   FileText, Image, Truck, Download, LayoutGrid, List,
   ChevronUp, Wrench, CheckCircle, AlertTriangle, XCircle, Eye,
   ChevronsLeft, ChevronsRight, ChevronLeft, RefreshCw, SlidersHorizontal,
-  Copy, Columns, X, Scale, CalendarClock,
+  Copy, Columns, X, Scale, CalendarClock, Save, Bookmark,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useSearchParams } from 'react-router-dom'
@@ -14,26 +14,17 @@ import EquipmentModal from './EquipmentModal'
 import EquipmentSlideOver, { AuthImage } from './EquipmentSlideOver'
 import StatusChangeModal from './StatusChangeModal'
 import CompareModal from './CompareModal'
+import BulkEditModal from './BulkEditModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
+import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, INSPECTION_THRESHOLDS } from '../../constants/garage'
+import { useGarageWebSocket } from '../../hooks/useGarageWebSocket'
 
 /* ─── Sabitlər ───────────────────────────────────────────────────────────── */
-const STATUS_CFG = {
-  AVAILABLE:      { label: 'Mövcud',              cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
-  RENTED:         { label: 'İcarədə',             cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  IN_TRANSIT:     { label: 'Yolda',               cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' },
-  IN_INSPECTION:  { label: 'Baxışdadır',          cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
-  DEFECTIVE:      { label: 'Nasaz',               cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda',   cls: 'bg-gray-100 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
-}
-const OWN_LABEL  = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
-const fmtMoney   = (v) => v != null ? `${Number(v).toLocaleString()} ₼` : '—'
-const fmtDate    = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—'
-const dash       = (v) => (v != null && v !== '') ? v : '—'
 const PAGE_SIZES = [15, 25, 50, 100]
 
 const STAT_CARDS = [
@@ -308,103 +299,158 @@ export default function GaragePage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [filterOpen, colMenuOpen])
 
-  const load = async () => {
-    setLoading(true)
+  // Server-side pagination state
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  // All equipment for stats (lightweight fetch on mount)
+  const [allEquipment, setAllEquipment] = useState([])
+
+  // Filter presets
+  const [presets, setPresets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('garage_filter_presets')) || [] } catch { return [] }
+  })
+  const [presetMenuOpen, setPresetMenuOpen] = useState(false)
+  const presetMenuRef = useRef(null)
+
+  // Bulk edit modal
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
+
+  const loadStats = useCallback(async () => {
     try {
       const res = await garageApi.getAll()
       const data = res.data.data || res.data || []
-      setEquipment(data)
+      setAllEquipment(data)
+    } catch { /* silent */ }
+  }, [])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const effectiveStatus = quickFilter !== 'ALL' ? quickFilter : (statusFilter || undefined)
+      const params = {
+        page: page - 1,
+        size: pageSize,
+        sortBy: sortField,
+        sortDir,
+        search: search || undefined,
+        status: effectiveStatus,
+        ownershipType: ownershipFilter || undefined,
+        type: typeFilter || undefined,
+        brand: brandFilter || undefined,
+        location: locationFilter || undefined,
+        priceMin: priceMin || undefined,
+        priceMax: priceMax || undefined,
+        yearMin: yearMin || undefined,
+        yearMax: yearMax || undefined,
+        motoMin: motoMin || undefined,
+        motoMax: motoMax || undefined,
+      }
+      const res = await garageApi.getAllPaged(params)
+      const paged = res.data.data || res.data
+      setEquipment(paged.content || [])
+      setTotalElements(paged.totalElements || 0)
+      setTotalPages(paged.totalPages || 1)
       setSelected(new Set())
-      setSlideOver(prev => prev ? (data.find(e => e.id === prev.id) ?? prev) : null)
+      setSlideOver(prev => prev ? ((paged.content || []).find(e => e.id === prev.id) ?? prev) : null)
     } catch { toast.error('Texnikalar yüklənmədi') }
     finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [])
+  }, [page, pageSize, sortField, sortDir, search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax])
 
-  /* ── Unique values for filter dropdowns ── */
-  const uniqueTypes = useMemo(() => [...new Set(equipment.map(e => e.type).filter(Boolean))].sort(), [equipment])
-  const uniqueLocations = useMemo(() => [...new Set(equipment.map(e => e.storageLocation).filter(Boolean))].sort(), [equipment])
-  const uniqueBrands = useMemo(() => [...new Set(equipment.map(e => e.brand).filter(Boolean))].sort(), [equipment])
-  const uniqueYears = useMemo(() => [...new Set(equipment.map(e => e.manufactureYear).filter(Boolean))].sort((a, b) => b - a), [equipment])
+  useEffect(() => { load() }, [load])
+  useEffect(() => { loadStats() }, [loadStats])
 
-  /* ── Stats ── */
+  // WebSocket — auto-reload on changes from other users
+  useGarageWebSocket(useCallback((msg) => {
+    load()
+    loadStats()
+  }, [load, loadStats]))
+
+  /* ── Unique values for filter dropdowns (from full dataset) ── */
+  const uniqueTypes = useMemo(() => [...new Set(allEquipment.map(e => e.type).filter(Boolean))].sort(), [allEquipment])
+  const uniqueLocations = useMemo(() => [...new Set(allEquipment.map(e => e.storageLocation).filter(Boolean))].sort(), [allEquipment])
+  const uniqueBrands = useMemo(() => [...new Set(allEquipment.map(e => e.brand).filter(Boolean))].sort(), [allEquipment])
+  const uniqueYears = useMemo(() => [...new Set(allEquipment.map(e => e.manufactureYear).filter(Boolean))].sort((a, b) => b - a), [allEquipment])
+
+  /* ── Stats (from full dataset) ── */
   const stats = useMemo(() => {
-    const s = { ALL: equipment.length }
-    Object.keys(STATUS_CFG).forEach(k => { s[k] = equipment.filter(e => e.status === k).length })
+    const s = { ALL: allEquipment.length }
+    Object.keys(STATUS_CFG).forEach(k => { s[k] = allEquipment.filter(e => e.status === k).length })
     return s
-  }, [equipment])
+  }, [allEquipment])
 
   /* ── Mini stats ── */
   const miniStats = useMemo(() => {
-    if (!equipment.length) return null
-    const totalValue = equipment.reduce((s, e) => s + (Number(e.currentMarketValue) || 0), 0)
-    const motoArr = equipment.map(e => Number(e.motoHours) || 0).filter(Boolean)
+    if (!allEquipment.length) return null
+    const totalValue = allEquipment.reduce((s, e) => s + (Number(e.currentMarketValue) || 0), 0)
+    const motoArr = allEquipment.map(e => Number(e.motoHours) || 0).filter(Boolean)
     const avgMoto = motoArr.length ? Math.round(motoArr.reduce((a, b) => a + b, 0) / motoArr.length) : 0
     return { totalValue, avgMoto }
-  }, [equipment])
+  }, [allEquipment])
 
   /* ── Inspection warnings ── */
   const inspectionWarnings = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
-    return equipment.filter(e => {
+    return allEquipment.filter(e => {
       if (!e.nextInspectionDate) return false
       const next = new Date(e.nextInspectionDate); next.setHours(0, 0, 0, 0)
       const diff = Math.ceil((next - today) / (1000 * 60 * 60 * 24))
-      return diff <= 7
+      return diff <= INSPECTION_THRESHOLDS.URGENT
     })
-  }, [equipment])
+  }, [allEquipment])
 
-  /* ── Filtered ── */
-  const filtered = useMemo(() => equipment.filter((e) => {
-    const q = search.toLowerCase()
-    if (q && !(e.name?.toLowerCase().includes(q) || e.brand?.toLowerCase().includes(q) ||
-      e.model?.toLowerCase().includes(q) || e.equipmentCode?.toLowerCase().includes(q) ||
-      e.serialNumber?.toLowerCase().includes(q) || e.storageLocation?.toLowerCase().includes(q))) return false
-    if (statusFilter && e.status !== statusFilter) return false
-    if (ownershipFilter && e.ownershipType !== ownershipFilter) return false
-    if (typeFilter && e.type !== typeFilter) return false
-    if (locationFilter && e.storageLocation !== locationFilter) return false
-    if (brandFilter && e.brand !== brandFilter) return false
-    if (quickFilter !== 'ALL' && e.status !== quickFilter) return false
-    const price = Number(e.purchasePrice) || 0
-    if (priceMin && price < Number(priceMin)) return false
-    if (priceMax && price > Number(priceMax)) return false
-    const year = Number(e.manufactureYear) || 0
-    if (yearMin && year < Number(yearMin)) return false
-    if (yearMax && year > Number(yearMax)) return false
-    const moto = Number(e.motoHours) || 0
-    if (motoMin && moto < Number(motoMin)) return false
-    if (motoMax && moto > Number(motoMax)) return false
-    return true
-  }), [equipment, search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax])
-
-  /* ── Sorted ── */
+  /* ── Sort handler ── */
   const handleSort = (field) => {
     setSortDir(prev => sortField === field ? (prev === 'asc' ? 'desc' : 'asc') : 'asc')
     setSortField(field)
   }
 
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      let av = a[sortField] ?? ''
-      let bv = b[sortField] ?? ''
-      if (sortField === 'purchasePrice' || sortField === 'currentMarketValue' || sortField === 'motoHours') {
-        av = Number(av) || 0
-        bv = Number(bv) || 0
-        return sortDir === 'asc' ? av - bv : bv - av
-      }
-      const cmp = String(av).localeCompare(String(bv), 'az')
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-  }, [filtered, sortField, sortDir])
-
-  /* ── Pagination ── */
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const safePage = Math.min(page, totalPages)
-  const paged = useMemo(() => sorted.slice((safePage - 1) * pageSize, safePage * pageSize), [sorted, safePage, pageSize])
+  /* ── Aliases for server-paged data ── */
+  const filtered = equipment
+  const sorted = equipment
+  const paged = equipment
+  const safePage = page
 
   // Reset page on filter/search change
   useEffect(() => { setPage(1) }, [search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax, pageSize])
+
+  /* ── Filter presets ── */
+  const savePreset = () => {
+    const name = prompt('Filter preset adı:')
+    if (!name?.trim()) return
+    const preset = {
+      name: name.trim(),
+      filters: { search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax },
+    }
+    const updated = [...presets.filter(p => p.name !== preset.name), preset]
+    setPresets(updated)
+    localStorage.setItem('garage_filter_presets', JSON.stringify(updated))
+    toast.success(`"${name}" preset saxlandı`)
+  }
+
+  const loadPreset = (preset) => {
+    const f = preset.filters
+    setSearch(f.search || '')
+    setStatusFilter(f.statusFilter || '')
+    setOwnershipFilter(f.ownershipFilter || '')
+    setTypeFilter(f.typeFilter || '')
+    setLocationFilter(f.locationFilter || '')
+    setBrandFilter(f.brandFilter || '')
+    setPriceMin(f.priceMin || '')
+    setPriceMax(f.priceMax || '')
+    setYearMin(f.yearMin || '')
+    setYearMax(f.yearMax || '')
+    setMotoMin(f.motoMin || '')
+    setMotoMax(f.motoMax || '')
+    setPresetMenuOpen(false)
+    toast.success(`"${preset.name}" tətbiq edildi`)
+  }
+
+  const deletePreset = (name) => {
+    const updated = presets.filter(p => p.name !== name)
+    setPresets(updated)
+    localStorage.setItem('garage_filter_presets', JSON.stringify(updated))
+  }
 
   /* ── Selection ── */
   const toggleExpand = (id) => setExpanded(prev => {
@@ -486,9 +532,13 @@ export default function GaragePage() {
   }
   const firstImg = (item) => item.images?.length ? item.images[0] : null
 
-  /* ── Excel export ── */
-  const exportExcel = () => {
-    const rows = sorted.map(e => ({
+  /* ── Excel export (uses full dataset) ── */
+  const exportExcel = async () => {
+    let exportData = allEquipment
+    if (totalElements > allEquipment.length) {
+      toast('Bütün data yüklənir...', { icon: '⏳' })
+    }
+    const rows = exportData.map(e => ({
       'Kod':             e.equipmentCode || '',
       'Ad':              e.name || '',
       'Növ':             e.type || '',
@@ -549,7 +599,7 @@ export default function GaragePage() {
             )}
           </div>
           <div className="flex items-center gap-3 text-[11px] text-gray-400">
-            <span>{equipment.length} texnika · {filtered.length} göstərilir</span>
+            <span>{allEquipment.length} texnika · {totalElements} göstərilir</span>
             {miniStats && (
               <>
                 <span>·</span>
@@ -782,14 +832,43 @@ export default function GaragePage() {
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
               </div>
+              {/* Presets */}
+              {presets.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Saxlanmış filtrlər</label>
+                  <div className="space-y-1">
+                    {presets.map(p => (
+                      <div key={p.name} className="flex items-center gap-1">
+                        <button
+                          onClick={() => loadPreset(p)}
+                          className="flex-1 text-left px-2 py-1 text-xs rounded hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-700 dark:text-gray-300 transition-colors"
+                        >
+                          <Bookmark size={10} className="inline mr-1 text-amber-500" />{p.name}
+                        </button>
+                        <button onClick={() => deletePreset(p.name)} className="p-0.5 text-gray-400 hover:text-red-500 transition-colors">
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* Footer */}
               <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-                {activeFilterCount > 0 ? (
-                  <button onClick={clearFilters}
-                    className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
-                    Filtrləri təmizlə
-                  </button>
-                ) : <span />}
+                <div className="flex items-center gap-2">
+                  {activeFilterCount > 0 && (
+                    <button onClick={clearFilters}
+                      className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
+                      Filtrləri təmizlə
+                    </button>
+                  )}
+                  {activeFilterCount > 0 && (
+                    <button onClick={savePreset}
+                      className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                      <Save size={10} /> Preset saxla
+                    </button>
+                  )}
+                </div>
                 <button onClick={() => setFilterOpen(false)}
                   className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold transition-colors">
                   Bağla
@@ -814,6 +893,15 @@ export default function GaragePage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
             >
               <RefreshCw size={13} /> Status dəyiş ({selected.size})
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setBulkEditOpen(true)}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+            >
+              <Pencil size={13} /> Toplu redaktə ({selected.size})
             </button>
           )}
           {canDelete && (
@@ -1032,10 +1120,10 @@ export default function GaragePage() {
           </div>
 
           {/* ── Pagination ── */}
-          {!loading && sorted.length > 0 && (
+          {!loading && totalElements > 0 && (
             <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 shrink-0">
               <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                <span>{sorted.length} nəticədən {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, sorted.length)}</span>
+                <span>{totalElements} nəticədən {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, totalElements)}</span>
                 <select
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
@@ -1119,6 +1207,7 @@ export default function GaragePage() {
           onClose={() => setSlideOver(null)}
           onEdit={() => openEdit(slideOver)}
           onClone={canCreate ? () => openClone(slideOver) : undefined}
+          onSaved={load}
         />
       )}
       {statusModal && (
@@ -1138,8 +1227,15 @@ export default function GaragePage() {
       )}
       {compareOpen && (
         <CompareModal
-          items={equipment.filter(e => selected.has(e.id))}
+          items={allEquipment.filter(e => selected.has(e.id))}
           onClose={() => setCompareOpen(false)}
+        />
+      )}
+      {bulkEditOpen && (
+        <BulkEditModal
+          selectedIds={[...selected]}
+          onClose={() => setBulkEditOpen(false)}
+          onSaved={() => { setBulkEditOpen(false); setSelected(new Set()); load(); loadStats() }}
         />
       )}
       <ConfirmDialog />

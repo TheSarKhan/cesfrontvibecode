@@ -3,6 +3,7 @@ import { Trash2, RotateCcw, Search, ChevronDown, ChevronRight } from 'lucide-rea
 import { trashApi } from '../../api/trash'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import Pagination from '../../components/common/Pagination'
 
 const MODULES = [
   { code: null,                    label: 'Hamısı' },
@@ -48,20 +49,25 @@ function DetailGrid({ details }) {
 
 export default function TrashPage() {
   const [activeModule, setActiveModule] = useState(null)
-  const [items, setItems] = useState([])
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(15)
   const [restoring, setRestoring] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
     setExpandedKey(null)
-    trashApi.getAll(activeModule)
-      .then(res => setItems(res.data.data || []))
+    const params = { page, size: pageSize }
+    if (activeModule) params.module = activeModule
+    if (search) params.q = search
+    trashApi.getAllPaged(params)
+      .then(res => setData(res.data.data || res.data))
       .catch(() => toast.error('Məlumatlar yüklənmədi'))
       .finally(() => setLoading(false))
-  }, [activeModule])
+  }, [activeModule, page, pageSize, search])
 
   useEffect(() => { load() }, [load])
 
@@ -85,11 +91,6 @@ export default function TrashPage() {
     setExpandedKey(prev => prev === key ? null : key)
   }
 
-  const filtered = items.filter(item =>
-    item.entityLabel?.toLowerCase().includes(search.toLowerCase()) ||
-    item.moduleName?.toLowerCase().includes(search.toLowerCase())
-  )
-
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
@@ -108,7 +109,7 @@ export default function TrashPage() {
         {MODULES.map(m => (
           <button
             key={m.code ?? 'all'}
-            onClick={() => setActiveModule(m.code)}
+            onClick={() => { setActiveModule(m.code); setPage(0) }}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
               activeModule === m.code
@@ -127,12 +128,12 @@ export default function TrashPage() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(0) }}
             placeholder="Axtar..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
           />
         </div>
-        <span className="text-sm text-gray-500 dark:text-gray-400">{filtered.length} qeyd</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{data.totalElements} qeyd</span>
       </div>
 
       {/* Table */}
@@ -143,7 +144,7 @@ export default function TrashPage() {
               <div key={i} className="h-14 border-b border-gray-50 dark:border-gray-700/50 animate-pulse bg-gray-50 dark:bg-gray-700/30" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : data.content.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
             <Trash2 size={40} className="mb-3 opacity-30" />
             <p className="text-sm">Silinmiş məlumat yoxdur</p>
@@ -160,7 +161,7 @@ export default function TrashPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => {
+              {data.content.map((item) => {
                 const key = item.id + item.entityType
                 const isExpanded = expandedKey === key
                 return (
@@ -218,6 +219,15 @@ export default function TrashPage() {
           </table>
         )}
       </div>
+
+      <Pagination
+        page={data.page + 1}
+        pageSize={data.size}
+        totalPages={data.totalPages}
+        totalElements={data.totalElements}
+        onPage={(p) => setPage(p - 1)}
+        onPageSize={(s) => { setPageSize(s); setPage(0) }}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Search, Clock, Zap, CheckCircle, TrendingUp, ChevronRight, FileText, FolderKanban } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import ProjectSlideOver from './ProjectSlideOver'
@@ -7,6 +7,8 @@ import { clsx } from 'clsx'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
+import Pagination from '../../components/common/Pagination'
+import { useSearchParams } from 'react-router-dom'
 
 const STATUS_CONFIG = {
   PENDING:   { label: 'Gözləmədə', cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
@@ -15,6 +17,18 @@ const STATUS_CONFIG = {
 }
 
 const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
+
+function calcDuration(p) {
+  const s = p.startDate ?? p.planStartDate
+  const e = p.endDate ?? p.planEndDate
+  if (s && e) {
+    const days = Math.ceil((new Date(e) - new Date(s)) / 86400000)
+    return p.projectType === 'MONTHLY' ? `${Math.round(days / 30)} ay` : `${days} gün`
+  }
+  const n = p.planDayCount ?? p.dayCount
+  if (!n) return '—'
+  return p.projectType === 'MONTHLY' ? `${n} ay` : `${n} gün`
+}
 const OWNERSHIP = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
 
 function StatCard({ icon: Icon, label, value, sub, color }) {
@@ -33,57 +47,61 @@ function StatCard({ icon: Icon, label, value, sub, color }) {
 }
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState([])
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
+  const [allProjects, setAllProjects] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState(null)
   const searchRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const search = searchParams.get('q') || ''
+  const statusFilter = searchParams.get('status') || ''
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = parseInt(searchParams.get('size') || '15')
+
+  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
+  const setStatusFilter = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('status', v) : n.delete('status'); n.delete('page'); return n }, { replace: true })
 
   usePageShortcuts({ searchRef })
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await projectsApi.getAll()
-      const data = res.data.data || res.data || []
-      setProjects(data)
-      // Refresh selected if open
-      setSelected(prev => prev ? (data.find(p => p.id === prev.id) ?? prev) : null)
+      const params = { page, size: pageSize }
+      if (search) params.q = search
+      if (statusFilter) params.status = statusFilter
+      const res = await projectsApi.getAllPaged(params)
+      const paged = res.data.data || res.data
+      setData(paged)
+      setSelected(prev => prev ? (paged.content.find(p => p.id === prev.id) ?? prev) : null)
     } catch {
       toast.error('Layihələr yüklənmədi')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, pageSize, search, statusFilter])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
-  const filtered = useMemo(() => {
-    return projects.filter((p) => {
-      const q = search.toLowerCase()
-      const matchSearch = !q ||
-        p.projectCode?.toLowerCase().includes(q) ||
-        p.requestCode?.toLowerCase().includes(q) ||
-        p.companyName?.toLowerCase().includes(q) ||
-        p.projectName?.toLowerCase().includes(q) ||
-        p.region?.toLowerCase().includes(q) ||
-        p.equipmentName?.toLowerCase().includes(q) ||
-        p.contractorName?.toLowerCase().includes(q)
-      const matchStatus = !statusFilter || p.status === statusFilter
-      return matchSearch && matchStatus
-    })
-  }, [projects, search, statusFilter])
+  // Load all projects for stats cards
+  useEffect(() => {
+    projectsApi.getAll().then(res => setAllProjects(res.data.data || res.data || [])).catch(() => {})
+  }, [data])
 
   const stats = useMemo(() => {
-    const pending   = projects.filter(p => p.status === 'PENDING').length
-    const active    = projects.filter(p => p.status === 'ACTIVE').length
-    const completed = projects.filter(p => p.status === 'COMPLETED').length
-    const totalNet  = projects
+    const pending   = allProjects.filter(p => p.status === 'PENDING').length
+    const active    = allProjects.filter(p => p.status === 'ACTIVE').length
+    const completed = allProjects.filter(p => p.status === 'COMPLETED').length
+    const totalNet = allProjects
       .filter(p => ['ACTIVE', 'COMPLETED'].includes(p.status))
-      .reduce((s, p) => s + parseFloat(p.netProfit ?? 0), 0)
+      .reduce((s, p) => {
+        const rev = parseFloat(p.totalRevenue || 0) + parseFloat(p.planEquipmentPrice || 0)
+        const exp = parseFloat(p.totalExpense  || 0) + parseFloat(p.planTransportationPrice || 0)
+                  + parseFloat(p.planOperatorPayment || 0) + parseFloat(p.contractorPayment || 0)
+        return s + (rev - exp)
+      }, 0)
     return { pending, active, completed, totalNet }
-  }, [projects])
+  }, [allProjects])
 
   const fmtMoney = (v) => parseFloat(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
   const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
@@ -94,7 +112,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Layihələr</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{projects.length} layihə</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} layihə</p>
         </div>
       </div>
 
@@ -155,16 +173,22 @@ export default function ProjectsPage() {
             <tbody>
               {loading ? (
                 <TableSkeleton cols={8} rows={6} />
-              ) : filtered.length === 0 ? (
+              ) : data.content.length === 0 ? (
                 <EmptyState
                   icon={FolderKanban}
                   title="Layihə tapılmadı"
-                  description={projects.length === 0 ? 'Koordinator sorğu qəbul etdikdən sonra layihələr burada görünəcək' : 'Axtarış şərtlərini dəyişin'}
+                  description={data.totalElements === 0 ? 'Koordinator sorğu qəbul etdikdən sonra layihələr burada görünəcək' : 'Axtarış şərtlərini dəyişin'}
                 />
               ) : (
-                filtered.map((p) => {
+                data.content.map((p) => {
                   const status = STATUS_CONFIG[p.status] || STATUS_CONFIG.PENDING
-                  const net = parseFloat(p.netProfit ?? (parseFloat(p.totalRevenue ?? 0) - parseFloat(p.totalExpense ?? 0)))
+                  const planRevenue  = parseFloat(p.planEquipmentPrice    || 0)
+                  const planExpenses = parseFloat(p.planTransportationPrice || 0)
+                                     + parseFloat(p.planOperatorPayment    || 0)
+                                     + parseFloat(p.contractorPayment      || 0)
+                  const totalRevAll  = parseFloat(p.totalRevenue || 0) + planRevenue
+                  const totalExpAll  = parseFloat(p.totalExpense || 0) + planExpenses
+                  const net          = totalRevAll - totalExpAll
                   const isSelected = selected?.id === p.id
 
                   return (
@@ -202,7 +226,12 @@ export default function ProjectsPage() {
                         {p.equipmentName ? (
                           <div>
                             <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{p.equipmentName}</p>
-                            <p className="text-[10px] text-gray-400">{p.equipmentCode}</p>
+                            <p className="text-[10px] text-gray-400">
+                              {[p.equipmentCode, p.equipmentBrand, p.equipmentModel].filter(Boolean).join(' · ')}
+                            </p>
+                            {p.equipmentType && (
+                              <p className="text-[10px] text-gray-400">{p.equipmentType}</p>
+                            )}
                             <span className={clsx('text-[10px] font-medium',
                               p.ownershipType === 'CONTRACTOR' ? 'text-orange-500' :
                               p.ownershipType === 'INVESTOR'   ? 'text-blue-500' : 'text-green-500'
@@ -212,6 +241,9 @@ export default function ProjectsPage() {
                             {p.ownershipType === 'CONTRACTOR' && p.contractorName && (
                               <p className="text-[10px] text-orange-400">{p.contractorName}</p>
                             )}
+                            {p.ownershipType === 'INVESTOR' && p.investorName && (
+                              <p className="text-[10px] text-blue-400">{p.investorName}</p>
+                            )}
                           </div>
                         ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
@@ -220,16 +252,16 @@ export default function ProjectsPage() {
                       <td className="py-3 px-4">
                         {p.projectType && (
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {PROJ_TYPE[p.projectType]} · {p.dayCount || '—'} gün
+                            {PROJ_TYPE[p.projectType]} · {calcDuration(p)}
                           </p>
                         )}
-                        {p.startDate && <p className="text-[10px] text-gray-400">{fmt(p.startDate)}</p>}
-                        {p.endDate && (
+                        {(p.startDate ?? p.planStartDate) && <p className="text-[10px] text-gray-400">{fmt(p.startDate ?? p.planStartDate)}</p>}
+                        {(p.endDate ?? p.planEndDate) && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-[10px] text-gray-400">→ {fmt(p.endDate)}</p>
+                            <p className="text-[10px] text-gray-400">→ {fmt(p.endDate ?? p.planEndDate)}</p>
                             {p.status === 'ACTIVE' && (() => {
                               const today = new Date(); today.setHours(0,0,0,0)
-                              const end = new Date(p.endDate); end.setHours(0,0,0,0)
+                              const end = new Date(p.endDate ?? p.planEndDate); end.setHours(0,0,0,0)
                               const diff = Math.ceil((end - today) / 86400000)
                               if (diff < 0) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">Vaxtı keçib</span>
                               if (diff <= 3) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 whitespace-nowrap">{diff}g qalıb</span>
@@ -253,16 +285,14 @@ export default function ProjectsPage() {
 
                       {/* Maliyyə */}
                       <td className="py-3 px-4">
-                        {(p.totalRevenue != null || p.totalExpense != null) ? (
-                          <div>
-                            <p className="text-[10px] text-red-500">−{fmtMoney(p.totalExpense)} ₼</p>
-                            <p className="text-[10px] text-green-600">+{fmtMoney(p.totalRevenue)} ₼</p>
-                            <p className={clsx('text-xs font-bold border-t border-gray-100 dark:border-gray-700 pt-0.5 mt-0.5',
-                              net >= 0 ? 'text-green-600' : 'text-red-500')}>
-                              {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
-                            </p>
-                          </div>
-                        ) : <span className="text-xs text-gray-400">—</span>}
+                        <div>
+                          <p className="text-[10px] text-green-600">+{fmtMoney(totalRevAll)} ₼</p>
+                          <p className="text-[10px] text-red-500">−{fmtMoney(totalExpAll)} ₼</p>
+                          <p className={clsx('text-xs font-bold border-t border-gray-100 dark:border-gray-700 pt-0.5 mt-0.5',
+                            net >= 0 ? 'text-green-600' : 'text-red-500')}>
+                            {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
+                          </p>
+                        </div>
                       </td>
 
                       {/* Status */}
@@ -270,9 +300,9 @@ export default function ProjectsPage() {
                         <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', status.cls)}>
                           {status.label}
                         </span>
-                        {p.ownershipType === 'CONTRACTOR' && p.contractorAmount > 0 && (
+                        {p.ownershipType === 'CONTRACTOR' && p.contractorPayment > 0 && (
                           <p className="text-[10px] text-orange-500 mt-1">
-                            Podratçı: {fmtMoney(p.contractorAmount)} ₼
+                            Podratçı: {fmtMoney(p.contractorPayment)} ₼
                           </p>
                         )}
                       </td>
@@ -293,12 +323,21 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      <Pagination
+        page={data.page + 1}
+        pageSize={data.size}
+        totalPages={data.totalPages}
+        totalElements={data.totalElements}
+        onPage={(p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p - 1)); return n }, { replace: true })}
+        onPageSize={(s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })}
+      />
+
       {/* SlideOver */}
       {selected && (
         <ProjectSlideOver
           project={selected}
           onClose={() => setSelected(null)}
-          onSaved={load}
+          onSaved={() => load()}
         />
       )}
     </div>

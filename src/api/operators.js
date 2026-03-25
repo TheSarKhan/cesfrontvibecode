@@ -2,6 +2,7 @@ import api from './axios'
 
 export const operatorsApi = {
   getAll: () => api.get('/operators'),
+  getAllPaged: (params) => api.get('/operators/paged', { params }),
   getById: (id) => api.get(`/operators/${id}`),
   create: (data) => api.post('/operators', data),
   update: (id, data) => api.put(`/operators/${id}`, data),

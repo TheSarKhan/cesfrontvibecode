@@ -21,6 +21,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
+import Pagination from '../../components/common/Pagination'
 
 /* ─── Sabitlər ─────────────────────────────────────────────────────────────── */
 const fmtMoney = (v) => v != null
@@ -98,6 +99,9 @@ export default function AccountingPage() {
 
   const [activeTab, setActiveTab] = useState('overview')
   const [invoices, setInvoices] = useState([])
+  const [invoiceData, setInvoiceData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
+  const [invoicePage, setInvoicePage] = useState(0)
+  const [invoicePageSize, setInvoicePageSize] = useState(15)
   const [transactions, setTransactions] = useState([])
   const [payments, setPayments] = useState([])
   const [budgets, setBudgets] = useState([])
@@ -159,6 +163,23 @@ export default function AccountingPage() {
   }, [])
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  // Reset invoice page when filters change
+  useEffect(() => { setInvoicePage(0) }, [invoiceTab, search])
+
+  // ── Paged invoices for the table ──
+  const loadInvoices = useCallback(async () => {
+    if (activeTab !== 'invoices') return
+    try {
+      const params = { page: invoicePage, size: invoicePageSize }
+      if (invoiceTab) params.type = invoiceTab
+      if (search) params.q = search
+      const res = await accountingApi.getAllPaged(params)
+      setInvoiceData(res.data.data || res.data)
+    } catch { /* silent */ }
+  }, [activeTab, invoicePage, invoicePageSize, invoiceTab, search])
+
+  useEffect(() => { loadInvoices() }, [loadInvoices])
 
   /* ── Computed ── */
   const totalIncome = useMemo(() =>
@@ -256,7 +277,7 @@ export default function AccountingPage() {
   /* ── Delete handlers ── */
   const handleDeleteInvoice = async (inv) => {
     if (!(await confirm({ title: 'Qaiməni sil', message: `"${inv.invoiceNumber || `#${inv.id}`}" silinsin?` }))) return
-    try { await accountingApi.delete(inv.id); toast.success('Qaimə silindi'); loadAll() }
+    try { await accountingApi.delete(inv.id); toast.success('Qaimə silindi'); loadAll(); loadInvoices() }
     catch (err) { if (!err?.isPending) toast.error('Silmə uğursuz oldu') }
   }
 
@@ -577,11 +598,11 @@ export default function AccountingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? <TableSkeleton cols={7} rows={5} /> : filteredInvoices.length === 0 ? (
+                  {loading ? <TableSkeleton cols={7} rows={5} /> : invoiceData.content.length === 0 ? (
                     <EmptyState icon={Receipt} title="Qaimə tapılmadı" description="Yeni qaimə əlavə edin"
                       action={canCreate ? () => setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null }) : undefined}
                       actionLabel="Yeni Qaimə" />
-                  ) : filteredInvoices.map(inv => {
+                  ) : invoiceData.content.map(inv => {
                     const typeCfg = TYPE_CONFIG[inv.type] || TYPE_CONFIG.INCOME
                     return (
                       <tr key={inv.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
@@ -617,13 +638,19 @@ export default function AccountingPage() {
                 </tbody>
               </table>
             </div>
-            {filteredInvoices.length > 0 && (
+            {invoiceData.totalElements > 0 && (
               <div className="flex items-center justify-end gap-4 px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750 text-xs">
-                <span className="text-gray-500">{filteredInvoices.length} qaimə</span>
-                <span className="font-semibold text-green-600">Gəlir: +{fmtMoney(filteredInvoices.filter(i => i.type === 'INCOME').reduce((s, i) => s + parseFloat(i.amount || 0), 0))}</span>
-                <span className="font-semibold text-red-500">Xərc: −{fmtMoney(filteredInvoices.filter(i => i.type !== 'INCOME').reduce((s, i) => s + parseFloat(i.amount || 0), 0))}</span>
+                <span className="text-gray-500">{invoiceData.totalElements} qaimə</span>
               </div>
             )}
+            <Pagination
+              page={invoiceData.page + 1}
+              pageSize={invoiceData.size}
+              totalPages={invoiceData.totalPages}
+              totalElements={invoiceData.totalElements}
+              onPage={(p) => setInvoicePage(p - 1)}
+              onPageSize={(s) => { setInvoicePageSize(s); setInvoicePage(0) }}
+            />
           </div>
         </div>
       )}
@@ -904,7 +931,7 @@ export default function AccountingPage() {
           defaultType={invoiceModal.defaultType}
           preProject={invoiceModal.preProject}
           onClose={() => setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null })}
-          onSaved={() => { setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null }); loadAll() }}
+          onSaved={() => { setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null }); loadAll(); loadInvoices() }}
         />
       )}
 

@@ -1,19 +1,7 @@
 import { X } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-
-const STATUS_CFG = {
-  AVAILABLE:      { label: 'Mövcud',            cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400' },
-  RENTED:         { label: 'İcarədə',           cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400' },
-  IN_TRANSIT:     { label: 'Yolda',             cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400' },
-  IN_INSPECTION:  { label: 'Baxışdadır',        cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400' },
-  DEFECTIVE:      { label: 'Nasaz',             cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400' },
-}
-const OWN = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
-const fmt = (v) => v != null ? `${Number(v).toLocaleString()} ₼` : '—'
-const d = (v) => (v != null && v !== '') ? v : '—'
-const fmtDate = (v) => v ? new Date(v).toLocaleDateString('az-AZ') : '—'
+import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash } from '../../constants/garage'
 
 const ROWS = [
   { label: 'Kod', fn: e => e.equipmentCode },
@@ -21,14 +9,14 @@ const ROWS = [
   { label: 'Brend', fn: e => e.brand },
   { label: 'Model', fn: e => e.model },
   { label: 'İstehsal ili', fn: e => e.manufactureYear, compare: 'max' },
-  { label: 'Alış qiyməti', fn: e => e.purchasePrice != null ? fmt(e.purchasePrice) : '—', raw: e => Number(e.purchasePrice) || 0, compare: 'min' },
-  { label: 'Bazar dəyəri', fn: e => e.currentMarketValue != null ? fmt(e.currentMarketValue) : '—', raw: e => Number(e.currentMarketValue) || 0, compare: 'max' },
+  { label: 'Alış qiyməti', fn: e => e.purchasePrice != null ? fmtMoney(e.purchasePrice) : '—', raw: e => Number(e.purchasePrice) || 0, compare: 'min' },
+  { label: 'Bazar dəyəri', fn: e => e.currentMarketValue != null ? fmtMoney(e.currentMarketValue) : '—', raw: e => Number(e.currentMarketValue) || 0, compare: 'max' },
   { label: 'Moto saatlar', fn: e => e.motoHours != null ? `${Number(e.motoHours).toLocaleString()} s` : '—', raw: e => Number(e.motoHours) || 0 },
-  { label: 'Saat / KM', fn: e => d(e.hourKmCounter) },
+  { label: 'Saat / KM', fn: e => dash(e.hourKmCounter) },
   { label: 'Amortizasiya', fn: e => e.depreciationRate != null ? `${e.depreciationRate}%` : '—' },
   { label: 'Status', fn: e => null, status: true },
-  { label: 'Mülkiyyət', fn: e => OWN[e.ownershipType] || '—' },
-  { label: 'Saxlanma yeri', fn: e => d(e.storageLocation) },
+  { label: 'Mülkiyyət', fn: e => OWN_LABEL[e.ownershipType] || '—' },
+  { label: 'Saxlanma yeri', fn: e => dash(e.storageLocation) },
   { label: 'Son baxış', fn: e => fmtDate(e.lastInspectionDate) },
   { label: 'Növbəti baxış', fn: e => fmtDate(e.nextInspectionDate) },
 ]

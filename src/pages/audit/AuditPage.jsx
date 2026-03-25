@@ -13,16 +13,21 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 
 const ENTITY_TYPES = [
   'MÜŞTƏRİ', 'PODRATÇI', 'İNVESTOR', 'OPERATOR',
-  'SORĞU', 'LAYİHƏ', 'FAKTURA',
+  'TEXNİKA', 'SORĞU', 'LAYİHƏ', 'FAKTURA',
+  'İSTİFADƏÇİ', 'ŞÖBƏ', 'ROL', 'SİSTEM', 'TƏSDİQ',
 ]
 
-const ACTIONS = ['YARADILDI', 'YENİLƏNDİ', 'SİLİNDİ', 'BƏRPA EDİLDİ']
+const ACTIONS = ['YARADILDI', 'YENİLƏNDİ', 'SİLİNDİ', 'BƏRPA EDİLDİ', 'GİRİŞ ETDİ', 'ÇIXIŞ ETDİ', 'TƏSDİQLƏNDİ', 'RƏDD EDİLDİ']
 
 const ACTION_CONFIG = {
-  YARADILDI:    { icon: PlusCircle,  color: 'text-green-600',  bg: 'bg-green-50 dark:bg-green-900/20',  badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-  YENİLƏNDİ:   { icon: Edit3,       color: 'text-blue-600',   bg: 'bg-blue-50 dark:bg-blue-900/20',    badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  SİLİNDİ:     { icon: Trash2,      color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-900/20',      badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-  'BƏRPA EDİLDİ': { icon: RotateCcw, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  YARADILDI:      { icon: PlusCircle,  color: 'text-green-600',  bg: 'bg-green-50 dark:bg-green-900/20',   badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+  YENİLƏNDİ:     { icon: Edit3,       color: 'text-blue-600',   bg: 'bg-blue-50 dark:bg-blue-900/20',     badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  SİLİNDİ:       { icon: Trash2,      color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-900/20',       badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+  'BƏRPA EDİLDİ':{ icon: RotateCcw,   color: 'text-amber-600',  bg: 'bg-amber-50 dark:bg-amber-900/20',   badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  'GİRİŞ ETDİ':  { icon: History,     color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-900/20', badge: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
+  'ÇIXIŞ ETDİ':  { icon: History,     color: 'text-gray-500',   bg: 'bg-gray-50 dark:bg-gray-800',        badge: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
+  TƏSDİQLƏNDİ:   { icon: PlusCircle,  color: 'text-teal-600',   bg: 'bg-teal-50 dark:bg-teal-900/20',     badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
+  'RƏDD EDİLDİ': { icon: Trash2,      color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
 }
 
 function fmtDateTime(str) {
@@ -67,11 +72,13 @@ export default function AuditPage() {
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   usePageShortcuts({ searchRef })
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await auditApi.getAll({
         q: q || undefined,
@@ -86,8 +93,9 @@ export default function AuditPage() {
       setLogs(data?.content || [])
       setTotalElements(data?.totalElements || 0)
       setTotalPages(data?.totalPages || 0)
-    } catch {
+    } catch (err) {
       setLogs([])
+      setError(err?.response?.status === 403 ? 'Bu bölməyə baxmaq üçün icazəniz yoxdur' : 'Məlumatlar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -199,6 +207,10 @@ export default function AuditPage() {
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {loading ? (
               <TableSkeleton cols={6} rows={10} />
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-sm text-red-500">{error}</td>
+              </tr>
             ) : logs.length === 0 ? (
               <EmptyState
                 icon={History}

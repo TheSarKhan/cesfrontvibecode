@@ -15,6 +15,7 @@ import {
   Trash2,
   LayoutDashboard,
   History,
+  Settings,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -121,6 +122,13 @@ export const NAV_ITEMS = [
     path: '/trash',
     icon: Trash2,
     module: 'TRASH',
+  },
+  {
+    id: 'config',
+    label: 'Konfiqurasiya',
+    path: '/config',
+    icon: Settings,
+    module: 'CONFIG',
   },
   {
     id: 'audit',

@@ -2,6 +2,7 @@ import axiosInstance from './axios'
 
 export const usersApi = {
   getAll: () => axiosInstance.get('/users'),
+  getAllPaged: (params) => axiosInstance.get('/users/paged', { params }),
   getById: (id) => axiosInstance.get(`/users/${id}`),
   create: (data) => axiosInstance.post('/users', data),
   update: (id, data) => axiosInstance.put(`/users/${id}`, data),

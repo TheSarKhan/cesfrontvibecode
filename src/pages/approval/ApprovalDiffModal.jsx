@@ -6,6 +6,57 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
+const FIELD_LABELS = {
+  // Ümumi
+  createdAt: 'Yaradılma tarixi', updatedAt: 'Yenilənmə tarixi',
+  // Şirkət/Müştəri/Podratçı/İnvestor
+  companyName: 'Şirkət adı', voen: 'VÖEN', contactPerson: 'Əlaqə şəxsi',
+  phone: 'Telefon', address: 'Ünvan', notes: 'Qeydlər',
+  status: 'Status', riskLevel: 'Risk səviyyəsi', rating: 'Reytinq',
+  paymentType: 'Ödəniş növü', email: 'E-poçt',
+  investmentAmount: 'İnvestisiya məbləği', sharePercent: 'Pay faizi',
+  // Operator
+  firstName: 'Ad', lastName: 'Soyad', specialization: 'İxtisas', busy: 'Məşğul',
+  // Texnika
+  equipmentCode: 'Texnika kodu', name: 'Adı', type: 'Növ', brand: 'Marka', model: 'Model',
+  serialNumber: 'Seriya nömrəsi', plateNumber: 'Qeydiyyat nişanı',
+  yearOfManufacture: 'İstehsal ili', manufactureYear: 'İstehsal ili',
+  ownershipType: 'Mülkiyyət növü',
+  dailyRate: 'Günlük tarif', monthlyRate: 'Aylıq tarif',
+  purchaseDate: 'Alış tarixi', purchasePrice: 'Alış qiyməti',
+  currentMarketValue: 'Cari bazar dəyəri', depreciationRate: 'Amortizasiya faizi (%)',
+  hourKmCounter: 'Saat/Km sayğacı', motoHours: 'Moto saatlar',
+  weightTon: 'Çəki (ton)', storageLocation: 'Saxlanma yeri',
+  responsibleUserName: 'Məsul şəxs',
+  ownerContractorName: 'Sahibi (podratçı)', ownerContractorVoen: 'Sahibi VÖEN',
+  ownerContractorPhone: 'Sahibi telefon', ownerContractorContact: 'Sahibi əlaqə şəxsi',
+  ownerInvestorName: 'Sahibi (investor)', ownerInvestorVoen: 'Sahibi VÖEN',
+  ownerInvestorPhone: 'Sahibi telefon',
+  lastInspectionDate: 'Son texniki baxış', nextInspectionDate: 'Növbəti texniki baxış',
+  technicalReadinessStatus: 'Texniki hazırlıq', repairStatus: 'Təmir statusu',
+  safetyEquipment: 'Təhlükəsizlik avadanlığı',
+  // Koordinator planı
+  equipmentPrice: 'Texnika qiyməti', transportationPrice: 'Nəqliyyat qiyməti',
+  operatorPayment: 'Operator haqqı', contractorPayment: 'Podratçı ödənişi',
+  dayCount: 'Gün sayı', startDate: 'Başlanğıc tarixi', endDate: 'Bitmə tarixi',
+  operatorName: 'Operator', selectedEquipmentCode: 'Seçilmiş texnika',
+  // Faktura
+  invoiceNumber: 'Faktura nömrəsi', amount: 'Məbləğ', invoiceDate: 'Faktura tarixi',
+  equipmentName: 'Texnika adı', serviceDescription: 'Xidmət təsviri',
+  etaxesId: 'ETaxes ID', invoiceType: 'Faktura növü',
+  projectCode: 'Layihə kodu', contractorName: 'Podratçı',
+  // Sorğu
+  requestCode: 'Sorğu kodu', requestType: 'Sorğu növü', projectType: 'Layihə növü',
+  location: 'Yer', description: 'Təsvir', requestDate: 'Sorğu tarixi',
+}
+
+// ID, texniki daxili sahələr — diff-də göstərilməsin
+const FIELD_EXCLUDE = new Set([
+  'id', 'deleted', 'deletedAt', 'documents', 'images', 'inspections',
+  'projectHistory', 'params', 'responsibleUserId',
+  'ownerContractorId', 'ownerInvestorId', 'selectedEquipmentId', 'operatorId',
+])
+
 const MODULE_LABEL = {
   CUSTOMER_MANAGEMENT: 'Müştərilər',
   CONTRACTOR_MANAGEMENT: 'Podratçılar',
@@ -30,7 +81,18 @@ const STATUS_LABEL = { PENDING: 'Gözləyir', APPROVED: 'Təsdiqləndi', REJECTE
 function formatValue(val) {
   if (val === null || val === undefined) return <span className="text-gray-400 italic text-xs">—</span>
   if (typeof val === 'boolean') return val ? 'Bəli' : 'Xeyr'
-  if (typeof val === 'object') return <span className="text-xs text-gray-500">{JSON.stringify(val)}</span>
+  if (Array.isArray(val)) {
+    if (val.length === 0) return <span className="text-gray-400 italic text-xs">Boş</span>
+    // safetyEquipment kimi {id, name} array-ları
+    if (val[0] && typeof val[0] === 'object' && val[0].name) {
+      return <span className="text-xs text-gray-600">{val.map(v => v.name).join(', ')}</span>
+    }
+    return <span className="text-xs text-gray-500">{val.join(', ')}</span>
+  }
+  if (typeof val === 'object') {
+    if (val.name) return String(val.name)
+    return <span className="text-xs text-gray-500">{JSON.stringify(val)}</span>
+  }
   return String(val)
 }
 
@@ -39,8 +101,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
 
   // Submit əməliyyatı: newSnap yoxdur, amma delete deyil (status keçidi)
   if (!isDelete && !newSnap) {
-    const EXCLUDE = new Set(['id', 'createdAt', 'updatedAt', 'deleted', 'documents', 'images', 'inspections', 'projectHistory', 'params'])
-    const keys = Object.keys(oldSnap).filter(k => !EXCLUDE.has(k) && oldSnap[k] != null && oldSnap[k] !== '')
+    const keys = Object.keys(oldSnap).filter(k => !FIELD_EXCLUDE.has(k) && oldSnap[k] != null && oldSnap[k] !== '' && !(Array.isArray(oldSnap[k]) && oldSnap[k].length === 0))
     return (
       <div>
         <div className="mb-4 px-3 py-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
@@ -54,7 +115,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
             <tbody>
               {keys.map(key => (
                 <tr key={key} className="border-b border-gray-50 dark:border-gray-700/50">
-                  <td className="py-2 px-3 text-xs text-gray-400 dark:text-gray-500 w-1/3 font-medium">{key}</td>
+                  <td className="py-2 px-3 text-xs text-gray-400 dark:text-gray-500 w-1/3 font-medium">{FIELD_LABELS[key] || key}</td>
                   <td className="py-2 px-3 text-gray-700 dark:text-gray-300">{formatValue(oldSnap[key])}</td>
                 </tr>
               ))}
@@ -68,7 +129,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
   const allKeys = Array.from(new Set([
     ...Object.keys(oldSnap || {}),
     ...Object.keys(newSnap || {}),
-  ])).filter(k => !['id', 'createdAt', 'updatedAt', 'deleted', 'documents', 'images', 'inspections', 'projectHistory'].includes(k))
+  ])).filter(k => !FIELD_EXCLUDE.has(k))
 
   if (isDelete) {
     return (
@@ -83,7 +144,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
           <tbody>
             {allKeys.map(key => (
               <tr key={key} className="border-b border-gray-50 dark:border-gray-700/50">
-                <td className="py-2 px-3 text-xs text-gray-500 dark:text-gray-400 font-medium">{key}</td>
+                <td className="py-2 px-3 text-xs text-gray-500 dark:text-gray-400 font-medium">{FIELD_LABELS[key] || key}</td>
                 <td className="py-2 px-3 bg-red-50/50 dark:bg-red-900/10 text-red-700 dark:text-red-400">
                   {formatValue(oldSnap[key])}
                 </td>
@@ -111,7 +172,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
         <tbody>
           {changedKeys.map(key => (
             <tr key={key} className="border-b border-gray-50 dark:border-gray-700/50 bg-amber-50/30 dark:bg-amber-900/5">
-              <td className="py-2 px-3 text-xs font-semibold text-gray-700 dark:text-gray-300">{key}</td>
+              <td className="py-2 px-3 text-xs font-semibold text-gray-700 dark:text-gray-300">{FIELD_LABELS[key] || key}</td>
               <td className="py-2 px-3 bg-red-50/60 dark:bg-red-900/10 text-red-700 dark:text-red-400 line-through decoration-red-400">
                 {formatValue(oldSnap?.[key])}
               </td>
@@ -122,7 +183,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
           ))}
           {unchangedKeys.map(key => (
             <tr key={key} className="border-b border-gray-50 dark:border-gray-700/50">
-              <td className="py-2 px-3 text-xs text-gray-400 dark:text-gray-500">{key}</td>
+              <td className="py-2 px-3 text-xs text-gray-400 dark:text-gray-500">{FIELD_LABELS[key] || key}</td>
               <td className="py-2 px-3 text-gray-500 dark:text-gray-400 text-xs">{formatValue(oldSnap?.[key])}</td>
               <td className="py-2 px-3 text-gray-400 dark:text-gray-500 text-xs">—</td>
             </tr>

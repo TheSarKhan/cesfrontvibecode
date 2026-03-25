@@ -2,6 +2,7 @@ import api from './axios'
 
 export const customersApi = {
   getAll: (params) => api.get('/customers', { params }),
+  getAllPaged: (params) => api.get('/customers/paged', { params }),
   getById: (id) => api.get(`/customers/${id}`),
   create: (data) => api.post('/customers', data),
   update: (id, data) => api.put(`/customers/${id}`, data),

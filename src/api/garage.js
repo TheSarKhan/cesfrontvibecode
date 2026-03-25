@@ -3,12 +3,17 @@ import api from './axios'
 export const garageApi = {
   // Equipment CRUD
   getAll: (params) => api.get('/garage/equipment', { params }),
+  getAllPaged: (params) => api.get('/garage/equipment/paged', { params }),
   getById: (id) => api.get(`/garage/equipment/${id}`),
   create: (data) => api.post('/garage/equipment', data),
   update: (id, data) => api.put(`/garage/equipment/${id}`, data),
   delete: (id) => api.delete(`/garage/equipment/${id}`),
   updateStatus: (id, status, reason) => api.patch(`/garage/equipment/${id}/status`, { status, reason }),
   getStatusHistory: (id) => api.get(`/garage/equipment/${id}/status-history`),
+
+  // Status transitions & depreciation
+  getStatusTransitions: () => api.get('/garage/equipment/status-transitions'),
+  getDepreciatedValue: (id) => api.get(`/garage/equipment/${id}/depreciation`),
 
   // Inspections (no GET endpoint — inspections come embedded in getById)
   addInspection: (id, data) =>
@@ -25,13 +30,14 @@ export const garageApi = {
     api.delete(`/garage/equipment/${id}/inspections/${inspectionId}`),
 
   // Documents (no GET endpoint — documents come embedded in getById)
-  addDocument: (id, file, documentName) => {
+  addDocument: (id, file, documentName, documentType) => {
     const fd = new FormData()
     fd.append('file', file)
-    const url = documentName
-      ? `/garage/equipment/${id}/documents?documentName=${encodeURIComponent(documentName)}`
-      : `/garage/equipment/${id}/documents`
-    return api.post(url, fd, { headers: { 'Content-Type': undefined } })
+    const params = new URLSearchParams()
+    if (documentName) params.set('documentName', documentName)
+    if (documentType) params.set('documentType', documentType)
+    const qs = params.toString()
+    return api.post(`/garage/equipment/${id}/documents${qs ? '?' + qs : ''}`, fd, { headers: { 'Content-Type': undefined } })
   },
 
   deleteDocument: (id, docId) =>
