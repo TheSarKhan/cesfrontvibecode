@@ -4,6 +4,7 @@ import { trashApi } from '../../api/trash'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import Pagination from '../../components/common/Pagination'
+import { useSearchParams } from 'react-router-dom'
 
 const MODULES = [
   { code: null,                    label: 'Hamısı' },
@@ -48,14 +49,21 @@ function DetailGrid({ details }) {
 }
 
 export default function TrashPage() {
-  const [activeModule, setActiveModule] = useState(null)
   const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(15)
   const [restoring, setRestoring] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const activeModule = searchParams.get('module') || null
+  const search = searchParams.get('q') || ''
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = parseInt(searchParams.get('size') || '15')
+
+  const setActiveModule = (mod) => setSearchParams(p => { const n = new URLSearchParams(p); mod ? n.set('module', mod) : n.delete('module'); n.delete('page'); return n }, { replace: true })
+  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n }, { replace: true })
+  const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -109,7 +117,7 @@ export default function TrashPage() {
         {MODULES.map(m => (
           <button
             key={m.code ?? 'all'}
-            onClick={() => { setActiveModule(m.code); setPage(0) }}
+            onClick={() => setActiveModule(m.code)}
             className={clsx(
               'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
               activeModule === m.code
@@ -128,7 +136,7 @@ export default function TrashPage() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0) }}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Axtar..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
           />
@@ -228,6 +236,7 @@ export default function TrashPage() {
         onPage={(p) => setPage(p - 1)}
         onPageSize={(s) => { setPageSize(s); setPage(0) }}
       />
+
     </div>
   )
 }

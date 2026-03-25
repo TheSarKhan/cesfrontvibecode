@@ -8,6 +8,7 @@ import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
+import { useSearchParams } from 'react-router-dom'
 
 const PERM_LABELS = [
   { key: 'canGet', label: 'Oxumaq' },
@@ -159,10 +160,16 @@ export default function RolesView({ dept, users, departments, onBack }) {
   const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(true)
   const [roleModal, setRoleModal] = useState({ open: false, editing: null })
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(15)
+  const [searchParams, setSearchParams] = useSearchParams()
   const searchRef = useRef(null)
+
+  const search = searchParams.get('q') || ''
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = parseInt(searchParams.get('size') || '15')
+
+  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n }, { replace: true })
+  const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })
 
   usePageShortcuts({
     onNew: canCreate ? () => setRoleModal({ open: true, editing: null }) : undefined,
@@ -184,7 +191,10 @@ export default function RolesView({ dept, users, departments, onBack }) {
   }, [dept.id, page, pageSize, search])
 
   useEffect(() => { loadRoles() }, [loadRoles])
-  useEffect(() => { setPage(0) }, [dept.id])
+  // Reset page when department changes
+  useEffect(() => {
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('page'); return n }, { replace: true })
+  }, [dept.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async (role) => {
     if (!(await confirm({ title: 'Rolu sil', message: `"${role.name}" rolunu silmək istəyirsiniz?` }))) return
@@ -296,6 +306,7 @@ export default function RolesView({ dept, users, departments, onBack }) {
           onPage={(p) => setPage(p - 1)}
           onPageSize={(s) => { setPageSize(s); setPage(0) }}
         />
+
       </div>
 
       {roleModal.open && (
