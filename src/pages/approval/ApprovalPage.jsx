@@ -3,6 +3,7 @@ import { Eye, Clock, Check, XCircle, Pencil, Trash2, ClipboardCheck } from 'luci
 import { approvalApi } from '../../api/approval'
 import { useAuthStore } from '../../store/authStore'
 import ApprovalDiffModal from './ApprovalDiffModal'
+import Pagination from '../../components/common/Pagination'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 
@@ -46,6 +47,8 @@ export default function ApprovalPage() {
   const [statusFilter, setStatusFilter] = useState('PENDING')
   const [deptFilter, setDeptFilter] = useState('ALL')
   const [selectedId, setSelectedId] = useState(null)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(15)
 
   const departments = useMemo(() => {
     return user?.approvalDepartments || []
@@ -72,6 +75,9 @@ export default function ApprovalPage() {
       return matchStatus && matchDept
     })
   }, [items, statusFilter, deptFilter])
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paged = filtered.slice(page * pageSize, (page + 1) * pageSize)
 
   const pendingCount = items.filter(o => o.status === 'PENDING').length
 
@@ -113,7 +119,7 @@ export default function ApprovalPage() {
           {['', 'PENDING', 'APPROVED', 'REJECTED'].map(s => (
             <button
               key={s}
-              onClick={() => setStatusFilter(s)}
+              onClick={() => { setStatusFilter(s); setPage(0) }}
               className={clsx(
                 'px-3 py-1.5 font-medium transition-colors',
                 statusFilter === s
@@ -135,7 +141,7 @@ export default function ApprovalPage() {
         {deptOptions.length > 1 && (
           <select
             value={deptFilter}
-            onChange={e => setDeptFilter(e.target.value)}
+            onChange={e => { setDeptFilter(e.target.value); setPage(0) }}
             className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
           >
             <option value="ALL">Bütün şöbələr</option>
@@ -180,7 +186,7 @@ export default function ApprovalPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map(op => {
+                paged.map(op => {
                   const OpIcon = getOpIcon(op)
                   return (
                     <tr
@@ -236,6 +242,15 @@ export default function ApprovalPage() {
           </table>
         </div>
       </div>
+
+      <Pagination
+        page={page + 1}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        totalElements={filtered.length}
+        onPage={(p) => setPage(p - 1)}
+        onPageSize={(s) => { setPageSize(s); setPage(0) }}
+      />
 
       {selectedId && (
         <ApprovalDiffModal
