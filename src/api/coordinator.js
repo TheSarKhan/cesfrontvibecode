@@ -2,6 +2,7 @@ import api from './axios'
 
 export const coordinatorApi = {
   getRequests: () => api.get('/coordinator/requests'),
+  getRequestsPaged: (params) => api.get('/coordinator/requests/paged', { params }),
   getPlan: (requestId) => api.get(`/coordinator/requests/${requestId}/plan`),
   savePlan: (requestId, data) => api.post(`/coordinator/requests/${requestId}/plan`, data),
   submitPlan: (requestId) => api.post(`/coordinator/requests/${requestId}/submit`),

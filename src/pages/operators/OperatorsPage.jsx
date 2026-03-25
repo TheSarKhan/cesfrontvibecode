@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Pencil, Trash2, Search, CheckCircle, AlertCircle, Phone, MapPin, UserCheck, Eye,
-         ChevronUp, ChevronDown, Download, Lock } from 'lucide-react'
+         Download, Lock } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { operatorsApi } from '../../api/operators'
 import { useAuthStore } from '../../store/authStore'
@@ -13,11 +13,7 @@ import { useSearchParams } from 'react-router-dom'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
-
-function SortIcon({ field, sortField, sortDir }) {
-  if (sortField !== field) return <ChevronUp size={11} className="text-gray-300 dark:text-gray-600" />
-  return sortDir === 'asc' ? <ChevronUp size={11} className="text-amber-500" /> : <ChevronDown size={11} className="text-amber-500" />
-}
+import Pagination from '../../components/common/Pagination'
 
 export default function OperatorsPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -26,7 +22,7 @@ export default function OperatorsPage() {
   const canDelete = hasPermission('OPERATORS', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [operators, setOperators]     = useState([])
+  const [data, setData]               = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading]         = useState(true)
   const [modal, setModal]             = useState({ open: false, editing: null })
   const [selected, setSelected]       = useState(null)
@@ -36,71 +32,43 @@ export default function OperatorsPage() {
 
   // URL-based filters
   const [searchParams, setSearchParams] = useSearchParams()
-  const search   = searchParams.get('q')    || ''
-  const docFilter = searchParams.get('doc') || ''
+  const search    = searchParams.get('q')    || ''
+  const docFilter = searchParams.get('doc')  || ''
+  const page = Number(searchParams.get('page') || '0')
+  const size = Number(searchParams.get('size') || '15')
 
-  const setSearch    = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); return n }, { replace: true })
+  const setSearch    = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
   const setDocFilter = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('doc', v) : n.delete('doc'); return n }, { replace: true })
-
-  const [sortField, setSortField] = useState('fullName')
-  const [sortDir, setSortDir]     = useState('asc')
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); p > 0 ? n.set('page', String(p)) : n.delete('page'); return n }, { replace: true })
+  const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); s !== 15 ? n.set('size', String(s)) : n.delete('size'); n.delete('page'); return n }, { replace: true })
 
   usePageShortcuts({
     onNew: canCreate ? () => setModal({ open: true, editing: null }) : undefined,
     searchRef,
   })
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await operatorsApi.getAll()
-      setOperators(res.data.data || res.data || [])
+      const params = { page, size, ...(search && { q: search }) }
+      const res = await operatorsApi.getAllPaged(params)
+      setData(res.data.data || res.data)
       setSelectedIds(new Set())
     } catch {
       toast.error('Operatorlar yüklənmədi')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, size, search])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
-  const stats = useMemo(() => ({
-    total:      operators.length,
-    complete:   operators.filter(o => o.documentsComplete).length,
-    incomplete: operators.filter(o => !o.documentsComplete).length,
-    busy:       operators.filter(o => o.busy).length,
-  }), [operators])
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    return operators.filter(o => {
-      const matchSearch = !q ||
-        o.fullName?.toLowerCase().includes(q) ||
-        o.address?.toLowerCase().includes(q) ||
-        o.phone?.toLowerCase().includes(q) ||
-        o.specialization?.toLowerCase().includes(q)
-      const matchDoc =
-        docFilter === 'complete'   ? o.documentsComplete :
-        docFilter === 'incomplete' ? !o.documentsComplete :
-        docFilter === 'busy'       ? o.busy : true
-      return matchSearch && matchDoc
-    })
-  }, [operators, search, docFilter])
-
-  const handleSort = (field) => {
-    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortField(field); setSortDir('asc') }
-  }
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      const av = a[sortField] ?? ''
-      const bv = b[sortField] ?? ''
-      const cmp = String(av).localeCompare(String(bv), 'az')
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-  }, [filtered, sortField, sortDir])
+  // Client-side docFilter applied on data.content
+  const filtered = data.content.filter(o => {
+    return docFilter === 'complete'   ? o.documentsComplete :
+           docFilter === 'incomplete' ? !o.documentsComplete :
+           docFilter === 'busy'       ? o.busy : true
+  })
 
   // Bulk selection
   const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -137,12 +105,12 @@ export default function OperatorsPage() {
   }
 
   const handleUpdated = (updated) => {
-    setOperators(prev => prev.map(o => o.id === updated.id ? updated : o))
+    setData(prev => ({ ...prev, content: prev.content.map(o => o.id === updated.id ? updated : o) }))
     setSelected(updated)
   }
 
   const exportExcel = () => {
-    const rows = sorted.map(o => ({
+    const rows = filtered.map(o => ({
       'Ad Soyad':   o.fullName || '',
       'Ünvan':      o.address || '',
       'Telefon':    o.phone || '',
@@ -164,7 +132,7 @@ export default function OperatorsPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Operatorlar</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{operators.length} operator</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} operator</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -189,10 +157,10 @@ export default function OperatorsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
-          { label: 'Cəmi',         value: stats.total,      color: 'bg-gray-500' },
-          { label: 'Sənədlər tam', value: stats.complete,   color: 'bg-green-500' },
-          { label: 'Natamam',      value: stats.incomplete, color: 'bg-amber-500' },
-          { label: 'Məşğul',       value: stats.busy,       color: 'bg-blue-500' },
+          { label: 'Cəmi',         value: data.totalElements,                                           color: 'bg-gray-500' },
+          { label: 'Sənədlər tam', value: data.content.filter(o => o.documentsComplete).length,         color: 'bg-green-500' },
+          { label: 'Natamam',      value: data.content.filter(o => !o.documentsComplete).length,        color: 'bg-amber-500' },
+          { label: 'Məşğul',       value: data.content.filter(o => o.busy).length,                     color: 'bg-blue-500' },
         ].map(stat => (
           <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${stat.color}`} />
@@ -282,26 +250,12 @@ export default function OperatorsPage() {
                     className="w-4 h-4 accent-amber-500 cursor-pointer"
                   />
                 </th>
-                {[
-                  { label: 'Ad Soyad',  field: 'fullName' },
-                  { label: 'Ünvan',     field: 'address' },
-                  { label: 'Əlaqə',     field: null },
-                  { label: 'İxtisas',   field: 'specialization' },
-                  { label: 'Sənədlər',  field: null },
-                  { label: 'Status',    field: null },
-                ].map(col => (
+                {['Ad Soyad', 'Ünvan', 'Əlaqə', 'İxtisas', 'Sənədlər', 'Status'].map(label => (
                   <th
-                    key={col.label}
-                    onClick={col.field ? () => handleSort(col.field) : undefined}
-                    className={clsx(
-                      'text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide',
-                      col.field && 'cursor-pointer select-none hover:text-amber-600 dark:hover:text-amber-400'
-                    )}
+                    key={label}
+                    className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
                   >
-                    <span className="flex items-center gap-1">
-                      {col.label}
-                      {col.field && <SortIcon field={col.field} sortField={sortField} sortDir={sortDir} />}
-                    </span>
+                    {label}
                   </th>
                 ))}
                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-right">Əməliyyat</th>
@@ -310,7 +264,7 @@ export default function OperatorsPage() {
             <tbody>
               {loading ? (
                 <TableSkeleton cols={8} rows={6} />
-              ) : sorted.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <EmptyState
                   icon={UserCheck}
                   title="Operator tapılmadı"
@@ -319,7 +273,7 @@ export default function OperatorsPage() {
                   actionLabel={canCreate ? 'Yeni Operator' : undefined}
                 />
               ) : (
-                sorted.map(o => {
+                filtered.map(o => {
                   const uploadedCount = (o.documents || []).length
                   const isSelected = selected?.id === o.id
                   return (
@@ -419,6 +373,14 @@ export default function OperatorsPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={data.page + 1}
+          pageSize={data.size}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPage={(p) => setPage(p - 1)}
+          onPageSize={(s) => setPageSize(s)}
+        />
       </div>
 
       {modal.open && (

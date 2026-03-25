@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Pencil, Trash2, Settings, Search, GripVertical, ToggleLeft, ToggleRight, RefreshCw } from 'lucide-react'
 import { configApi } from '../../api/config'
 import { useAuthStore } from '../../store/authStore'
@@ -9,6 +9,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
+import Pagination from '../../components/common/Pagination'
 
 const CATEGORY_LABELS = {
   EQUIPMENT_BRAND:   'Texnika brendləri',
@@ -21,12 +22,16 @@ const CATEGORY_LABELS = {
 const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat
 
 export default function ConfigPage() {
-  const [data, setData] = useState({})         // { category: [items] }
+  const [catData, setCatData] = useState({})   // { category: [items] } for sidebar counts
   const [categories, setCategories] = useState([])
   const [activeCategory, setActiveCategory] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [tableData, setTableData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
+  const [loadingCats, setLoadingCats] = useState(true)
+  const [loadingItems, setLoadingItems] = useState(false)
   const [modal, setModal] = useState({ open: false, editing: null })
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(15)
   const searchRef = useRef(null)
 
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -40,41 +45,50 @@ export default function ConfigPage() {
     searchRef,
   })
 
-  const load = async () => {
-    setLoading(true)
+  const loadCategories = async () => {
+    setLoadingCats(true)
     try {
       const res = await configApi.getAll()
       const grouped = res.data.data || {}
-      setData(grouped)
+      setCatData(grouped)
       const cats = Object.keys(grouped)
       setCategories(cats)
       if (!activeCategory || !cats.includes(activeCategory)) {
-        setActiveCategory(cats[0] || null)
+        setActiveCategory(prev => cats.includes(prev) ? prev : (cats[0] || null))
       }
     } catch {
       toast.error('Konfiqurasiya yüklənmədi')
     } finally {
-      setLoading(false)
+      setLoadingCats(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  const loadItems = useCallback(async () => {
+    if (!activeCategory) return
+    setLoadingItems(true)
+    try {
+      const params = { category: activeCategory, page, size: pageSize }
+      if (search) params.q = search
+      const res = await configApi.getAllPaged(params)
+      setTableData(res.data.data || res.data)
+    } catch {
+      toast.error('Konfiqurasiya yüklənmədi')
+    } finally {
+      setLoadingItems(false)
+    }
+  }, [activeCategory, page, pageSize, search])
 
-  const items = (activeCategory && data[activeCategory]) || []
-  const filtered = search
-    ? items.filter(i =>
-        i.key.toLowerCase().includes(search.toLowerCase()) ||
-        (i.value || '').toLowerCase().includes(search.toLowerCase()) ||
-        (i.description || '').toLowerCase().includes(search.toLowerCase())
-      )
-    : items
+  useEffect(() => { loadCategories() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadItems() }, [loadItems])
+
+  const reload = () => { loadCategories(); loadItems() }
 
   const handleDelete = async (item) => {
     if (!(await confirm({ title: 'Elementi sil', message: `"${item.key}" elementini silmək istəyirsiniz?` }))) return
     try {
       await configApi.delete(item.id)
       toast.success('Element silindi')
-      load()
+      reload()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Silmə uğursuz oldu')
     }
@@ -84,13 +98,13 @@ export default function ConfigPage() {
     try {
       await configApi.update(item.id, { ...item, active: !item.active })
       toast.success(item.active ? 'Deaktiv edildi' : 'Aktiv edildi')
-      load()
+      reload()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Dəyişmə uğursuz oldu')
     }
   }
 
-  const totalCount = Object.values(data).reduce((sum, arr) => sum + arr.length, 0)
+  const totalCount = Object.values(catData).reduce((sum, arr) => sum + arr.length, 0)
 
   return (
     <div>
@@ -101,7 +115,7 @@ export default function ConfigPage() {
           <p className="text-xs text-gray-400 mt-0.5">{categories.length} kateqoriya, {totalCount} element</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Yenilə">
+          <button onClick={reload} className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Yenilə">
             <RefreshCw size={14} />
           </button>
           {canCreate && (
@@ -123,7 +137,7 @@ export default function ConfigPage() {
             <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-700">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Kateqoriyalar</p>
             </div>
-            {loading ? (
+            {loadingCats ? (
               <div className="p-4 space-y-2">
                 {[1,2,3,4].map(i => <div key={i} className="h-8 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />)}
               </div>
@@ -134,7 +148,7 @@ export default function ConfigPage() {
                 {categories.map(cat => (
                   <button
                     key={cat}
-                    onClick={() => { setActiveCategory(cat); setSearch('') }}
+                    onClick={() => { setActiveCategory(cat); setSearch(''); setPage(0) }}
                     className={clsx(
                       'w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors',
                       activeCategory === cat
@@ -149,7 +163,7 @@ export default function ConfigPage() {
                         ? 'bg-amber-200/50 dark:bg-amber-800/30 text-amber-700 dark:text-amber-400'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
                     )}>
-                      {data[cat]?.length || 0}
+                      {catData[cat]?.length || 0}
                     </span>
                   </button>
                 ))}
@@ -175,6 +189,16 @@ export default function ConfigPage() {
           )}
 
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {activeCategory && (
+              <Pagination
+                page={tableData.page + 1}
+                pageSize={tableData.size}
+                totalPages={tableData.totalPages}
+                totalElements={tableData.totalElements}
+                onPage={(p) => setPage(p - 1)}
+                onPageSize={(s) => { setPageSize(s); setPage(0) }}
+              />
+            )}
             {!activeCategory ? (
               <div className="p-12 text-center">
                 <Settings size={40} className="mx-auto text-gray-200 dark:text-gray-600 mb-3" />
@@ -194,9 +218,9 @@ export default function ConfigPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {loading ? (
+                    {loadingItems ? (
                       <TableSkeleton cols={6} rows={5} />
-                    ) : filtered.length === 0 ? (
+                    ) : tableData.content.length === 0 ? (
                       <EmptyState
                         icon={Settings}
                         title="Element tapılmadı"
@@ -205,7 +229,7 @@ export default function ConfigPage() {
                         actionLabel={canCreate ? 'Yeni Element' : undefined}
                       />
                     ) : (
-                      filtered.map((item, idx) => (
+                      tableData.content.map((item, idx) => (
                         <tr key={item.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
                           <td className="py-2.5 px-4 text-xs text-gray-400">{idx + 1}</td>
                           <td className="py-2.5 px-4">
@@ -275,7 +299,7 @@ export default function ConfigPage() {
           categories={categories}
           currentCategory={activeCategory}
           onClose={() => setModal({ open: false, editing: null })}
-          onSaved={() => { setModal({ open: false, editing: null }); load() }}
+          onSaved={() => { setModal({ open: false, editing: null }); reload() }}
         />
       )}
       <ConfirmDialog />

@@ -2,6 +2,7 @@ import api from './axios'
 
 export const configApi = {
   getAll: () => api.get('/config'),
+  getAllPaged: (params) => api.get('/config/paged', { params }),
   getCategories: () => api.get('/config/categories'),
   getByCategory: (category) => api.get(`/config/category/${category}`),
   getActiveByCategory: (category) => api.get(`/config/category/${category}/active`),

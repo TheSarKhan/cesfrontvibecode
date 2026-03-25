@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { auditApi } from '../../api/audit'
-import { Clock, RefreshCw, PlusCircle, Edit3, Trash2, RotateCcw } from 'lucide-react'
+import { Clock, RefreshCw, PlusCircle, Edit3, Trash2, RotateCcw, LogIn, LogOut, CheckCircle, XCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 
 const ACTION_CONFIG = {
-  'YARADILDI': { icon: PlusCircle, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900/30' },
-  'YENİLƏNDİ': { icon: Edit3, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  'SİLİNDİ': { icon: Trash2, color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900/30' },
-  'BƏRPA EDİLDİ': { icon: RotateCcw, color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  'YARADILDI':    { icon: PlusCircle,   color: 'text-green-500',  bg: 'bg-green-100 dark:bg-green-900/30' },
+  'YENİLƏNDİ':   { icon: Edit3,        color: 'text-blue-500',   bg: 'bg-blue-100 dark:bg-blue-900/30' },
+  'SİLİNDİ':     { icon: Trash2,       color: 'text-red-500',    bg: 'bg-red-100 dark:bg-red-900/30' },
+  'BƏRPA EDİLDİ':{ icon: RotateCcw,    color: 'text-amber-500',  bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  'GİRİŞ ETDİ':  { icon: LogIn,        color: 'text-violet-500', bg: 'bg-violet-100 dark:bg-violet-900/30' },
+  'ÇIXIŞ ETDİ':  { icon: LogOut,       color: 'text-gray-500',   bg: 'bg-gray-100 dark:bg-gray-700' },
+  'TƏSDİQLƏNDİ': { icon: CheckCircle,  color: 'text-teal-500',   bg: 'bg-teal-100 dark:bg-teal-900/30' },
+  'RƏDD EDİLDİ': { icon: XCircle,      color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
 }
 
 function timeAgo(dateStr) {

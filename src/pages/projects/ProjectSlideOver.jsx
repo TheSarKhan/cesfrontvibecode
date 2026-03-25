@@ -27,6 +27,18 @@ const TABS = [
 const OWNERSHIP = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
 const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 
+function calcDuration(p, overrideStart, overrideEnd) {
+  const s = overrideStart ?? p.startDate ?? p.planStartDate
+  const e = overrideEnd   ?? p.endDate   ?? p.planEndDate
+  if (s && e) {
+    const days = Math.ceil((new Date(e) - new Date(s)) / 86400000)
+    return p.projectType === 'MONTHLY' ? `${Math.round(days / 30)} ay` : `${days} gün`
+  }
+  const n = p.planDayCount ?? p.dayCount
+  if (!n) return '—'
+  return p.projectType === 'MONTHLY' ? `${n} ay` : `${n} gün`
+}
+
 function InfoRow({ label, value, children }) {
   return (
     <div className="flex justify-between items-start py-2 border-b border-gray-100 last:border-0 gap-4">
@@ -86,9 +98,14 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
   const [uploading, setUploading] = useState(false)
   const [showStartDateDialog, setShowStartDateDialog] = useState(false)
   const [pendingFile, setPendingFile] = useState(null)
+
   const [editingDate, setEditingDate] = useState(false)
   const [date, setDate] = useState(project.endDate?.substring(0, 10) || '')
   const [savingDate, setSavingDate] = useState(false)
+
+  const [editingStartDate, setEditingStartDate] = useState(false)
+  const [startDate, setStartDate] = useState(project.startDate?.substring(0, 10) || '')
+  const [savingStartDate, setSavingStartDate] = useState(false)
 
   const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
@@ -128,6 +145,21 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       toast.error('Tarix yenilənmədi')
     } finally {
       setSavingDate(false)
+    }
+  }
+
+  const saveStartDate = async () => {
+    if (!startDate) return
+    setSavingStartDate(true)
+    try {
+      await projectsApi.updateStartDate(project.id, { startDate })
+      toast.success('Başlanğıc tarixi yeniləndi')
+      setEditingStartDate(false)
+      onEndDateUpdated()
+    } catch {
+      toast.error('Tarix yenilənmədi')
+    } finally {
+      setSavingStartDate(false)
     }
   }
 
@@ -173,7 +205,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </InfoRow>
         <InfoRow label="Növ / Müddət">
           {project.projectType
-            ? `${PROJ_TYPE[project.projectType] || project.projectType} · ${project.planDayCount ?? project.dayCount ?? '—'} gün`
+            ? `${PROJ_TYPE[project.projectType] || project.projectType} · ${calcDuration(project, editingStartDate ? startDate : null, editingDate ? date : null)}`
             : '—'}
         </InfoRow>
         {project.transportationRequired && (
@@ -302,10 +334,38 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
 
       {/* Müddət */}
       <Section title="Müddət">
-        <InfoRow label="Başlanğıc tarixi" value={fmt(project.startDate ?? project.planStartDate)} />
+        <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-4">
+          <span className="text-xs text-gray-500 shrink-0">Başlanğıc tarixi</span>
+          {project.status !== 'COMPLETED' ? (
+            editingStartDate ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+                <button onClick={saveStartDate} disabled={savingStartDate}
+                  className="text-xs text-green-600 font-semibold hover:text-green-700 disabled:opacity-50">
+                  {savingStartDate ? '...' : 'Saxla'}
+                </button>
+                <button onClick={() => setEditingStartDate(false)} className="text-xs text-gray-400 hover:text-gray-600">Ləğv</button>
+              </div>
+            ) : (
+              <button onClick={() => setEditingStartDate(true)}
+                className="flex items-center gap-1 text-xs font-medium text-gray-800 hover:text-amber-600 transition-colors">
+                <Calendar size={11} className="text-gray-400" />
+                {fmt(project.startDate ?? project.planStartDate)}
+                <span className="text-[10px] text-amber-600 ml-1">(dəyiş)</span>
+              </button>
+            )
+          ) : (
+            <span className="text-xs font-medium text-gray-800">{fmt(project.startDate ?? project.planStartDate)}</span>
+          )}
+        </div>
         <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-4">
           <span className="text-xs text-gray-500 shrink-0">Bitmə tarixi</span>
-          {project.status === 'ACTIVE' ? (
+          {project.status !== 'COMPLETED' ? (
             editingDate ? (
               <div className="flex items-center gap-1.5">
                 <input

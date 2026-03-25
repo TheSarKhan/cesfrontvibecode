@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import { useAuthStore } from '../../store/authStore'
@@ -7,6 +7,8 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
+import Pagination from '../../components/common/Pagination'
+import { useSearchParams } from 'react-router-dom'
 
 const STATUS_CONFIG = {
   SENT_TO_COORDINATOR: { label: 'Koordinatorda', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
@@ -33,7 +35,8 @@ export default function CoordinatorPage() {
   const canPut = hasPermission('COORDINATOR', 'canPut')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [requests, setRequests] = useState([])
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
+  const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -45,6 +48,10 @@ export default function CoordinatorPage() {
   const [actionLoading, setActionLoading] = useState(null)
   const filterRef = useRef(null)
   const searchRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = parseInt(searchParams.get('size') || '15')
 
   usePageShortcuts({ searchRef })
 
@@ -86,46 +93,38 @@ export default function CoordinatorPage() {
     }
   }
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await coordinatorApi.getRequests()
-      setRequests(res.data.data || [])
+      const effectiveStatus = quickFilter !== 'ALL' ? quickFilter : (statusFilter || undefined)
+      const params = { page, size: pageSize }
+      if (search) params.q = search
+      if (effectiveStatus) params.status = effectiveStatus
+      const res = await coordinatorApi.getRequestsPaged(params)
+      setData(res.data.data || res.data)
     } catch {
       toast.error('Sorğular yüklənmədi')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, pageSize, search, statusFilter, quickFilter])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
+
+  // Load all requests for stats + region filter
+  useEffect(() => {
+    coordinatorApi.getRequests().then(res => setAllRequests(res.data.data || [])).catch(() => {})
+  }, [data])
 
   // Stats
   const stats = useMemo(() => {
-    const s = { ALL: requests.length }
-    Object.keys(STATUS_CONFIG).forEach(k => { s[k] = requests.filter(r => r.requestStatus === k).length })
+    const s = { ALL: allRequests.length }
+    Object.keys(STATUS_CONFIG).forEach(k => { s[k] = allRequests.filter(r => r.requestStatus === k).length })
     return s
-  }, [requests])
+  }, [allRequests])
 
-  // Unique values for filters
-  const uniqueRegions = useMemo(() => [...new Set(requests.map(r => r.region).filter(Boolean))].sort(), [requests])
-
-  // Filtered data
-  const filtered = useMemo(() => {
-    return requests.filter((r) => {
-      const q = search.toLowerCase()
-      const matchSearch = !q ||
-        r.requestCode?.toLowerCase().includes(q) ||
-        r.companyName?.toLowerCase().includes(q) ||
-        r.projectName?.toLowerCase().includes(q) ||
-        r.region?.toLowerCase().includes(q)
-      const effectiveStatus = quickFilter !== 'ALL' ? quickFilter : statusFilter
-      const matchStatus = !effectiveStatus || r.requestStatus === effectiveStatus
-      const matchRegion = !regionFilter || r.region === regionFilter
-      const matchSource = !sourceFilter || r.ownershipType === sourceFilter
-      return matchSearch && matchStatus && matchRegion && matchSource
-    })
-  }, [requests, search, statusFilter, regionFilter, sourceFilter, quickFilter])
+  // Unique values for filters (from all requests)
+  const uniqueRegions = useMemo(() => [...new Set(allRequests.map(r => r.region).filter(Boolean))].sort(), [allRequests])
 
   // Filter helpers
   const activeFilterCount = [statusFilter, regionFilter, sourceFilter].filter(Boolean).length
@@ -147,7 +146,7 @@ export default function CoordinatorPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Koordinator</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{requests.length} sorğu</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} sorğu</p>
         </div>
       </div>
 
@@ -277,14 +276,14 @@ export default function CoordinatorPage() {
                     ))}
                   </tr>
                 ))
-              ) : filtered.length === 0 ? (
+                      ) : data.content.filter(r => (!regionFilter || r.region === regionFilter) && (!sourceFilter || r.ownershipType === sourceFilter)).length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-10 text-center text-sm text-gray-400">
-                    {requests.length === 0 ? 'Koordinatora hələ sorğu gəlməyib' : 'Filtrlərə uyğun nəticə tapılmadı'}
+                    {data.totalElements === 0 ? 'Koordinatora hələ sorğu gəlməyib' : 'Filtrlərə uyğun nəticə tapılmadı'}
                   </td>
                 </tr>
               ) : (
-                filtered.map((r) => {
+                data.content.filter(r => (!regionFilter || r.region === regionFilter) && (!sourceFilter || r.ownershipType === sourceFilter)).map((r) => {
                   const status = r.hasPendingSubmit && r.requestStatus === 'SENT_TO_COORDINATOR'
                     ? { label: 'Təklif dəyərləndirilir', cls: 'bg-violet-50 text-violet-700 border-violet-200' }
                     : STATUS_CONFIG[r.requestStatus] || STATUS_CONFIG.SENT_TO_COORDINATOR
@@ -393,6 +392,15 @@ export default function CoordinatorPage() {
           </table>
         </div>
       </div>
+
+      <Pagination
+        page={data.page + 1}
+        pageSize={data.size}
+        totalPages={data.totalPages}
+        totalElements={data.totalElements}
+        onPage={(p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p - 1)); return n }, { replace: true })}
+        onPageSize={(s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })}
+      />
 
       {selected && (
         <CoordinatorPlanModal
