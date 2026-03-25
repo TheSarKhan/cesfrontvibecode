@@ -10,6 +10,7 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import Pagination from '../../components/common/Pagination'
+import { useSearchParams } from 'react-router-dom'
 
 const CATEGORY_LABELS = {
   EQUIPMENT_BRAND:   'Texnika brendləri',
@@ -24,15 +25,23 @@ const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat
 export default function ConfigPage() {
   const [catData, setCatData] = useState({})   // { category: [items] } for sidebar counts
   const [categories, setCategories] = useState([])
-  const [activeCategory, setActiveCategory] = useState(null)
   const [tableData, setTableData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loadingCats, setLoadingCats] = useState(true)
   const [loadingItems, setLoadingItems] = useState(false)
   const [modal, setModal] = useState({ open: false, editing: null })
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(15)
+  const [searchParams, setSearchParams] = useSearchParams()
   const searchRef = useRef(null)
+
+  const activeCategory = searchParams.get('category') || null
+  const search = searchParams.get('q') || ''
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = parseInt(searchParams.get('size') || '15')
+
+  const setActiveCategory = (cat) => setSearchParams(p => { const n = new URLSearchParams(p); cat ? n.set('category', cat) : n.delete('category'); n.delete('page'); n.delete('q'); return n }, { replace: true })
+  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n }, { replace: true })
+  const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })
+
 
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canCreate = hasPermission('CONFIG', 'canPost')
@@ -53,8 +62,8 @@ export default function ConfigPage() {
       setCatData(grouped)
       const cats = Object.keys(grouped)
       setCategories(cats)
-      if (!activeCategory || !cats.includes(activeCategory)) {
-        setActiveCategory(prev => cats.includes(prev) ? prev : (cats[0] || null))
+      if (cats.length > 0 && (!activeCategory || !cats.includes(activeCategory))) {
+        setActiveCategory(cats[0])
       }
     } catch {
       toast.error('Konfiqurasiya yüklənmədi')
@@ -148,7 +157,7 @@ export default function ConfigPage() {
                 {categories.map(cat => (
                   <button
                     key={cat}
-                    onClick={() => { setActiveCategory(cat); setSearch(''); setPage(0) }}
+                    onClick={() => setActiveCategory(cat)}
                     className={clsx(
                       'w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors',
                       activeCategory === cat
@@ -198,6 +207,7 @@ export default function ConfigPage() {
                 onPage={(p) => setPage(p - 1)}
                 onPageSize={(s) => { setPageSize(s); setPage(0) }}
               />
+
             )}
             {!activeCategory ? (
               <div className="p-12 text-center">

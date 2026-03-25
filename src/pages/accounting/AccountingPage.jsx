@@ -235,22 +235,7 @@ export default function AccountingPage() {
       .sort((a, b) => b.value - a.value)
   }, [transactions])
 
-  /* ── Filtered data ── */
-  const filteredInvoices = useMemo(() => {
-    const q = search.toLowerCase()
-    return invoices.filter(inv => {
-      const matchTab = !invoiceTab || inv.type === invoiceTab
-      const matchSearch = !q ||
-        inv.invoiceNumber?.toLowerCase().includes(q) ||
-        inv.etaxesId?.toLowerCase().includes(q) ||
-        inv.companyName?.toLowerCase().includes(q) ||
-        inv.contractorName?.toLowerCase().includes(q) ||
-        inv.projectCode?.toLowerCase().includes(q)
-      return matchTab && matchSearch
-    })
-  }, [invoices, invoiceTab, search])
-
-  const filteredTransactions = useMemo(() => {
+const filteredTransactions = useMemo(() => {
     const q = search.toLowerCase()
     return transactions.filter(t => {
       const matchType = !txnFilter || t.type === txnFilter
