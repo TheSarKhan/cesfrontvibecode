@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { useAuthStore } from '../../store/authStore'
@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
+import Pagination from '../../components/common/Pagination'
 
 const PERM_LABELS = [
   { key: 'canGet', label: 'Oxumaq' },
@@ -107,7 +108,7 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
               <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">{perm.moduleNameAz}</span>
             </td>
             <td className="py-2 px-4" colSpan={3}>
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 flex-wrap">
                 {PERM_LABELS.map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-1.5 cursor-default">
                     <input
@@ -119,6 +120,18 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
                     <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
                   </label>
                 ))}
+                {perm.canSendToCoordinator && (
+                  <label className="flex items-center gap-1.5 cursor-default">
+                    <input type="checkbox" readOnly checked className="accent-purple-600 w-3.5 h-3.5 cursor-default" />
+                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Kordinatora göndər</span>
+                  </label>
+                )}
+                {perm.canSubmitOffer && (
+                  <label className="flex items-center gap-1.5 cursor-default">
+                    <input type="checkbox" readOnly checked className="accent-purple-600 w-3.5 h-3.5 cursor-default" />
+                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Təklif göndər</span>
+                  </label>
+                )}
               </div>
             </td>
           </tr>
@@ -143,10 +156,12 @@ export default function RolesView({ dept, users, departments, onBack }) {
   const canDelete = hasPermission('ROLE_PERMISSION', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [roles, setRoles] = useState([])
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(true)
   const [roleModal, setRoleModal] = useState({ open: false, editing: null })
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(15)
   const searchRef = useRef(null)
 
   usePageShortcuts({
@@ -154,28 +169,22 @@ export default function RolesView({ dept, users, departments, onBack }) {
     searchRef,
   })
 
-  const loadRoles = async () => {
+  const loadRoles = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await rolesApi.getByDepartment(dept.id)
-      setRoles(res.data.data || [])
+      const params = { departmentId: dept.id, page, size: pageSize }
+      if (search) params.q = search
+      const res = await rolesApi.getAllPaged(params)
+      setData(res.data.data || res.data)
     } catch {
       toast.error('Rollar yüklənmədi')
     } finally {
       setLoading(false)
     }
-  }
+  }, [dept.id, page, pageSize, search])
 
-  useEffect(() => { loadRoles() }, [dept.id])
-
-  const filtered = useMemo(() => {
-    if (!search) return roles
-    const q = search.toLowerCase()
-    return roles.filter(r =>
-      r.name?.toLowerCase().includes(q) ||
-      r.description?.toLowerCase().includes(q)
-    )
-  }, [roles, search])
+  useEffect(() => { loadRoles() }, [loadRoles])
+  useEffect(() => { setPage(0) }, [dept.id])
 
   const handleDelete = async (role) => {
     if (!(await confirm({ title: 'Rolu sil', message: `"${role.name}" rolunu silmək istəyirsiniz?` }))) return
@@ -187,6 +196,8 @@ export default function RolesView({ dept, users, departments, onBack }) {
       toast.error('Silmə əməliyyatı uğursuz oldu')
     }
   }
+
+  const roles = data.content
 
   return (
     <div>
@@ -206,7 +217,7 @@ export default function RolesView({ dept, users, departments, onBack }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">İcazələrin tənzimlənməsi</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{roles.length} rol</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} rol</p>
         </div>
         {canCreate && (
           <button
@@ -255,14 +266,14 @@ export default function RolesView({ dept, users, departments, onBack }) {
                     ))}
                   </tr>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : roles.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
                     {search ? 'Axtarış nəticəsi tapılmadı' : 'Bu şöbədə hələ rol yoxdur'}
                   </td>
                 </tr>
               ) : (
-                filtered.map((role) => (
+                roles.map((role) => (
                   <RoleRow
                     key={role.id}
                     role={role}
@@ -277,6 +288,14 @@ export default function RolesView({ dept, users, departments, onBack }) {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={data.page + 1}
+          pageSize={data.size}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPage={(p) => setPage(p - 1)}
+          onPageSize={(s) => { setPageSize(s); setPage(0) }}
+        />
       </div>
 
       {roleModal.open && (

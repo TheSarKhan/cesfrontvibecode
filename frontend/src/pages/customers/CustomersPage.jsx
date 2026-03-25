@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { Plus, Pencil, Trash2, Search, Building2, ChevronUp, ChevronDown, Download, Eye } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Building2, Download, Eye } from 'lucide-react'
 import { customersApi } from '../../api/customers'
 import { useAuthStore } from '../../store/authStore'
 import CustomerModal from './CustomerModal'
@@ -14,6 +14,7 @@ import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import ColumnToggle from '../../components/common/ColumnToggle'
 import { useColumnStore } from '../../store/columnStore'
+import Pagination from '../../components/common/Pagination'
 
 const RISK_CONFIG = {
   LOW:    { label: 'Aşağı',   cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
@@ -42,11 +43,6 @@ function PaymentBadges({ types }) {
   )
 }
 
-function SortIcon({ field, sortField, sortDir }) {
-  if (sortField !== field) return <ChevronUp size={11} className="text-gray-300 dark:text-gray-600" />
-  return sortDir === 'asc' ? <ChevronUp size={11} className="text-amber-500" /> : <ChevronDown size={11} className="text-amber-500" />
-}
-
 export default function CustomersPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canCreate = hasPermission('CUSTOMER_MANAGEMENT', 'canPost')
@@ -55,7 +51,7 @@ export default function CustomersPage() {
   const { confirm, ConfirmDialog } = useConfirm()
   const isVisible = useColumnStore(s => s.isVisible)
 
-  const [customers, setCustomers] = useState([])
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState({ open: false, editing: null })
   const [slideOver, setSlideOver] = useState(null)
@@ -72,65 +68,34 @@ export default function CustomersPage() {
   const search = searchParams.get('q') || ''
   const statusFilter = searchParams.get('status') || ''
   const riskFilter = searchParams.get('risk') || ''
+  const page = Number(searchParams.get('page') || '0')
+  const size = Number(searchParams.get('size') || '15')
 
-  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); return n }, { replace: true })
-  const setStatusFilter = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('status', v) : n.delete('status'); return n }, { replace: true })
-  const setRiskFilter = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('risk', v) : n.delete('risk'); return n }, { replace: true })
+  const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
+  const setStatusFilter = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('status', v) : n.delete('status'); n.delete('page'); return n }, { replace: true })
+  const setRiskFilter = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('risk', v) : n.delete('risk'); n.delete('page'); return n }, { replace: true })
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); p > 0 ? n.set('page', String(p)) : n.delete('page'); return n }, { replace: true })
+  const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); s !== 15 ? n.set('size', String(s)) : n.delete('size'); n.delete('page'); return n }, { replace: true })
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await customersApi.getAll()
-      setCustomers(res.data.data || res.data || [])
+      const params = { page, size, ...(search && { q: search }), ...(statusFilter && { status: statusFilter }), ...(riskFilter && { risk: riskFilter }) }
+      const res = await customersApi.getAllPaged(params)
+      setData(res.data.data || res.data)
       setSelectedIds(new Set())
     } catch {
       toast.error('Müştərilər yüklənmədi')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, size, search, statusFilter, riskFilter])
 
-  useEffect(() => { load() }, [])
-
-  const filtered = useMemo(() => {
-    return customers.filter((c) => {
-      const q = search.toLowerCase()
-      const matchSearch = !q ||
-        c.companyName?.toLowerCase().includes(q) ||
-        c.voen?.toLowerCase().includes(q) ||
-        c.supplierPerson?.toLowerCase().includes(q) ||
-        c.officeContactPerson?.toLowerCase().includes(q)
-      const matchStatus = !statusFilter || c.status === statusFilter
-      const matchRisk = !riskFilter || c.riskLevel === riskFilter
-      return matchSearch && matchStatus && matchRisk
-    })
-  }, [customers, search, statusFilter, riskFilter])
-
-  const [sortField, setSortField] = useState('companyName')
-  const [sortDir, setSortDir] = useState('asc')
-
-  const handleSort = (field) => {
-    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortField(field); setSortDir('asc') }
-  }
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      let av = a[sortField] || ''
-      let bv = b[sortField] || ''
-      if (sortField === 'riskLevel') {
-        const order = { LOW: 0, MEDIUM: 1, HIGH: 2 }
-        av = order[av] ?? 0; bv = order[bv] ?? 0
-      }
-      return sortDir === 'asc'
-        ? (typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv), 'az'))
-        : (typeof bv === 'number' ? bv - av : String(bv).localeCompare(String(av), 'az'))
-    })
-  }, [filtered, sortField, sortDir])
+  useEffect(() => { load() }, [load])
 
   const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const allSelected = filtered.length > 0 && filtered.every(x => selectedIds.has(x.id))
-  const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(filtered.map(x => x.id)))
+  const allSelected = data.content.length > 0 && data.content.every(x => selectedIds.has(x.id))
+  const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(data.content.map(x => x.id)))
 
   const handleBulkDelete = async () => {
     if (!window.confirm(`${selectedIds.size} element silinsin?`)) return
@@ -163,7 +128,7 @@ export default function CustomersPage() {
     try {
       const res = await customersApi.getById(id)
       const updated = res.data.data || res.data
-      setCustomers((prev) => prev.map((c) => (c.id === id ? updated : c)))
+      setData(prev => ({ ...prev, content: prev.content.map(c => c.id === id ? updated : c) }))
       if (slideOver?.id === id) setSlideOver(updated)
     } catch { /* silent */ }
   }
@@ -171,7 +136,7 @@ export default function CustomersPage() {
   const exportExcel = () => {
     const RISK_LABELS   = { LOW: 'Aşağı', MEDIUM: 'Orta', HIGH: 'Yüksək' }
     const STATUS_LABELS = { ACTIVE: 'Aktiv', PASSIVE: 'Passiv', VARIABLE: 'Dəyişkən' }
-    const rows = sorted.map(c => ({
+    const rows = data.content.map(c => ({
       'Şirkət adı':    c.companyName || '',
       'VÖEN':          c.voen || '',
       'Ünvan':         c.address || '',
@@ -196,7 +161,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Müştərilər</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{customers.length} müştəri</p>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} müştəri</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -221,10 +186,10 @@ export default function CustomersPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
-          { label: 'Cəmi',        value: customers.length,                                            color: 'bg-gray-500' },
-          { label: 'Aktiv',       value: customers.filter(c => c.status === 'ACTIVE').length,         color: 'bg-green-500' },
-          { label: 'Passiv',      value: customers.filter(c => c.status === 'PASSIVE').length,        color: 'bg-gray-400' },
-          { label: 'Yüksək risk', value: customers.filter(c => c.riskLevel === 'HIGH').length,        color: 'bg-red-500' },
+          { label: 'Cəmi',        value: data.totalElements, color: 'bg-gray-500' },
+          { label: 'Aktiv',       value: data.content.filter(c => c.status === 'ACTIVE').length,   color: 'bg-green-500' },
+          { label: 'Passiv',      value: data.content.filter(c => c.status === 'PASSIVE').length,  color: 'bg-gray-400' },
+          { label: 'Yüksək risk', value: data.content.filter(c => c.riskLevel === 'HIGH').length,  color: 'bg-red-500' },
         ].map(stat => (
           <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${stat.color}`} />
@@ -332,35 +297,23 @@ export default function CustomersPage() {
                   <input type="checkbox" checked={allSelected} onChange={toggleAll}
                     className="w-4 h-4 accent-amber-500 cursor-pointer" />
                 </th>
-                <th
-                  className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-amber-600"
-                  onClick={() => handleSort('companyName')}
-                >
-                  <span className="flex items-center gap-1">Şirkət adı <SortIcon field="companyName" sortField={sortField} sortDir={sortDir} /></span>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Şirkət adı
                 </th>
-                <th
-                  className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-amber-600"
-                  onClick={() => handleSort('voen')}
-                >
-                  <span className="flex items-center gap-1">VÖEN <SortIcon field="voen" sortField={sortField} sortDir={sortDir} /></span>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  VÖEN
                 </th>
                 {isVisible('customers', 'phone') && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Təchizatçı</th>}
                 {isVisible('customers', 'contactPerson') && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ofis məsul</th>}
                 {isVisible('customers', 'address') && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ödəniş</th>}
                 {isVisible('customers', 'risk') && (
-                  <th
-                    className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-amber-600"
-                    onClick={() => handleSort('riskLevel')}
-                  >
-                    <span className="flex items-center gap-1">Risk <SortIcon field="riskLevel" sortField={sortField} sortDir={sortDir} /></span>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Risk
                   </th>
                 )}
                 {isVisible('customers', 'status') && (
-                  <th
-                    className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-pointer select-none hover:text-amber-600"
-                    onClick={() => handleSort('status')}
-                  >
-                    <span className="flex items-center gap-1">Status <SortIcon field="status" sortField={sortField} sortDir={sortDir} /></span>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Status
                   </th>
                 )}
                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-right">Əməliyyat</th>
@@ -369,7 +322,7 @@ export default function CustomersPage() {
             <tbody>
               {loading ? (
                 <TableSkeleton cols={9} rows={6} />
-              ) : sorted.length === 0 ? (
+              ) : data.content.length === 0 ? (
                 <EmptyState
                   icon={Building2}
                   title="Müştəri tapılmadı"
@@ -378,7 +331,7 @@ export default function CustomersPage() {
                   actionLabel={canCreate ? 'Yeni Müştəri' : undefined}
                 />
               ) : (
-                sorted.map((c) => {
+                data.content.map((c) => {
                   const risk = RISK_CONFIG[c.riskLevel] || RISK_CONFIG.LOW
                   const status = STATUS_CONFIG[c.status] || STATUS_CONFIG.ACTIVE
                   return (
@@ -463,6 +416,14 @@ export default function CustomersPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={data.page + 1}
+          pageSize={data.size}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPage={(p) => setPage(p - 1)}
+          onPageSize={(s) => setPageSize(s)}
+        />
       </div>
 
       {/* Modals */}

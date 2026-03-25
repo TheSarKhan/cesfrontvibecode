@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(ls -la target/*.log)",
+      "Bash(find '/c/Users/serxa/OneDrive/Desktop/CES ERP' -type f -path */requests/* -o -type f -name *request* -o -type f -name *Request*)",
+      "Bash(grep -E \"\\\\.\\(jsx?|java|tsx?\\)$\")",
+      "Bash(find '/c/Users/serxa/OneDrive/Desktop/CES ERP' -name *.md -path *Requests* -o -name *Request* -path */docs/*)",
+      "Bash(cd /c/Users/serxa/OneDrive/Desktop/\"CES ERP\")",
+      "Bash(find backend/src/main/java/com/ces/erp/request -name \"*.java\" -exec ls -lh {})",
+      "Read(//c/Users/serxa/OneDrive/Desktop/CES ERP/**)",
+      "Bash(ls -lh frontend/src/pages/requests/*.jsx)",
+      "Bash(mvn compile:*)",
+      "Bash(./mvnw compile:*)",
+      "Bash(ls \"c:\\\\Users\\\\serxa\\\\OneDrive\\\\Desktop\\\\CES ERP\\\\backend\\\\mvnw\"*)",
+      "Bash(ls \"c:\\\\Users\\\\serxa\\\\OneDrive\\\\Desktop\\\\CES ERP\\\\backend\"/*.cmd)",
+      "Read(//c/Users/serxa/OneDrive/Desktop/**)",
+      "Bash(cmd.exe /c 'mvn --version')",
+      "Bash(cmd.exe /c \"cd /d \"\"c:\\\\Users\\\\serxa\\\\OneDrive\\\\Desktop\\\\CES ERP\\\\backend\"\" && mvn compile -q\")",
+      "Bash(npx vite:*)",
+      "Bash(xargs grep:*)",
+      "Bash('C:/Program Files/Eclipse Adoptium/jdk-21.0.6.7-hotspot/bin/javac' --version)",
+      "Read(//c/Users/serxa/.m2/wrapper/dists/**)",
+      "Bash(\"C:/Users/serxa/.m2/wrapper/dists/apache-maven-3.9.12-bin/5nmfsn99br87k5d4ajlekdq10k/apache-maven-3.9.12/bin/mvn\" -f \"c:/Users/serxa/OneDrive/Desktop/CES ERP/backend/pom.xml\" compile -q)",
+      "Read(//c/Program Files/**)"
+    ]
+  }
+}
