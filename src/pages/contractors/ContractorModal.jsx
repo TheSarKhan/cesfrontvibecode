@@ -97,7 +97,6 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error('Əməliyyat uğursuz oldu')
     } finally {
       setLoading(false)
     }

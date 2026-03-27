@@ -18,9 +18,7 @@ export default function LoginPage() {
       await login(form)
       navigate('/', { replace: true })
     } catch (err) {
-      const msg =
-        err?.response?.data?.message || 'Email və ya şifrə yanlışdır'
-      toast.error(msg)
+      toast.error(err?.response?.data?.message || 'Email və ya şifrə yanlışdır')
     } finally {
       setLoading(false)
     }

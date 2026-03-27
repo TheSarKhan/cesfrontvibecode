@@ -223,7 +223,6 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu')
     } finally {
       setLoading(false)
     }

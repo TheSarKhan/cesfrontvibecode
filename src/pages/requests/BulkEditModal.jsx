@@ -21,8 +21,7 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
       await Promise.all(promises)
       toast.success(`${selectedIds.length} sorğu yeniləndi`)
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Toplu yeniləmə uğursuz oldu')
+    } catch {
     } finally {
       setLoading(false)
     }

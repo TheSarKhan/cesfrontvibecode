@@ -125,8 +125,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       await projectsApi.uploadContract(project.id, fd, startDate)
       toast.success('Müqavilə yükləndi. Layihə aktiv oldu.')
       onContractUploaded()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Müqavilə yüklənmədi')
+    } catch {
     } finally {
       setUploading(false)
       setPendingFile(null)
@@ -142,7 +141,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       setEditingDate(false)
       onEndDateUpdated()
     } catch {
-      toast.error('Tarix yenilənmədi')
     } finally {
       setSavingDate(false)
     }
@@ -157,7 +155,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       setEditingStartDate(false)
       onEndDateUpdated()
     } catch {
-      toast.error('Tarix yenilənmədi')
     } finally {
       setSavingStartDate(false)
     }
@@ -484,7 +481,6 @@ function FinanceTab({ project }) {
       const res = await projectsApi.getFinances(project.id)
       setFinances(res.data.data || res.data || { expenses: [], revenues: [] })
     } catch {
-      toast.error('Maliyyə məlumatları yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -509,14 +505,13 @@ function FinanceTab({ project }) {
       await projectsApi.addExpense(project.id, { key: expKey.trim(), value: parseFloat(expVal) })
       setExpKey(''); setExpVal('')
       load()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Xərc əlavə edilmədi') }
-    finally { setAddingExp(false) }
+    } catch { } finally { setAddingExp(false) }
   }
 
   const delExpense = async (id) => {
     if (!(await confirm({ title: 'Xərci sil', message: 'Bu xərci silmək istəyirsiniz?' }))) return
     try { await projectsApi.deleteExpense(project.id, id); load() }
-    catch { toast.error('Silmə uğursuz oldu') }
+    catch {}
   }
 
   const addRevenue = async () => {
@@ -526,14 +521,13 @@ function FinanceTab({ project }) {
       await projectsApi.addRevenue(project.id, { key: revKey.trim(), value: parseFloat(revVal) })
       setRevKey(''); setRevVal('')
       load()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Gəlir əlavə edilmədi') }
-    finally { setAddingRev(false) }
+    } catch { } finally { setAddingRev(false) }
   }
 
   const delRevenue = async (id) => {
     if (!(await confirm({ title: 'Gəliri sil', message: 'Bu gəliri silmək istəyirsiniz?' }))) return
     try { await projectsApi.deleteRevenue(project.id, id); load() }
-    catch { toast.error('Silmə uğursuz oldu') }
+    catch {}
   }
 
   const fmtMoney = (v) => parseFloat(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
@@ -737,8 +731,7 @@ function CompleteTab({ project, onCompleted }) {
       })
       toast.success('Layihə bağlandı. Mühasibatlığa yönləndirildi.')
       onCompleted()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Layihə bağlanmadı')
+    } catch {
     } finally {
       setSaving(false)
     }

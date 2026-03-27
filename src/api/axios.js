@@ -42,8 +42,9 @@ axiosInstance.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+    const status = error.response?.status
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -88,6 +89,13 @@ axiosInstance.interceptors.response.use(
       } finally {
         isRefreshing = false
       }
+    }
+
+    // Global error toast — 401 və isPending xaric bütün xətalar üçün
+    if (!error.isPending && !originalRequest?._suppressToast) {
+      const msg = error.response?.data?.message || 'Xəta baş verdi. Yenidən cəhd edin.'
+      toast.error(msg)
+      error._toasted = true
     }
 
     return Promise.reject(error)

@@ -91,7 +91,6 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
     } finally {
       setSaving(false)
     }

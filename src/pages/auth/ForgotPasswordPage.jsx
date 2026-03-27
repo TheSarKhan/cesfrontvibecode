@@ -1,22 +1,42 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../../api/auth'
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Mail, ArrowLeft, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate()
+  const [step, setStep] = useState('email') // 'email' | 'otp'
   const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
 
-  const handleSubmit = async (e) => {
+  const handleEmailSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
       await authApi.forgotPassword(email)
-      setSent(true)
+      setStep('otp')
+      toast.success('OTP kod emailə göndərildi')
     } catch {
-      toast.error('Xəta baş verdi, yenidən cəhd edin')
+      // global interceptor xətanı göstərir
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const response = await authApi.verifyOtp(email, otp)
+      const verificationToken = response.data.data.verificationToken
+      toast.success('OTP doğrulandı')
+      sessionStorage.setItem('verificationToken', verificationToken)
+      sessionStorage.setItem('resetEmail', email)
+      navigate('/reset-password')
+    } catch {
+      // global interceptor xətanı göstərir
     } finally {
       setLoading(false)
     }
@@ -35,29 +55,11 @@ export default function ForgotPasswordPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {sent ? (
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <CheckCircle size={48} className="text-green-500" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-800">Email göndərildi</h2>
-              <p className="text-sm text-gray-500">
-                Əgər <strong>{email}</strong> ünvanı sistemdə mövcuddursa, şifrə yeniləmə linki göndərildi.
-                Zəhmət olmasa email qutunuzu yoxlayın.
-              </p>
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 text-sm text-orange-500 hover:text-orange-600 font-medium"
-              >
-                <ArrowLeft size={14} />
-                Girişə qayıt
-              </Link>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+          {step === 'email' ? (
+            <form onSubmit={handleEmailSubmit} className="space-y-5">
               <div>
                 <p className="text-sm text-gray-500 mb-4">
-                  Email ünvanınızı daxil edin, şifrə yeniləmə linki göndərəcəyik.
+                  Email ünvanınızı daxil edin. OTP kod göndərəcəyik.
                 </p>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Email
@@ -86,7 +88,7 @@ export default function ForgotPasswordPage() {
                 ) : (
                   <Mail size={16} />
                 )}
-                {loading ? 'Göndərilir...' : 'Link göndər'}
+                {loading ? 'Göndərilir...' : 'OTP göndər'}
               </button>
 
               <div className="text-center">
@@ -98,6 +100,49 @@ export default function ForgotPasswordPage() {
                   Girişə qayıt
                 </Link>
               </div>
+            </form>
+          ) : (
+            <form onSubmit={handleOtpSubmit} className="space-y-5">
+              <div>
+                <p className="text-sm text-gray-500 mb-4">
+                  Email ünvanınıza göndərilən 6 rəqəmli OTP kodu daxil edin.
+                </p>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  OTP Kodu
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  maxLength="6"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-center text-2xl font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                  placeholder="000000"
+                />
+                <p className="text-xs text-gray-400 mt-1">6 rəqəmli kod</p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+              >
+                {loading ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Lock size={16} />
+                )}
+                {loading ? 'Doğrulanır...' : 'OTP-ni doğrula'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep('email')}
+                className="w-full text-center text-sm text-gray-500 hover:text-gray-700"
+              >
+                Emaili dəyiş
+              </button>
             </form>
           )}
         </div>

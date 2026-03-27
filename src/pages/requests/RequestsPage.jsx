@@ -125,7 +125,6 @@ export default function RequestsPage() {
       const res = await requestsApi.getAllPaged(params)
       setData(res.data.data || res.data)
     } catch {
-      toast.error('Sorğular yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -183,7 +182,6 @@ export default function RequestsPage() {
       load()
     } catch (err) {
       if (err?.isPending) return
-      toast.error('Silmə uğursuz oldu')
     }
   }
 
@@ -193,8 +191,7 @@ export default function RequestsPage() {
       await requestsApi.sendToCoordinator(request.id)
       toast.success('Kordinatora göndərildi')
       load()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } catch {
     }
   }
 

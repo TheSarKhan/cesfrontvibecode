@@ -60,7 +60,6 @@ export default function ApprovalPage() {
       const res = await approvalApi.getQueue()
       setItems(res.data.data || res.data || [])
     } catch {
-      toast.error('Əməliyyatlar yüklənmədi')
     } finally {
       setLoading(false)
     }

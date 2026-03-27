@@ -23,8 +23,7 @@ export default function StatusChangeModal({ request, onClose, onSaved }) {
       await requestsApi.changeStatus(request.id, { status: selected, reason: reason.trim() || null })
       toast.success('Status dəyişdirildi')
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Status dəyişmə uğursuz oldu')
+    } catch {
     } finally {
       setLoading(false)
     }

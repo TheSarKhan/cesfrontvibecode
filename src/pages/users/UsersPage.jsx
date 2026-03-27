@@ -71,7 +71,6 @@ export default function UsersPage() {
       setSelectedIds(new Set())
       setSlideOver(prev => prev ? (pageData.content.find(u => u.id === prev.id) ?? prev) : null)
     } catch {
-      toast.error('Məlumatlar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -100,7 +99,6 @@ export default function UsersPage() {
       setSelectedIds(new Set())
       loadData()
     } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }
@@ -112,7 +110,6 @@ export default function UsersPage() {
       toast.success(user.active ? 'İstifadəçi deaktiv edildi' : 'İstifadəçi aktiv edildi')
       loadData()
     } catch {
-      toast.error('Əməliyyat uğursuz oldu')
     }
   }
 
@@ -125,7 +122,6 @@ export default function UsersPage() {
       loadData()
     } catch (err) {
       if (err?.isPending) return
-      toast.error(err?.response?.data?.message || 'Silmə əməliyyatı uğursuz oldu')
     }
   }
 

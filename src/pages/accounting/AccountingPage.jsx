@@ -156,7 +156,6 @@ export default function AccountingPage() {
       setPayments(extract(results[4]))
       setBudgets(extract(results[5]))
     } catch {
-      toast.error('Məlumatlar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -263,25 +262,25 @@ const filteredTransactions = useMemo(() => {
   const handleDeleteInvoice = async (inv) => {
     if (!(await confirm({ title: 'Qaiməni sil', message: `"${inv.invoiceNumber || `#${inv.id}`}" silinsin?` }))) return
     try { await accountingApi.delete(inv.id); toast.success('Qaimə silindi'); loadAll(); loadInvoices() }
-    catch (err) { if (!err?.isPending) toast.error('Silmə uğursuz oldu') }
+    catch (err) { if (!err?.isPending) return }
   }
 
   const handleDeleteTransaction = async (t) => {
     if (!(await confirm({ title: 'Əməliyyatı sil', message: `${fmtMoney(t.amount)} məbləğli əməliyyat silinsin?` }))) return
     try { await accountingApi.deleteTransaction(t.id); toast.success('Əməliyyat silindi'); loadAll() }
-    catch (err) { if (!err?.isPending) toast.error('Silmə uğursuz oldu') }
+    catch (err) { if (!err?.isPending) return }
   }
 
   const handleDeletePayment = async (p) => {
     if (!(await confirm({ title: 'Ödənişi sil', message: `${fmtMoney(p.amount)} ödəniş silinsin?` }))) return
     try { await accountingApi.deletePayment(p.id); toast.success('Ödəniş silindi'); loadAll() }
-    catch (err) { if (!err?.isPending) toast.error('Silmə uğursuz oldu') }
+    catch (err) { if (!err?.isPending) return }
   }
 
   const handleDeleteBudget = async (b) => {
     if (!(await confirm({ title: 'Büdcəni sil', message: `${CATEGORY_LABELS[b.category] || b.category} büdcəsi silinsin?` }))) return
     try { await accountingApi.deleteBudget(b.id); toast.success('Büdcə silindi'); loadAll() }
-    catch (err) { if (!err?.isPending) toast.error('Silmə uğursuz oldu') }
+    catch (err) { if (!err?.isPending) return }
   }
 
   /* ── Excel export ── */

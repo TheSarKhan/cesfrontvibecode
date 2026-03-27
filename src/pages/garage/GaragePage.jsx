@@ -353,7 +353,7 @@ export default function GaragePage() {
       setTotalPages(paged.totalPages || 1)
       setSelected(new Set())
       setSlideOver(prev => prev ? ((paged.content || []).find(e => e.id === prev.id) ?? prev) : null)
-    } catch { toast.error('Texnikalar yüklənmədi') }
+    } catch {}
     finally { setLoading(false) }
   }, [page, pageSize, sortField, sortDir, search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax])
 
@@ -470,7 +470,7 @@ export default function GaragePage() {
       toast.success('Texnika silindi')
       if (slideOver?.id === item.id) setSlideOver(null)
       load()
-    } catch (err) { if (err?.isPending) return; toast.error('Silmə uğursuz oldu') }
+    } catch (err) { if (err?.isPending) return }
   }
 
   const handleBulkDelete = async () => {
@@ -482,7 +482,6 @@ export default function GaragePage() {
       setSelected(new Set())
       load()
     } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }
@@ -501,7 +500,6 @@ export default function GaragePage() {
       // Rollback
       setEquipment(prevEquipment)
       if (slideOver?.id === item.id) setSlideOver(prev => ({ ...prev, status: item.status }))
-      toast.error(err?.response?.data?.message || 'Status dəyişilmədi')
       throw err
     }
   }

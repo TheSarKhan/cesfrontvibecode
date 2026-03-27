@@ -24,8 +24,7 @@ export default function DepartmentModal({ editing, onClose, onSaved }) {
         toast.success('Şöbə yaradıldı')
       }
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu')
+    } catch {
     } finally {
       setLoading(false)
     }

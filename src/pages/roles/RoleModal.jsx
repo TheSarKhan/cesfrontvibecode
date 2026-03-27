@@ -69,7 +69,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         // Auto-expand if editing and already has approval depts
         if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
       })
-      .catch(() => toast.error('Modullar yüklənmədi'))
+      .catch(() => {})
       .finally(() => setModulesLoading(false))
   }, [editing])
 
@@ -138,8 +138,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         toast.success('Rol yaradıldı')
       }
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu')
+    } catch {
     } finally {
       setLoading(false)
     }

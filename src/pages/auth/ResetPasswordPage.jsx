@@ -1,47 +1,89 @@
-import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '../../api/auth'
-import { Eye, EyeOff, KeyRound, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, ArrowLeft, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ResetPasswordPage() {
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token') || ''
   const navigate = useNavigate()
-
+  const [verificationToken, setVerificationToken] = useState('')
+  const [resetEmail, setResetEmail] = useState('')
   const [form, setForm] = useState({ newPassword: '', confirm: '' })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('verificationToken')
+    const email = sessionStorage.getItem('resetEmail')
+
+    if (!token || !email) {
+      toast.error('Səhifə keçərsizdir')
+      navigate('/forgot-password', { replace: true })
+      return
+    }
+
+    setVerificationToken(token)
+    setResetEmail(email)
+  }, [navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
     if (form.newPassword !== form.confirm) {
       toast.error('Şifrələr uyğun gəlmir')
       return
     }
+
     if (form.newPassword.length < 6) {
       toast.error('Şifrə minimum 6 simvol olmalıdır')
       return
     }
+
     setLoading(true)
     try {
-      await authApi.resetPassword(token, form.newPassword)
+      await authApi.resetPassword(verificationToken, form.newPassword)
+      setSuccess(true)
       toast.success('Şifrə uğurla yeniləndi')
-      navigate('/login', { replace: true })
-    } catch (err) {
-      const msg = err?.response?.data?.message || 'Link etibarsızdır və ya vaxtı keçib'
-      toast.error(msg)
+      sessionStorage.removeItem('verificationToken')
+      sessionStorage.removeItem('resetEmail')
+    } catch {
+      // global interceptor xətanı göstərir
     } finally {
       setLoading(false)
     }
   }
 
-  if (!token) {
+  if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
-        <div className="bg-white rounded-2xl p-8 text-center space-y-4">
-          <p className="text-gray-600">Link etibarsızdır</p>
-          <Link to="/login" className="text-sm text-orange-500 hover:underline">Girişə qayıt</Link>
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center space-y-4">
+            <div className="flex justify-center">
+              <CheckCircle size={48} className="text-green-500" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-800">Şifrə yeniləndi</h2>
+            <p className="text-sm text-gray-500">
+              Şifrəniz uğurla yeniləndi. Ən yeni şifrə ilə giriş edə bilərsiniz.
+            </p>
+            <button
+              onClick={() => navigate('/login', { replace: true })}
+              className="inline-flex items-center gap-2 text-sm text-orange-500 hover:text-orange-600 font-medium"
+            >
+              <ArrowLeft size={14} />
+              Girişə qayıt
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!verificationToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-8 text-center space-y-4">
+          <p className="text-gray-600">Yüklənir...</p>
         </div>
       </div>
     )
@@ -94,14 +136,23 @@ export default function ResetPasswordPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Şifrəni təsdiqlə
             </label>
-            <input
-              type={showPass ? 'text' : 'password'}
-              required
-              value={form.confirm}
-              onChange={(e) => setForm(f => ({ ...f, confirm: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
-              placeholder="Şifrəni təkrar daxil edin"
-            />
+            <div className="relative">
+              <input
+                type={showPass ? 'text' : 'password'}
+                required
+                value={form.confirm}
+                onChange={(e) => setForm(f => ({ ...f, confirm: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                placeholder="Şifrəni təkrar daxil edin"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -119,11 +170,11 @@ export default function ResetPasswordPage() {
 
           <div className="text-center">
             <Link
-              to="/login"
+              to="/forgot-password"
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
             >
               <ArrowLeft size={13} />
-              Girişə qayıt
+              Geri qayıt
             </Link>
           </div>
         </form>

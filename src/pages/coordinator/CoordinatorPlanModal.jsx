@@ -57,7 +57,7 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
   useEffect(() => {
     garageApi.getAll()
       .then((r) => setEquipment(r.data.data || r.data || []))
-      .catch(() => toast.error('Texnikalar yüklənmədi'))
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
@@ -82,8 +82,7 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
       const res = await coordinatorApi.selectEquipment(requestId, eq.id)
       toast.success(`${eq.name} seçildi`)
       onSelected(res.data.data, eq)
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Seçim uğursuz oldu')
+    } catch {
     } finally {
       setSelecting(false)
     }
@@ -252,7 +251,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
           })
         }
       })
-      .catch(() => toast.error('Plan yüklənmədi'))
+      .catch(() => {})
       .finally(() => setLoading(false))
 
   useEffect(() => { loadPlan() }, [request.requestId])
@@ -314,8 +313,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       await doSave()
       toast.success('Plan yadda saxlandı')
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Yadda saxlama uğursuz oldu')
+    } catch {
     } finally {
       setSaving(false)
     }
@@ -332,7 +330,6 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       onClose()
     } catch (err) {
       if (err?.isPending) { onSaved(); onClose(); return }
-      toast.error(err?.response?.data?.message || 'Göndərmə uğursuz oldu')
     } finally {
       setSubmitting(false)
     }
@@ -355,8 +352,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       const res = await coordinatorApi.uploadDocument(request.requestId, fd)
       setPlan((prev) => ({ ...prev, documents: [...(prev.documents || []), res.data.data] }))
       toast.success('Sənəd əlavə edildi')
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Yükləmə uğursuz oldu')
+    } catch {
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -370,7 +366,6 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       setPlan((prev) => ({ ...prev, documents: prev.documents.filter((d) => d.id !== docId) }))
       toast.success('Sənəd silindi')
     } catch {
-      toast.error('Silmə uğursuz oldu')
     }
   }
 

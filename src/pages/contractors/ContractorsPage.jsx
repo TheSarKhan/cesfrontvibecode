@@ -79,7 +79,6 @@ export default function ContractorsPage() {
       setData(res.data.data || res.data)
       setSelectedIds(new Set())
     } catch {
-      toast.error('Podratçılar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -100,7 +99,6 @@ export default function ContractorsPage() {
       setSelectedIds(new Set())
       load()
     } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }
@@ -114,7 +112,6 @@ export default function ContractorsPage() {
       load()
     } catch (err) {
       if (err?.isPending) return
-      toast.error('Silmə uğursuz oldu')
     }
   }
 
