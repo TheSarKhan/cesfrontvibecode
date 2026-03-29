@@ -424,29 +424,48 @@ const filteredTransactions = useMemo(() => {
             </div>
           )}
 
-          {/* Pending projects alert */}
+          {/* Pending projects — fakturasız bağlanmış layihələr */}
           {pendingProjects.length > 0 && (
             <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-200 dark:border-amber-800">
-                <AlertCircle size={15} className="text-amber-600 shrink-0" />
-                <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                  {pendingProjects.length} bağlanmış layihənin qaiməsi kəsilməyib
-                </span>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2">
+                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                    {pendingProjects.length} bağlanmış layihənin fakturası kəsilməyib
+                  </span>
+                </div>
+              </div>
+              {/* Header row */}
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-1.5 border-b border-amber-100 dark:border-amber-900/30 bg-amber-100/50 dark:bg-amber-900/20">
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">Layihə</span>
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide w-28 text-right">Xalis gəlir</span>
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide w-24 text-right">Bitmə tarixi</span>
+                <span className="w-24" />
               </div>
               <div className="divide-y divide-amber-100 dark:divide-amber-900/30">
-                {pendingProjects.slice(0, 5).map(p => (
-                  <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors">
-                    <div className="flex-1 min-w-0">
+                {pendingProjects.map(p => (
+                  <div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors">
+                    <div className="min-w-0">
                       <span className="text-xs font-mono font-bold text-green-600 dark:text-green-400">
                         {p.projectCode || `PRJ-${String(p.id).padStart(4, '0')}`}
                       </span>
-                      <span className="text-xs text-gray-500 ml-2">{p.companyName}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 truncate">{p.companyName}</span>
+                      {p.projectName && <span className="text-[10px] text-gray-400 ml-1 hidden sm:inline">· {p.projectName}</span>}
                     </div>
+                    <span className={clsx(
+                      'text-xs font-bold w-28 text-right',
+                      parseFloat(p.netProfit || 0) >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-red-500'
+                    )}>
+                      {fmtMoney(p.netProfit)}
+                    </span>
+                    <span className="text-xs text-gray-400 w-24 text-right">
+                      {p.endDate ? fmt(p.endDate) : '—'}
+                    </span>
                     <button
                       onClick={() => setInvoiceModal({ open: true, editing: null, defaultType: 'INCOME', preProject: p })}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-semibold rounded-lg transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-semibold rounded-lg transition-colors whitespace-nowrap"
                     >
-                      <Plus size={10} /> Qaimə
+                      <Plus size={10} /> Faktura yarat
                     </button>
                   </div>
                 ))}

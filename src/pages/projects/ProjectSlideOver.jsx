@@ -735,14 +735,30 @@ function CompleteTab({ project, onCompleted }) {
   const isCompleted = project.status === 'COMPLETED'
   const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
 
-  // Calculated scheduled hours from coordinator plan or request dayCount
-  const scheduledHours = (project.planDayCount || project.dayCount || 0) * 9
+  // Gap 1: Faktiki tarixlər varsa, onlardan gün sayını hesabla; yoxdursa planDayCount istifadə et
+  const scheduledHours = (() => {
+    if (project.startDate && project.endDate) {
+      const days = Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
+      return days > 0 ? days * 9 : (project.planDayCount || project.dayCount || 0) * 9
+    }
+    return (project.planDayCount || project.dayCount || 0) * 9
+  })()
+
+  // Gap 1: Effektiv gün sayı (display üçün)
+  const effectiveDays = project.startDate && project.endDate
+    ? Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
+    : (project.planDayCount || project.dayCount || 0)
 
   // Preview overtime calc
   const actualH = parseFloat(form.actualHours || 0)
   const overtimeH = Math.max(0, actualH - scheduledHours)
-  const dailyPrice = project.planEquipmentPrice && (project.planDayCount || project.dayCount)
-    ? parseFloat(project.planEquipmentPrice) / (project.planDayCount || project.dayCount)
+  // Gap 2+3: dailyPrice layihə növünə görə hesablanır
+  // DAILY → equipmentPrice artıq gündəlik qiymətdir
+  // MONTHLY → equipmentPrice aylıq qiymətdir, 26 iş gününə bölünür
+  const dailyPrice = project.planEquipmentPrice
+    ? (project.projectType === 'MONTHLY'
+        ? parseFloat(project.planEquipmentPrice) / 26
+        : parseFloat(project.planEquipmentPrice))
     : 0
   const hourlyRate = dailyPrice / 9
   const overtimePay = overtimeH * hourlyRate * parseFloat(form.overtimeRate || 1)
@@ -808,7 +824,10 @@ function CompleteTab({ project, onCompleted }) {
             {scheduledHours > 0 ? `${scheduledHours} saat` : '—'}
           </p>
           <p className="text-[10px] text-blue-400 mt-0.5">
-            {project.planDayCount || project.dayCount || 0} gün × 9 saat/gün
+            {effectiveDays} gün × 9 saat/gün
+            {project.startDate && project.endDate && project.planDayCount && effectiveDays !== (project.planDayCount || project.dayCount || 0) && (
+              <span className="ml-1 text-amber-500">(plan: {project.planDayCount} gün)</span>
+            )}
           </p>
         </div>
 
