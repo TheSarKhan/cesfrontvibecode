@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   X, Info, DollarSign, CheckCircle,
-  Upload, FileText, Plus, Trash2,
+  Upload, FileText, Plus, Trash2, Download,
   TrendingUp, TrendingDown, Calendar,
   AlertCircle, Phone, User, MapPin, Wrench, Building2,
   Shield, Clock
 } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
+import axiosInstance from '../../api/axios'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -106,6 +107,26 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
   const [editingStartDate, setEditingStartDate] = useState(false)
   const [startDate, setStartDate] = useState(project.startDate?.substring(0, 10) || '')
   const [savingStartDate, setSavingStartDate] = useState(false)
+
+  const handleDownloadContract = async () => {
+    try {
+      const url = projectsApi.contractDownloadUrl(project.id)
+      const res = await axiosInstance.get(url, { responseType: 'blob' })
+      const baseName = project.contractFileName || `contract_${project.id}`
+      const cd = res.headers['content-disposition'] || ''
+      const match = cd.match(/filename="?([^";\s]+)"?/)
+      const serverExt = match ? match[1].substring(match[1].lastIndexOf('.')) : ''
+      const fileName = serverExt && !baseName.toLowerCase().endsWith(serverExt.toLowerCase())
+        ? baseName + serverExt : baseName
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(res.data)
+      link.download = fileName
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch {
+      toast.error('Fayl yüklənmədi')
+    }
+  }
 
   const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
@@ -395,9 +416,18 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       <Section title="Müqavilə">
         <InfoRow label="Status">
           {project.hasContract ? (
-            <span className="flex items-center gap-1 text-green-600 font-semibold">
-              <FileText size={11} />
-              Yüklənib
+            <span className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-green-600 font-semibold">
+                <FileText size={11} />
+                Yüklənib
+              </span>
+              <button
+                onClick={handleDownloadContract}
+                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+              >
+                <Download size={11} />
+                Endir
+              </button>
             </span>
           ) : (
             <span className="flex items-center gap-1 text-amber-600">

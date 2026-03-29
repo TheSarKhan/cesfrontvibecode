@@ -611,7 +611,7 @@ const filteredTransactions = useMemo(() => {
                         </td>
                         <td className="py-2.5 px-4">
                           <div className="flex items-center gap-0.5 justify-end">
-                            <button onClick={() => setPrintInv(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-blue-600 transition-colors"><Printer size={13} /></button>
+                            {/* TODO: çap sonra */}
                             {canEdit && <button onClick={() => setInvoiceModal({ open: true, editing: inv, defaultType: null })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
                             {canDelete && <button onClick={() => handleDeleteInvoice(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
                           </div>

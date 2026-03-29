@@ -188,7 +188,8 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
                     setForm((f) => ({ ...f, departmentId: e.target.value }))
                     if (errors.departmentId) setErrors((prev) => ({ ...prev, departmentId: undefined }))
                   }}
-                  className={inputCls('departmentId')}
+                  disabled={!!currentDept}
+                  className={clsx(inputCls('departmentId'), currentDept && 'opacity-60 cursor-not-allowed')}
                 >
                   <option value="">Departament seçin</option>
                   {departments.map((d) => (

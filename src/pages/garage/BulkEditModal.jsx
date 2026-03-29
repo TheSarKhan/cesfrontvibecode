@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { X, Users, MapPin } from 'lucide-react'
+import { X, MapPin } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import ComboInput from '../../components/common/ComboInput'
 
 export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
   useEscapeKey(onClose)
@@ -25,9 +26,39 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
     let ok = 0, fail = 0
     for (const id of selectedIds) {
       try {
-        const payload = {}
-        if (applyLocation) payload.storageLocation = storageLocation || null
-        if (applyNotes) payload.notes = notes || null
+        const { data: res } = await garageApi.getById(id)
+        const current = res.data
+        const payload = {
+          equipmentCode:           current.equipmentCode,
+          name:                    current.name,
+          type:                    current.type,
+          serialNumber:            current.serialNumber,
+          brand:                   current.brand,
+          model:                   current.model,
+          manufactureYear:         current.manufactureYear,
+          purchaseDate:            current.purchaseDate,
+          purchasePrice:           current.purchasePrice,
+          plateNumber:             current.plateNumber,
+          weightTon:               current.weightTon,
+          currentMarketValue:      current.currentMarketValue,
+          depreciationRate:        current.depreciationRate,
+          hourKmCounter:           current.hourKmCounter,
+          motoHours:               current.motoHours,
+          responsibleUserId:       current.responsibleUserId,
+          ownershipType:           current.ownershipType,
+          ownerContractorId:       current.ownerContractorId,
+          ownerInvestorName:       current.ownerInvestorName,
+          ownerInvestorVoen:       current.ownerInvestorVoen,
+          ownerInvestorPhone:      current.ownerInvestorPhone,
+          lastInspectionDate:      current.lastInspectionDate,
+          nextInspectionDate:      current.nextInspectionDate,
+          technicalReadinessStatus:current.technicalReadinessStatus,
+          status:                  current.status,
+          repairStatus:            current.repairStatus,
+          safetyEquipmentIds:      current.safetyEquipment?.map(s => s.id) ?? [],
+          storageLocation:  applyLocation ? (storageLocation || null) : current.storageLocation,
+          notes:            applyNotes    ? (notes || null)            : current.notes,
+        }
         await garageApi.update(id, payload)
         ok++
       } catch { fail++ }
@@ -66,12 +97,11 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
               </span>
             </label>
             {applyLocation && (
-              <input
-                type="text"
+              <ComboInput
+                category="REGION"
                 value={storageLocation}
-                onChange={(e) => setStorageLocation(e.target.value)}
-                placeholder="Yeni saxlanma yeri..."
-                className={inputCls}
+                onChange={(v) => setStorageLocation(v)}
+                placeholder="Saxlanma yeri seçin..."
               />
             )}
           </div>

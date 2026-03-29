@@ -291,7 +291,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                     placeholder="SN-12345" className={inputCls('')} />
                 </Field>
                 <Field label="İstehsal ili">
-                  <input type="number" min="1900" max="2030" value={form.manufactureYear}
+                  <input type="number" min="1900" max={new Date().getFullYear()} value={form.manufactureYear}
                     onChange={(e) => set('manufactureYear', e.target.value)} placeholder="2020" className={inputCls('')} />
                 </Field>
               </div>

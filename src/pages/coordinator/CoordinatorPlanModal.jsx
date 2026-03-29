@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Upload, Trash2, Download, FileText, CheckCircle, Search, Wrench, Building2, Phone, MapPin, User, Calendar, DollarSign, ShieldCheck, StickyNote, ChevronRight, Save, Send } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
+import axiosInstance from '../../api/axios'
 import { configApi } from '../../api/config'
 import { garageApi } from '../../api/garage'
 import { operatorsApi } from '../../api/operators'
@@ -366,6 +367,26 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       setPlan((prev) => ({ ...prev, documents: prev.documents.filter((d) => d.id !== docId) }))
       toast.success('Sənəd silindi')
     } catch {
+    }
+  }
+
+  const handleDownload = async (doc) => {
+    try {
+      const url = coordinatorApi.getDocumentDownloadUrl(request.requestId, doc.id)
+      const res = await axiosInstance.get(url, { responseType: 'blob' })
+      const baseName = doc.documentName || doc.fileName || `document_${doc.id}`
+      const cd = res.headers['content-disposition'] || ''
+      const match = cd.match(/filename="?([^";\s]+)"?/)
+      const serverExt = match ? match[1].substring(match[1].lastIndexOf('.')) : ''
+      const fileName = serverExt && !baseName.toLowerCase().endsWith(serverExt.toLowerCase())
+        ? baseName + serverExt : baseName
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(res.data)
+      link.download = fileName
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch {
+      toast.error('Fayl yüklənmədi')
     }
   }
 
@@ -1006,11 +1027,13 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                             </p>
                           </div>
                           <span className="text-[10px] text-gray-300 dark:text-gray-600 font-mono uppercase">{doc.fileType}</span>
-                          <a href={coordinatorApi.getDocumentDownloadUrl(request.requestId, doc.id)}
-                            target="_blank" rel="noreferrer"
-                            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 hover:text-gray-600 transition-colors opacity-0 group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(doc)}
+                            className="p-1.5 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 text-gray-400 hover:text-purple-600 transition-colors"
+                            title="Yüklə">
                             <Download size={14} />
-                          </a>
+                          </button>
                           {!isReadonly && (
                             <button onClick={() => handleDeleteDoc(doc.id)}
                               className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">

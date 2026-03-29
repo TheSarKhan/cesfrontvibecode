@@ -38,13 +38,14 @@ const STAT_CARDS = [
 ]
 
 const ALL_COLUMNS = [
-  { id: 'name',       label: 'Texnika',       field: 'name',              alwaysVisible: true },
-  { id: 'type',       label: 'Növ',           field: 'type' },
-  { id: 'brand',      label: 'Brend / Model', field: 'brand' },
-  { id: 'motoHours',  label: 'Moto saat',     field: 'motoHours' },
-  { id: 'status',     label: 'Status' },
-  { id: 'ownership',  label: 'Mülkiyyət' },
-  { id: 'inspection', label: 'Son baxış',     field: 'lastInspectionDate' },
+  { id: 'name',            label: 'Texnika',       field: 'name',              alwaysVisible: true },
+  { id: 'type',            label: 'Növ',           field: 'type' },
+  { id: 'brand',           label: 'Brend / Model', field: 'brand' },
+  { id: 'motoHours',       label: 'Moto saat',     field: 'motoHours' },
+  { id: 'status',          label: 'Status' },
+  { id: 'ownership',       label: 'Mülkiyyət' },
+  { id: 'storageLocation', label: 'Saxlanma yeri' },
+  { id: 'inspection',      label: 'Son baxış',     field: 'lastInspectionDate' },
 ]
 const DEFAULT_COLS = ALL_COLUMNS.map(c => c.id)
 
@@ -315,6 +316,7 @@ export default function GaragePage() {
 
   // Bulk edit modal
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [inspectionPopoverOpen, setInspectionPopoverOpen] = useState(false)
 
   const loadStats = useCallback(async () => {
     try {
@@ -590,10 +592,56 @@ export default function GaragePage() {
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100">Qaraj</h1>
             {inspectionWarnings.length > 0 && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse">
-                <CalendarClock size={11} />
-                {inspectionWarnings.length} baxış yaxınlaşır
-              </span>
+              <div className="relative">
+                <button
+                  onClick={() => setInspectionPopoverOpen(v => !v)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse hover:animate-none hover:bg-red-100 transition-colors"
+                >
+                  <CalendarClock size={11} />
+                  {inspectionWarnings.length} baxış yaxınlaşır
+                </button>
+                {inspectionPopoverOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-72 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Yaxınlaşan baxışlar</span>
+                      <button onClick={() => setInspectionPopoverOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/50">
+                      {inspectionWarnings
+                        .slice()
+                        .sort((a, b) => new Date(a.nextInspectionDate) - new Date(b.nextInspectionDate))
+                        .map(e => {
+                          const today = new Date(); today.setHours(0,0,0,0)
+                          const next = new Date(e.nextInspectionDate); next.setHours(0,0,0,0)
+                          const diff = Math.ceil((next - today) / (1000 * 60 * 60 * 24))
+                          const urgent = diff <= 0
+                          return (
+                            <button
+                              key={e.id}
+                              onClick={() => { setSlideOver(e); setInspectionPopoverOpen(false) }}
+                              className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left transition-colors"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{e.name}</p>
+                                <p className="text-[10px] text-gray-400 font-mono">{e.equipmentCode}</p>
+                              </div>
+                              <span className={clsx(
+                                'ml-2 shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold border',
+                                urgent
+                                  ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
+                                  : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+                              )}>
+                                {urgent ? 'Vaxtı keçib' : `${diff} gün`}
+                              </span>
+                            </button>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <div className="flex items-center gap-3 text-[11px] text-gray-400">
@@ -978,6 +1026,7 @@ export default function GaragePage() {
                   {isColVisible('motoHours') && <TH field="motoHours">Moto saat</TH>}
                   {isColVisible('status') && <TH>Status</TH>}
                   {isColVisible('ownership') && <TH>Mülkiyyət</TH>}
+                  {isColVisible('storageLocation') && <TH field="storageLocation">Saxlanma yeri</TH>}
                   {isColVisible('inspection') && <TH field="lastInspectionDate">Son baxış</TH>}
                   <TH className="text-center w-20">Əməliyyat</TH>
                 </tr>
@@ -1071,6 +1120,11 @@ export default function GaragePage() {
                             <p className="font-medium text-gray-700 dark:text-gray-200 text-[11px]">{OWN_LABEL[item.ownershipType] || '—'}</p>
                             {item.ownerContractorName && <p className="text-[10px] text-gray-400 truncate">{item.ownerContractorName}</p>}
                             {item.ownerInvestorName && <p className="text-[10px] text-gray-400 truncate">{item.ownerInvestorName}</p>}
+                          </td>
+                        )}
+                        {isColVisible('storageLocation') && (
+                          <td className="py-2 px-3 align-middle">
+                            <span className="text-gray-600 dark:text-gray-300 text-[11px] truncate block max-w-[120px]">{item.storageLocation || '—'}</span>
                           </td>
                         )}
                         {isColVisible('inspection') && (
