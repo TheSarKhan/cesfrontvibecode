@@ -3,7 +3,7 @@ import {
   Plus, Search, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign,
   BarChart3, AlertCircle, CheckCircle, ChevronRight, Printer, Calculator,
   ArrowUpRight, ArrowDownRight, CreditCard, PiggyBank, FileText,
-  Wallet, Receipt, Target, Download,
+  Wallet, Receipt, Target, Download, PenLine, X,
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import * as XLSX from 'xlsx'
@@ -39,9 +39,9 @@ const MAIN_TABS = [
 ]
 
 const TYPE_CONFIG = {
-  INCOME:             { label: 'A — Gəlir',        short: 'A',  cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  CONTRACTOR_EXPENSE: { label: 'B1 — Podratçı',    short: 'B1', cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' },
-  COMPANY_EXPENSE:    { label: 'B2 — Şirkət xərci', short: 'B2', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  INCOME:             { label: 'Gəlir',  short: 'Gəlir',  cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  CONTRACTOR_EXPENSE: { label: 'Ödəmə',  short: 'Ödəmə',  cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  COMPANY_EXPENSE:    { label: 'Xərc',   short: 'Xərc',   cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
 }
 
 const PAYMENT_STATUS_CFG = {
@@ -111,6 +111,7 @@ export default function AccountingPage() {
 
   // Modals
   const [invoiceModal, setInvoiceModal] = useState({ open: false, editing: null, defaultType: null, preProject: null })
+  const [fieldsModal, setFieldsModal] = useState({ open: false, inv: null, saving: false, form: { invoiceNumber: '', etaxesId: '', invoiceDate: '', notes: '' } })
   const [transactionModal, setTransactionModal] = useState({ open: false, editing: null, defaultType: null })
   const [paymentModal, setPaymentModal] = useState({ open: false, editing: null })
   const [budgetModal, setBudgetModal] = useState({ open: false, editing: null })
@@ -388,36 +389,36 @@ const filteredTransactions = useMemo(() => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard
                 icon={Receipt}
-                label={`Qaimə Gəlir (${summary.incomeCount || 0})`}
+                label={`Gəlirlər (${summary.incomeCount || 0})`}
                 value={fmtMoney(summary.totalIncome)}
-                sub="A növü qaimələr"
+                sub="Layihə gəlirləri"
                 color="bg-emerald-500"
                 textColor="text-emerald-600 dark:text-emerald-400"
                 onClick={() => { setActiveTab('invoices'); setInvoiceTab('INCOME') }}
               />
               <StatCard
                 icon={FileText}
-                label={`Podratçı (${summary.contractorExpenseCount || 0})`}
+                label={`Ödəmələr (${summary.contractorExpenseCount || 0})`}
                 value={fmtMoney(summary.totalContractorExpense)}
-                sub="B1 qaimələr"
-                color="bg-orange-500"
-                textColor="text-orange-600 dark:text-orange-400"
+                sub="İnvestor və podratçı"
+                color="bg-blue-500"
+                textColor="text-blue-600 dark:text-blue-400"
                 onClick={() => { setActiveTab('invoices'); setInvoiceTab('CONTRACTOR_EXPENSE') }}
               />
               <StatCard
                 icon={DollarSign}
-                label={`Şirkət xərci (${summary.companyExpenseCount || 0})`}
+                label={`Xərclər (${summary.companyExpenseCount || 0})`}
                 value={fmtMoney(summary.totalCompanyExpense)}
-                sub="B2 qaimələr"
+                sub="Şirkət daxili xərclər"
                 color="bg-rose-500"
                 textColor="text-rose-600 dark:text-rose-400"
                 onClick={() => { setActiveTab('invoices'); setInvoiceTab('COMPANY_EXPENSE') }}
               />
               <StatCard
                 icon={PiggyBank}
-                label="Qaimə Mənfəəti"
+                label="Xalis Mənfəət"
                 value={fmtMoney(summary.netProfit)}
-                sub="A − (B1 + B2)"
+                sub="Gəlir − (Ödəmə + Xərc)"
                 color={parseFloat(summary.netProfit) >= 0 ? 'bg-teal-500' : 'bg-gray-500'}
                 textColor={parseFloat(summary.netProfit) >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}
               />
@@ -563,9 +564,9 @@ const filteredTransactions = useMemo(() => {
           <div className="flex gap-1 mb-4 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
             {[
               { id: '', label: 'Hamısı' },
-              { id: 'INCOME', label: 'A — Gəlir' },
-              { id: 'CONTRACTOR_EXPENSE', label: 'B1 — Podratçı' },
-              { id: 'COMPANY_EXPENSE', label: 'B2 — Şirkət' },
+              { id: 'INCOME', label: 'Gəlirlər' },
+              { id: 'CONTRACTOR_EXPENSE', label: 'Ödəmələr' },
+              { id: 'COMPANY_EXPENSE', label: 'Xərclər' },
             ].map(tab => (
               <button key={tab.id} onClick={() => setInvoiceTab(tab.id)}
                 className={clsx('flex-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-colors',
@@ -595,6 +596,7 @@ const filteredTransactions = useMemo(() => {
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə / ID</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dövr</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Layihə</th>
                     <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Əməliyyat</th>
@@ -623,6 +625,15 @@ const filteredTransactions = useMemo(() => {
                         </td>
                         <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(inv.invoiceDate)}</td>
                         <td className="py-2.5 px-4">
+                          {inv.periodMonth && inv.periodYear ? (
+                            <span className="text-xs text-indigo-600 font-medium whitespace-nowrap">
+                              {new Date(inv.periodYear, inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'short', year: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4">
                           <p className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{inv.companyName || inv.contractorName || '—'}</p>
                         </td>
                         <td className="py-2.5 px-4">
@@ -631,6 +642,15 @@ const filteredTransactions = useMemo(() => {
                         <td className="py-2.5 px-4">
                           <div className="flex items-center gap-0.5 justify-end">
                             {/* TODO: çap sonra */}
+                            {canEdit && (
+                              <button
+                                title="Sahələri doldur (ETaxes, nömrə...)"
+                                onClick={() => setFieldsModal({ open: true, inv, saving: false, form: { invoiceNumber: inv.invoiceNumber || '', etaxesId: inv.etaxesId || '', invoiceDate: inv.invoiceDate || '', notes: inv.notes || '' } })}
+                                className="p-1.5 rounded-md hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
+                              >
+                                <PenLine size={13} />
+                              </button>
+                            )}
                             {canEdit && <button onClick={() => setInvoiceModal({ open: true, editing: inv, defaultType: null })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
                             {canDelete && <button onClick={() => handleDeleteInvoice(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
                           </div>
@@ -961,6 +981,106 @@ const filteredTransactions = useMemo(() => {
           onClose={() => setBudgetModal({ open: false, editing: null })}
           onSaved={() => { setBudgetModal({ open: false, editing: null }); loadAll() }}
         />
+      )}
+
+      {/* ═══ Sahələri Doldur Modal ═══ */}
+      {fieldsModal.open && fieldsModal.inv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Sahələri Doldur</h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {fieldsModal.inv.projectCode && <span className="font-mono text-green-600">{fieldsModal.inv.projectCode} · </span>}
+                  {fieldsModal.inv.companyName || '—'}
+                  {fieldsModal.inv.periodMonth && fieldsModal.inv.periodYear && (
+                    <span className="ml-1 text-indigo-600">
+                      · {new Date(fieldsModal.inv.periodYear, fieldsModal.inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'short', year: 'numeric' })}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setFieldsModal(s => ({ ...s, open: false }))} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            {/* Form */}
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                <input
+                  value={fieldsModal.form.invoiceNumber}
+                  onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, invoiceNumber: e.target.value } }))}
+                  placeholder="Q-2026-0042"
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              {fieldsModal.inv.type === 'INCOME' && (
+                <div>
+                  <label className="block text-[10px] font-medium text-gray-500 mb-1">ETaxes ID</label>
+                  <input
+                    value={fieldsModal.form.etaxesId}
+                    onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, etaxesId: e.target.value } }))}
+                    placeholder="ETX-2026-00001"
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
+                <input
+                  type="date"
+                  value={fieldsModal.form.invoiceDate}
+                  onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, invoiceDate: e.target.value } }))}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Qeydlər</label>
+                <textarea
+                  value={fieldsModal.form.notes}
+                  onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, notes: e.target.value } }))}
+                  rows={2}
+                  placeholder="Əlavə qeyd..."
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="flex gap-2 px-5 pb-4">
+              <button
+                onClick={() => setFieldsModal(s => ({ ...s, open: false }))}
+                className="flex-1 py-2 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Ləğv et
+              </button>
+              <button
+                disabled={fieldsModal.saving}
+                onClick={async () => {
+                  setFieldsModal(s => ({ ...s, saving: true }))
+                  try {
+                    await accountingApi.patchFields(fieldsModal.inv.id, {
+                      invoiceNumber: fieldsModal.form.invoiceNumber || null,
+                      etaxesId:      fieldsModal.form.etaxesId      || null,
+                      invoiceDate:   fieldsModal.form.invoiceDate    || null,
+                      notes:         fieldsModal.form.notes          || null,
+                    })
+                    toast.success('Sahələr yeniləndi')
+                    setFieldsModal(s => ({ ...s, open: false }))
+                    loadInvoices()
+                  } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+                    setFieldsModal(s => ({ ...s, saving: false }))
+                  }
+                }}
+                className="flex-1 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg transition-colors"
+              >
+                {fieldsModal.saving ? 'Saxlanır...' : 'Saxla'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {printInv && <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />}
