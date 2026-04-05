@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Plus, Search, Pencil, Trash2,
-  BarChart3, AlertCircle,
   ArrowUpRight, ArrowDownRight, CreditCard,
   Receipt, Target, Download, PenLine, X,
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import * as XLSX from 'xlsx'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
@@ -31,7 +29,6 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
 const dash = (v) => (v != null && v !== '') ? v : '—'
 
 const MAIN_TABS = [
-  { id: 'overview',     label: 'İcmal',           icon: BarChart3 },
   { id: 'invoices',     label: 'Qaimələr',        icon: Receipt },
   { id: 'transactions', label: 'Əməliyyatlar',    icon: ArrowUpRight },
   { id: 'payments',     label: 'Ödənişlər',       icon: CreditCard },
@@ -75,7 +72,7 @@ export default function AccountingPage() {
   const canDelete = hasPermission('ACCOUNTING', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('invoices')
   const [invoices, setInvoices] = useState([])
   const [invoiceData, setInvoiceData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [invoicePage, setInvoicePage] = useState(0)
@@ -175,43 +172,6 @@ export default function AccountingPage() {
   const totalBudgetPlanned = useMemo(() =>
     budgets.reduce((s, b) => s + parseFloat(b.plannedAmount || 0), 0)
   , [budgets])
-
-  const pendingProjects = useMemo(() => {
-    const invoicedIds = new Set(invoices.filter(i => i.type === 'INCOME' && i.projectId).map(i => i.projectId))
-    return projects.filter(p => p.status === 'COMPLETED' && !invoicedIds.has(p.id))
-  }, [projects, invoices])
-
-  /* ── Monthly chart data ── */
-  const monthlyData = useMemo(() => {
-    const months = {}
-    const monthNames = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'İyn', 'İyl', 'Avq', 'Sen', 'Okt', 'Noy', 'Dek']
-    const now = new Date()
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      months[key] = { name: monthNames[d.getMonth()], income: 0, expense: 0 }
-    }
-    transactions.forEach(t => {
-      const key = t.transactionDate?.slice(0, 7)
-      if (months[key]) {
-        if (t.type === 'INCOME') months[key].income += parseFloat(t.amount || 0)
-        else months[key].expense += parseFloat(t.amount || 0)
-      }
-    })
-    return Object.values(months)
-  }, [transactions])
-
-  /* ── Expense breakdown ── */
-  const expenseBreakdown = useMemo(() => {
-    const map = {}
-    transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
-      const cat = t.category || 'OTHER_EXPENSE'
-      map[cat] = (map[cat] || 0) + parseFloat(t.amount || 0)
-    })
-    return Object.entries(map)
-      .map(([key, value]) => ({ name: CATEGORY_LABELS[key] || key, value: Math.round(value * 100) / 100 }))
-      .sort((a, b) => b.value - a.value)
-  }, [transactions])
 
 const filteredTransactions = useMemo(() => {
     const q = search.toLowerCase()
@@ -324,141 +284,6 @@ const filteredTransactions = useMemo(() => {
         })}
       </div>
 
-      {/* ═══════════════ OVERVIEW TAB ═══════════════ */}
-      {activeTab === 'overview' && (
-        <div className="space-y-5">
-
-          {/* Pending projects — fakturasız bağlanmış layihələr */}
-          {pendingProjects.length > 0 && (
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2">
-                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
-                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                    {pendingProjects.length} bağlanmış layihənin fakturası kəsilməyib
-                  </span>
-                </div>
-              </div>
-              {/* Header row */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-1.5 border-b border-amber-100 dark:border-amber-900/30 bg-amber-100/50 dark:bg-amber-900/20">
-                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">Layihə</span>
-                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide w-28 text-right">Xalis gəlir</span>
-                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide w-24 text-right">Bitmə tarixi</span>
-                <span className="w-24" />
-              </div>
-              <div className="divide-y divide-amber-100 dark:divide-amber-900/30">
-                {pendingProjects.map(p => (
-                  <div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors">
-                    <div className="min-w-0">
-                      <span className="text-xs font-mono font-bold text-green-600 dark:text-green-400">
-                        {p.projectCode || `PRJ-${String(p.id).padStart(4, '0')}`}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 truncate">{p.companyName}</span>
-                      {p.projectName && <span className="text-[10px] text-gray-400 ml-1 hidden sm:inline">· {p.projectName}</span>}
-                    </div>
-                    <span className={clsx(
-                      'text-xs font-bold w-28 text-right',
-                      parseFloat(p.netProfit || 0) >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-red-500'
-                    )}>
-                      {fmtMoney(p.netProfit)}
-                    </span>
-                    <span className="text-xs text-gray-400 w-24 text-right">
-                      {p.endDate ? fmt(p.endDate) : '—'}
-                    </span>
-                    <button
-                      onClick={() => setInvoiceModal({ open: true, editing: null, defaultType: 'INCOME', preProject: p })}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-semibold rounded-lg transition-colors whitespace-nowrap"
-                    >
-                      <Plus size={10} /> Faktura yarat
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Monthly trend */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Aylıq Gəlir / Xərc Trendi</h3>
-              {monthlyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={monthlyData} barGap={2}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={55}
-                      tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff' }}
-                      formatter={(v) => fmtMoney(v)}
-                    />
-                    <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} name="Gəlir" />
-                    <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} name="Xərc" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-12">Məlumat yoxdur</p>
-              )}
-            </div>
-
-            {/* Expense pie */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Xərc Paylanması</h3>
-              {expenseBreakdown.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={expenseBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                      innerRadius={50} outerRadius={80} paddingAngle={2}>
-                      {expenseBreakdown.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => fmtMoney(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: 10 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-12">Xərc məlumatı yoxdur</p>
-              )}
-            </div>
-          </div>
-
-          {/* Budget vs Actual quick view */}
-          {budgets.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Büdcə İcmalı</h3>
-                <button onClick={() => setActiveTab('budget')} className="text-xs text-amber-600 hover:text-amber-700 font-medium">
-                  Hamısını gör →
-                </button>
-              </div>
-              <div className="space-y-2">
-                {budgets.slice(0, 5).map(b => {
-                  const actual = transactions
-                    .filter(t => t.type === 'EXPENSE' && t.category === b.category)
-                    .reduce((s, t) => s + parseFloat(t.amount || 0), 0)
-                  const pct = b.plannedAmount > 0 ? Math.min((actual / parseFloat(b.plannedAmount)) * 100, 100) : 0
-                  const isOver = actual > parseFloat(b.plannedAmount)
-                  return (
-                    <div key={b.id} className="flex items-center gap-3">
-                      <span className="text-xs text-gray-600 dark:text-gray-300 w-32 truncate">{CATEGORY_LABELS[b.category] || b.category}</span>
-                      <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className={clsx('h-full rounded-full transition-all', isOver ? 'bg-red-500' : 'bg-amber-500')}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className={clsx('text-[10px] font-semibold w-20 text-right', isOver ? 'text-red-500' : 'text-gray-500')}>
-                        {fmtMoney(actual)} / {fmtMoney(b.plannedAmount)}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ═══════════════ INVOICES TAB ═══════════════ */}
       {activeTab === 'invoices' && (
