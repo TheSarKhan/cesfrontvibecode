@@ -116,17 +116,19 @@ export default function AccountingPage() {
         accountingApi.getAll(),
         accountingApi.getSummary(),
         projectsApi.getAll(),
-        accountingApi.getTransactions(),
-        accountingApi.getPayments(),
-        accountingApi.getBudgets(),
+        // TODO: API endpoints hazır olmadığında dəstəklənəcək
+        // accountingApi.getTransactions(),
+        // accountingApi.getPayments(),
+        // accountingApi.getBudgets(),
       ])
       const extract = (r) => r.status === 'fulfilled' ? (r.value?.data?.data || r.value?.data || []) : []
       setInvoices(extract(results[0]))
       setSummary(results[1].status === 'fulfilled' ? (results[1].value?.data?.data || results[1].value?.data) : null)
       setProjects(extract(results[2]))
-      setTransactions(extract(results[3]))
-      setPayments(extract(results[4]))
-      setBudgets(extract(results[5]))
+      // Hələlik boş
+      setTransactions([])
+      setPayments([])
+      setBudgets([])
     } catch {
     } finally {
       setLoading(false)
