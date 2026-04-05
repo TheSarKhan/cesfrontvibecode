@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Plus, Search, Pencil, Trash2,
   ArrowUpRight, ArrowDownRight, CreditCard,
-  Receipt, Target, Download, PenLine, X,
+  Receipt, Download, PenLine, X,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { accountingApi } from '../../api/accounting'
@@ -11,7 +11,6 @@ import InvoiceModal from './InvoiceModal'
 import InvoicePrintModal from './InvoicePrintModal'
 import TransactionModal from './TransactionModal'
 import PaymentModal from './PaymentModal'
-import BudgetModal from './BudgetModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -32,7 +31,6 @@ const MAIN_TABS = [
   { id: 'invoices',     label: 'Qaimələr',        icon: Receipt },
   { id: 'transactions', label: 'Əməliyyatlar',    icon: ArrowUpRight },
   { id: 'payments',     label: 'Ödənişlər',       icon: CreditCard },
-  { id: 'budget',       label: 'Büdcə',           icon: Target },
 ]
 
 const TYPE_CONFIG = {
@@ -89,7 +87,6 @@ export default function AccountingPage() {
   const [fieldsModal, setFieldsModal] = useState({ open: false, inv: null, saving: false, form: { invoiceNumber: '', etaxesId: '', invoiceDate: '', notes: '' } })
   const [transactionModal, setTransactionModal] = useState({ open: false, editing: null, defaultType: null })
   const [paymentModal, setPaymentModal] = useState({ open: false, editing: null })
-  const [budgetModal, setBudgetModal] = useState({ open: false, editing: null })
   const [printInv, setPrintInv] = useState(null)
 
   // Filters
@@ -108,7 +105,6 @@ export default function AccountingPage() {
     if (activeTab === 'invoices') setInvoiceModal({ open: true, editing: null, defaultType: 'INCOME', preProject: null })
     else if (activeTab === 'transactions') setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
     else if (activeTab === 'payments') setPaymentModal({ open: true, editing: null })
-    else if (activeTab === 'budget') setBudgetModal({ open: true, editing: null })
     else setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
   }
 
@@ -169,10 +165,6 @@ export default function AccountingPage() {
     payments.filter(p => p.status === 'PENDING').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
   , [payments])
 
-  const totalBudgetPlanned = useMemo(() =>
-    budgets.reduce((s, b) => s + parseFloat(b.plannedAmount || 0), 0)
-  , [budgets])
-
 const filteredTransactions = useMemo(() => {
     const q = search.toLowerCase()
     return transactions.filter(t => {
@@ -216,12 +208,6 @@ const filteredTransactions = useMemo(() => {
     catch (err) { if (!err?.isPending) return }
   }
 
-  const handleDeleteBudget = async (b) => {
-    if (!(await confirm({ title: 'Büdcəni sil', message: `${CATEGORY_LABELS[b.category] || b.category} büdcəsi silinsin?` }))) return
-    try { await accountingApi.deleteBudget(b.id); toast.success('Büdcə silindi'); loadAll() }
-    catch (err) { if (!err?.isPending) return }
-  }
-
   /* ── Excel export ── */
   const exportTransactions = () => {
     const rows = filteredTransactions.map(t => ({
@@ -256,8 +242,7 @@ const filteredTransactions = useMemo(() => {
             <Plus size={15} />
             {activeTab === 'invoices' ? 'Yeni Qaimə' :
              activeTab === 'transactions' ? 'Yeni Əməliyyat' :
-             activeTab === 'payments' ? 'Yeni Ödəniş' :
-             activeTab === 'budget' ? 'Yeni Büdcə' : 'Yeni Əməliyyat'}
+             activeTab === 'payments' ? 'Yeni Ödəniş' : 'Yeni Əməliyyat'}
           </button>
         )}
       </div>
@@ -587,93 +572,6 @@ const filteredTransactions = useMemo(() => {
         </div>
       )}
 
-      {/* ═══════════════ BUDGET TAB ═══════════════ */}
-      {activeTab === 'budget' && (
-        <div>
-          {/* Budget summary cards */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3">
-              <p className="text-[11px] text-gray-500">Planlaşdırılmış</p>
-              <p className="text-lg font-bold text-gray-800 dark:text-gray-100">{fmtMoney(totalBudgetPlanned)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3">
-              <p className="text-[11px] text-gray-500">Xərclənmiş</p>
-              <p className="text-lg font-bold text-red-600">{fmtMoney(totalExpense)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3">
-              <p className="text-[11px] text-gray-500">Qalan</p>
-              <p className={clsx('text-lg font-bold', totalBudgetPlanned - totalExpense >= 0 ? 'text-green-600' : 'text-red-500')}>
-                {fmtMoney(totalBudgetPlanned - totalExpense)}
-              </p>
-            </div>
-          </div>
-
-          {/* Budget table */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dövr</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Faktiki</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">İcra %</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fərq</th>
-                    <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Əməliyyat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? <TableSkeleton cols={7} rows={4} /> : budgets.length === 0 ? (
-                    <EmptyState icon={Target} title="Büdcə tapılmadı" description="Yeni büdcə əlavə edin"
-                      action={canCreate ? () => setBudgetModal({ open: true, editing: null }) : undefined}
-                      actionLabel="Yeni Büdcə" />
-                  ) : budgets.map(b => {
-                    const actual = transactions
-                      .filter(t => t.type === 'EXPENSE' && t.category === b.category)
-                      .reduce((s, t) => s + parseFloat(t.amount || 0), 0)
-                    const planned = parseFloat(b.plannedAmount || 0)
-                    const pct = planned > 0 ? Math.round((actual / planned) * 100) : 0
-                    const diff = planned - actual
-                    const isOver = actual > planned
-                    const periodLabel = b.period === 'MONTHLY' ? `${b.year} / ${b.month}-ci ay`
-                      : b.period === 'QUARTERLY' ? `${b.year} / ${b.quarter}-cü rüb`
-                      : `${b.year}`
-                    return (
-                      <tr key={b.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                        <td className="py-2.5 px-4 text-xs font-medium text-gray-700 dark:text-gray-300">{CATEGORY_LABELS[b.category] || b.category}</td>
-                        <td className="py-2.5 px-4 text-xs text-gray-500">{periodLabel}</td>
-                        <td className="py-2.5 px-4 text-xs font-semibold text-gray-700 dark:text-gray-200">{fmtMoney(planned)}</td>
-                        <td className="py-2.5 px-4 text-xs font-semibold text-gray-700 dark:text-gray-200">{fmtMoney(actual)}</td>
-                        <td className="py-2.5 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden max-w-[60px]">
-                              <div className={clsx('h-full rounded-full', isOver ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-green-500')}
-                                style={{ width: `${Math.min(pct, 100)}%` }} />
-                            </div>
-                            <span className={clsx('text-[10px] font-bold', isOver ? 'text-red-500' : 'text-gray-500')}>{pct}%</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span className={clsx('text-xs font-semibold', isOver ? 'text-red-500' : 'text-green-600')}>
-                            {isOver ? '−' : '+'}{fmtMoney(Math.abs(diff))}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <div className="flex items-center gap-0.5 justify-end">
-                            {canEdit && <button onClick={() => setBudgetModal({ open: true, editing: b })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
-                            {canDelete && <button onClick={() => handleDeleteBudget(b)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ═══════════════ MODALS ═══════════════ */}
       {invoiceModal.open && (
@@ -703,13 +601,6 @@ const filteredTransactions = useMemo(() => {
         />
       )}
 
-      {budgetModal.open && (
-        <BudgetModal
-          editing={budgetModal.editing}
-          onClose={() => setBudgetModal({ open: false, editing: null })}
-          onSaved={() => { setBudgetModal({ open: false, editing: null }); loadAll() }}
-        />
-      )}
 
       {/* ═══ Sahələri Doldur Modal ═══ */}
       {fieldsModal.open && fieldsModal.inv && (
