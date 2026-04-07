@@ -90,6 +90,13 @@ export default function ProjectQaimeTab({ project }) {
     if (!form.invoiceDate) return toast.error('Tarix seçilməlidir')
     if (calc.total <= 0) return toast.error('Məbləğ 0-dan böyük olmalıdır')
 
+    const ok = await confirm({
+      title: 'Qaime Yaratma',
+      message: `${fmtMoney(calc.total)} ₼ məbləğli qaime yaradılsın?`,
+      confirmText: 'Bəli, yarat',
+    })
+    if (!ok) return
+
     setSaving(true)
     try {
       await accountingApi.create({
