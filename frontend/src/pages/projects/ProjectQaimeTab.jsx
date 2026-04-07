@@ -42,7 +42,7 @@ export default function ProjectQaimeTab({ project }) {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [sendingId, setSendingId] = useState(null)
-  const confirm = useConfirm()
+  const { confirm, ConfirmDialog } = useConfirm()
   const canCreate = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canPost'))
   const canSend = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canSendToAccounting'))
   const canDelete = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canDelete'))
@@ -371,6 +371,7 @@ export default function ProjectQaimeTab({ project }) {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   )
 }
