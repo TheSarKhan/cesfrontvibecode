@@ -381,27 +381,26 @@ function ModuleRow({
               />
               <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Təklif göndər</span>
             </label>
+          ) : mod.code === 'PROJECTS' ? (
+            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={permMap[mod.id]?.canSendToAccounting || false}
+                onChange={() => onTogglePerm(mod.id, 'canSendToAccounting')}
+                className="accent-purple-600 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Mühasibatlığa göndər</span>
+            </label>
           ) : mod.code === 'ACCOUNTING' ? (
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  checked={permMap[mod.id]?.canSendToAccounting || false}
-                  onChange={() => onTogglePerm(mod.id, 'canSendToAccounting')}
-                  className="accent-purple-600 w-4 h-4 cursor-pointer"
-                />
-                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Mühasibatlığa göndər</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-                <input
-                  type="checkbox"
-                  checked={permMap[mod.id]?.canReturnToProject || false}
-                  onChange={() => onTogglePerm(mod.id, 'canReturnToProject')}
-                  className="accent-purple-600 w-4 h-4 cursor-pointer"
-                />
-                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Layihəyə geri göndər</span>
-              </label>
-            </div>
+            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={permMap[mod.id]?.canReturnToProject || false}
+                onChange={() => onTogglePerm(mod.id, 'canReturnToProject')}
+                className="accent-purple-600 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Layihəyə geri göndər</span>
+            </label>
           ) : <span />}
         </td>
       </tr>

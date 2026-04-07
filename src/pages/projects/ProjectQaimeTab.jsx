@@ -42,9 +42,10 @@ export default function ProjectQaimeTab({ project }) {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [sendingId, setSendingId] = useState(null)
+  const [justCreatedId, setJustCreatedId] = useState(null)
   const { confirm, ConfirmDialog } = useConfirm()
   const canCreate = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canPost'))
-  const canSend = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canSendToAccounting'))
+  const canSend = canCreate  // Əgər qaimə yarada bilsə, göndərə də bilər
   const canDelete = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canDelete'))
 
   useEffect(() => {
@@ -99,7 +100,7 @@ export default function ProjectQaimeTab({ project }) {
 
     setSaving(true)
     try {
-      await accountingApi.create({
+      const res = await accountingApi.create({
         type: 'INCOME',
         projectId: project.id,
         companyName: project.companyName || '',
@@ -119,8 +120,8 @@ export default function ProjectQaimeTab({ project }) {
         status: 'DRAFT',
       })
       toast.success('Qaimə yaradıldı')
+      setJustCreatedId(res.data?.data?.id)
       setForm(emptyForm)
-      setShowForm(false)
       load()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Xəta baş verdi')
@@ -140,6 +141,7 @@ export default function ProjectQaimeTab({ project }) {
     try {
       await accountingApi.sendToAccounting(id)
       toast.success('Qaimə mühasibatlığa göndərildi')
+      setJustCreatedId(null)
       load()
     } catch {
       toast.error('Göndərmə uğursuz oldu')
@@ -302,6 +304,42 @@ export default function ProjectQaimeTab({ project }) {
             className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
             {saving ? 'Yaradılır...' : 'Qaime Yarat'}
           </button>
+
+          {/* Success message with Send button */}
+          {justCreatedId && !saving && (
+            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
+              <p className="text-sm font-semibold text-green-700 mb-3">✓ Qaimə uğurla yaradıldı!</p>
+              <div className="flex gap-2">
+                {canSend && (
+                  <button
+                    type="button"
+                    onClick={() => handleSend(justCreatedId, periodLabel(form.periodMonth, form.periodYear))}
+                    disabled={sendingId === justCreatedId}
+                    className="flex-1 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1"
+                  >
+                    {sendingId === justCreatedId ? (
+                      <>
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Göndərilir...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={12} />
+                        Mühasibatlığa Göndər
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setJustCreatedId(null)}
+                  className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+                >
+                  Bağla
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       )}
 
