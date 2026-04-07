@@ -157,7 +157,7 @@ export default function ProjectQaimeTab({ project }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <FileText size={14} className="text-amber-600" />
-          <span className="text-sm font-semibold text-gray-800">Aylıq Qaimələr</span>
+          <span className="text-sm font-semibold text-gray-800">Qaimələr</span>
           {invoices.length > 0 && (
             <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">
               {invoices.length}
