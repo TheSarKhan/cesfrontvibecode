@@ -68,6 +68,7 @@ export default function AccountingPage() {
   const canCreate = hasPermission('ACCOUNTING', 'canPost')
   const canEdit   = hasPermission('ACCOUNTING', 'canPut')
   const canDelete = hasPermission('ACCOUNTING', 'canDelete')
+  const canReturn = hasPermission('ACCOUNTING', 'canReturnToProject')
   const { confirm, ConfirmDialog } = useConfirm()
 
   const [activeTab, setActiveTab] = useState('invoices')
@@ -195,6 +196,12 @@ const filteredTransactions = useMemo(() => {
   const handleDeleteInvoice = async (inv) => {
     if (!(await confirm({ title: 'Qaiməni sil', message: `"${inv.invoiceNumber || `#${inv.id}`}" silinsin?` }))) return
     try { await accountingApi.delete(inv.id); toast.success('Qaimə silindi'); loadAll(); loadInvoices() }
+    catch (err) { if (!err?.isPending) return }
+  }
+
+  const handleReturnToProject = async (inv) => {
+    if (!(await confirm({ title: 'Layihəyə geri göndər', message: `"${inv.invoiceNumber || `#${inv.id}`}" layihəyə geri göndərilsin? Düzəltmə üçün layihə menecerinə qaytarılacaq.` }))) return
+    try { await accountingApi.returnToProject(inv.id); toast.success('Qaimə layihəyə geri göndərildi'); loadAll(); loadInvoices() }
     catch (err) { if (!err?.isPending) return }
   }
 
@@ -367,6 +374,7 @@ const filteredTransactions = useMemo(() => {
                               </button>
                             )}
                             {canEdit && inv.status !== 'SENT' && <button onClick={() => setInvoiceModal({ open: true, editing: inv, defaultType: null })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
+                            {inv.status === 'SENT' && canReturn && <button onClick={() => handleReturnToProject(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-orange-500 transition-colors" title="Layihəyə geri göndər"><ArrowUpRight size={13} /></button>}
                             {canDelete && inv.status !== 'SENT' && <button onClick={() => handleDeleteInvoice(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
                           </div>
                         </td>
