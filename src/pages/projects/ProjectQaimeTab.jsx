@@ -32,8 +32,6 @@ const emptyForm = {
   workingDaysInMonth: 26,
   workingHoursPerDay: 9,
   invoiceDate: new Date().toISOString().slice(0, 10),
-  invoiceNumber: '',
-  etaxesId: '',
   notes: '',
 }
 
@@ -100,8 +98,6 @@ export default function ProjectQaimeTab({ project }) {
         companyName: project.companyName || '',
         equipmentName: project.equipmentName || '',
         invoiceDate: form.invoiceDate,
-        invoiceNumber: form.invoiceNumber || null,
-        etaxesId: form.etaxesId || null,
         notes: form.notes || null,
         amount: parseFloat(calc.total.toFixed(2)),
         periodMonth: parseInt(form.periodMonth),
@@ -298,25 +294,11 @@ export default function ProjectQaimeTab({ project }) {
             </div>
           )}
 
-          {/* Row 6: Date + Invoice number */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls}>Tarix *</label>
-              <input type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)}
-                className={inputCls} required />
-            </div>
-            <div>
-              <label className={labelCls}>Qaimə nömrəsi</label>
-              <input value={form.invoiceNumber} onChange={e => set('invoiceNumber', e.target.value)}
-                placeholder="İstəyə bağlı" className={inputCls} />
-            </div>
-          </div>
-
-          {/* ETaxes ID */}
+          {/* Date */}
           <div>
-            <label className={labelCls}>ETaxes ID</label>
-            <input value={form.etaxesId} onChange={e => set('etaxesId', e.target.value)}
-              placeholder="İstəyə bağlı" className={inputCls} />
+            <label className={labelCls}>Tarix *</label>
+            <input type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)}
+              className={inputCls} required />
           </div>
 
           {/* Notes */}
