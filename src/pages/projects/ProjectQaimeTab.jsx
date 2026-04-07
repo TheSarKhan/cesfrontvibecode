@@ -1,0 +1,359 @@
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Trash2, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { accountingApi } from '../../api/accounting'
+import toast from 'react-hot-toast'
+import { useConfirm } from '../../components/common/ConfirmDialog'
+
+const MONTHS = [
+  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
+  'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr'
+]
+
+function fmtMoney(v) {
+  if (v == null) return '—'
+  return Number(v).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function periodLabel(month, year) {
+  if (!month || !year) return '—'
+  return `${MONTHS[month - 1]} ${year}`
+}
+
+const emptyForm = {
+  periodMonth: '',
+  periodYear: new Date().getFullYear(),
+  standardDays: '',
+  extraDays: '',
+  extraHours: '',
+  overtimeRate: '1.0',
+  monthlyRate: 14000,
+  workingDaysInMonth: 26,
+  workingHoursPerDay: 9,
+  invoiceDate: new Date().toISOString().slice(0, 10),
+  invoiceNumber: '',
+  etaxesId: '',
+  notes: '',
+}
+
+export default function ProjectQaimeTab({ project }) {
+  const [invoices, setInvoices] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+  const confirm = useConfirm()
+
+  useEffect(() => {
+    load()
+  }, [project.id])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await accountingApi.getByProject(project.id)
+      setInvoices((res.data?.data || []).filter(inv => inv.type === 'INCOME'))
+    } catch {
+      toast.error('Qaimələr yüklənmədi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function set(field, value) {
+    setForm(f => ({ ...f, [field]: value }))
+  }
+
+  // Live amount calculation
+  const calc = useMemo(() => {
+    const monthly = parseFloat(form.monthlyRate) || 0
+    const workDays = parseFloat(form.workingDaysInMonth) || 26
+    const workHours = parseFloat(form.workingHoursPerDay) || 9
+    const std = parseFloat(form.standardDays) || 0
+    const extD = parseFloat(form.extraDays) || 0
+    const extH = parseFloat(form.extraHours) || 0
+    if (!monthly || !workDays || !workHours) return { daily: 0, stdAmt: 0, extDAmt: 0, extHAmt: 0, total: 0 }
+    const daily = monthly / workDays
+    const stdAmt = daily * std
+    const extDAmt = daily * extD
+    const rate = parseFloat(form.overtimeRate) || 1
+    const extHAmt = (daily / workHours) * extH * rate
+    return { daily, stdAmt, extDAmt, extHAmt, total: stdAmt + extDAmt + extHAmt }
+  }, [form.monthlyRate, form.workingDaysInMonth, form.workingHoursPerDay, form.standardDays, form.extraDays, form.extraHours, form.overtimeRate])
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.periodMonth) return toast.error('Dövr seçilməlidir')
+    if (!form.invoiceDate) return toast.error('Tarix seçilməlidir')
+    if (calc.total <= 0) return toast.error('Məbləğ 0-dan böyük olmalıdır')
+
+    setSaving(true)
+    try {
+      await accountingApi.create({
+        type: 'INCOME',
+        projectId: project.id,
+        companyName: project.companyName || '',
+        equipmentName: project.equipmentName || '',
+        invoiceDate: form.invoiceDate,
+        invoiceNumber: form.invoiceNumber || null,
+        etaxesId: form.etaxesId || null,
+        notes: form.notes || null,
+        amount: parseFloat(calc.total.toFixed(2)),
+        periodMonth: parseInt(form.periodMonth),
+        periodYear: parseInt(form.periodYear),
+        standardDays: form.standardDays !== '' ? parseInt(form.standardDays) : null,
+        extraDays: form.extraDays !== '' ? parseInt(form.extraDays) : null,
+        extraHours: form.extraHours !== '' ? parseFloat(form.extraHours) : null,
+        monthlyRate: parseFloat(form.monthlyRate),
+        workingDaysInMonth: parseInt(form.workingDaysInMonth),
+        workingHoursPerDay: parseInt(form.workingHoursPerDay),
+        overtimeRate: parseFloat(form.overtimeRate) || 1,
+      })
+      toast.success('Qaimə yaradıldı')
+      setForm(emptyForm)
+      setShowForm(false)
+      load()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id, label) {
+    const ok = await confirm({
+      title: 'Qaiməni sil',
+      message: `"${label}" qaiməsi silinəcək. Davam etmək istəyirsiniz?`,
+      confirmText: 'Sil',
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      await accountingApi.delete(id)
+      toast.success('Qaimə silindi')
+      load()
+    } catch {
+      toast.error('Silinmə uğursuz oldu')
+    }
+  }
+
+  const inputCls = 'w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500'
+  const labelCls = 'block text-[10px] font-medium text-gray-500 mb-1'
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <FileText size={14} className="text-amber-600" />
+          <span className="text-sm font-semibold text-gray-800">Aylıq Qaimələr</span>
+          {invoices.length > 0 && (
+            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full">
+              {invoices.length}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors"
+        >
+          {showForm ? <ChevronUp size={12} /> : <Plus size={12} />}
+          {showForm ? 'Bağla' : 'Yeni Qaime'}
+        </button>
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <form onSubmit={handleSubmit} className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Yeni Aylıq Qaime</p>
+
+          {/* Row 1: Period */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Ay *</label>
+              <select value={form.periodMonth} onChange={e => set('periodMonth', e.target.value)} className={inputCls} required>
+                <option value="">Seçin...</option>
+                {MONTHS.map((m, i) => (
+                  <option key={i + 1} value={i + 1}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>İl *</label>
+              <input type="number" value={form.periodYear} onChange={e => set('periodYear', e.target.value)}
+                min="2020" max="2040" className={inputCls} required />
+            </div>
+          </div>
+
+          {/* Row 2: Standard + Extra days */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Standart gün</label>
+              <input type="number" value={form.standardDays} onChange={e => set('standardDays', e.target.value)}
+                min="0" max="31" placeholder="0" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Əlavə gün</label>
+              <input type="number" value={form.extraDays} onChange={e => set('extraDays', e.target.value)}
+                min="0" max="31" placeholder="0" className={inputCls} />
+            </div>
+          </div>
+
+          {/* Row 3: Extra hours */}
+          <div>
+            <label className={labelCls}>Əlavə saat</label>
+            <input type="number" value={form.extraHours} onChange={e => set('extraHours', e.target.value)}
+              min="0" step="0.5" placeholder="0" className={inputCls} />
+          </div>
+
+          {/* Row 3b: Overtime rate */}
+          <div>
+            <label className={labelCls}>Əlavə saat dərəcəsi</label>
+            <div className="flex gap-2">
+              {[['1.0', 'Adi (1×)'], ['1.5', 'Əlavə (1.5×)']].map(([val, lbl]) => (
+                <button type="button" key={val} onClick={() => set('overtimeRate', val)}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                    form.overtimeRate === val
+                      ? 'bg-amber-600 text-white border-amber-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-amber-400'
+                  }`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Row 4: Rate + Working days */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Aylıq tarif (₼)</label>
+              <input type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
+                min="1" step="0.01" className={inputCls} required />
+            </div>
+            <div>
+              <label className={labelCls}>Norma gün/ay</label>
+              <input type="number" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)}
+                min="1" max="31" className={inputCls} required />
+            </div>
+          </div>
+
+          {/* Row 5: Hours per day */}
+          <div>
+            <label className={labelCls}>Norma saat/gün</label>
+            <input type="number" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)}
+              min="1" max="24" className={inputCls} required />
+          </div>
+
+          {/* Preview box */}
+          {calc.total > 0 && (
+            <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 space-y-1">
+              <p className="text-[10px] font-bold text-green-700 uppercase tracking-widest">Hesablanmış məbləğ</p>
+              {calc.stdAmt > 0 && (
+                <div className="flex justify-between text-[11px] text-gray-600">
+                  <span>Standart gün ({form.standardDays} × {fmtMoney(calc.daily)})</span>
+                  <span>{fmtMoney(calc.stdAmt)} ₼</span>
+                </div>
+              )}
+              {calc.extDAmt > 0 && (
+                <div className="flex justify-between text-[11px] text-gray-600">
+                  <span>Əlavə gün ({form.extraDays} × {fmtMoney(calc.daily)})</span>
+                  <span>{fmtMoney(calc.extDAmt)} ₼</span>
+                </div>
+              )}
+              {calc.extHAmt > 0 && (
+                <div className="flex justify-between text-[11px] text-gray-600">
+                  <span>Əlavə saat ({form.extraHours} saat × {form.overtimeRate})</span>
+                  <span>{fmtMoney(calc.extHAmt)} ₼</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-bold text-green-700 border-t border-green-200 pt-1 mt-1">
+                <span>Cəmi</span>
+                <span>{fmtMoney(calc.total)} ₼</span>
+              </div>
+            </div>
+          )}
+
+          {/* Row 6: Date + Invoice number */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelCls}>Tarix *</label>
+              <input type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)}
+                className={inputCls} required />
+            </div>
+            <div>
+              <label className={labelCls}>Qaimə nömrəsi</label>
+              <input value={form.invoiceNumber} onChange={e => set('invoiceNumber', e.target.value)}
+                placeholder="İstəyə bağlı" className={inputCls} />
+            </div>
+          </div>
+
+          {/* ETaxes ID */}
+          <div>
+            <label className={labelCls}>ETaxes ID</label>
+            <input value={form.etaxesId} onChange={e => set('etaxesId', e.target.value)}
+              placeholder="İstəyə bağlı" className={inputCls} />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className={labelCls}>Qeydlər</label>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+              rows={2} placeholder="İstəyə bağlı qeyd..." className={inputCls + ' resize-none'} />
+          </div>
+
+          <button type="submit" disabled={saving || calc.total <= 0}
+            className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
+            {saving ? 'Göndərilir...' : 'Muhasibatlığa Göndər'}
+          </button>
+        </form>
+      )}
+
+      {/* Invoice list */}
+      {loading ? (
+        <div className="py-6 text-center text-xs text-gray-400">Yüklənir...</div>
+      ) : invoices.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-200 py-8 text-center">
+          <FileText size={28} className="mx-auto text-gray-300 mb-2" />
+          <p className="text-xs text-gray-400">Hələ qaime yoxdur</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
+          {invoices.map(inv => (
+            <div key={inv.id} className="flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-gray-800">
+                    {periodLabel(inv.periodMonth, inv.periodYear)}
+                  </span>
+                  {inv.invoiceNumber && (
+                    <span className="text-[10px] text-gray-400">№{inv.invoiceNumber}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400 flex-wrap">
+                  {inv.standardDays != null && <span>Std: {inv.standardDays} gün</span>}
+                  {inv.extraDays != null && inv.extraDays > 0 && <span>Əl: {inv.extraDays} gün</span>}
+                  {inv.extraHours != null && inv.extraHours > 0 && <span>Əl: {inv.extraHours} saat</span>}
+                  <span>{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>
+                </div>
+              </div>
+              <span className="text-sm font-bold text-green-600 whitespace-nowrap">
+                {fmtMoney(inv.amount)} ₼
+              </span>
+              <button
+                onClick={() => handleDelete(inv.id, periodLabel(inv.periodMonth, inv.periodYear))}
+                className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+          <div className="flex justify-between items-center px-3 py-2 bg-green-50">
+            <span className="text-[10px] font-semibold text-green-700">Ümumi cəmi</span>
+            <span className="text-sm font-bold text-green-700">
+              {fmtMoney(invoices.reduce((s, inv) => s + parseFloat(inv.amount || 0), 0))} ₼
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

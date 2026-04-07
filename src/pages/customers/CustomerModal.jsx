@@ -78,7 +78,35 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
 
   const validate = () => {
     const errs = {}
-    if (!form.companyName?.trim()) errs.companyName = 'Şirkət adı tələb olunur'
+
+    if (!form.companyName?.trim())
+      errs.companyName = 'Şirkət adı tələb olunur'
+    else if (form.companyName.trim().length < 2)
+      errs.companyName = 'Minimum 2 simvol olmalıdır'
+    else if (form.companyName.trim().length > 150)
+      errs.companyName = 'Maksimum 150 simvol ola bilər'
+
+    if (form.voen && !/^\d{10}$/.test(form.voen.trim()))
+      errs.voen = 'VÖEN 10 rəqəmdən ibarət olmalıdır'
+
+    if (form.address && form.address.trim().length > 200)
+      errs.address = 'Maksimum 200 simvol ola bilər'
+
+    if (form.supplierPerson && form.supplierPerson.trim().length > 100)
+      errs.supplierPerson = 'Maksimum 100 simvol ola bilər'
+
+    if (form.supplierPhone && form.supplierPhone.trim().length > 30)
+      errs.supplierPhone = 'Maksimum 30 simvol ola bilər'
+
+    if (form.officeContactPerson && form.officeContactPerson.trim().length > 100)
+      errs.officeContactPerson = 'Maksimum 100 simvol ola bilər'
+
+    if (form.officeContactPhone && form.officeContactPhone.trim().length > 30)
+      errs.officeContactPhone = 'Maksimum 30 simvol ola bilər'
+
+    if (form.notes && form.notes.trim().length > 500)
+      errs.notes = 'Maksimum 500 simvol ola bilər'
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -150,13 +178,15 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
               </div>
               <div>
                 <label className={labelCls}>VÖEN</label>
-                <input type="text" value={form.voen} onChange={(e) => set('voen', e.target.value)} placeholder="1234567890" className={inputCls('')} />
+                <input type="text" value={form.voen} onChange={(e) => set('voen', e.target.value)} placeholder="1234567890" className={inputCls('voen')} />
+                {errors.voen && <p className="mt-1 text-xs text-red-500">{errors.voen}</p>}
               </div>
             </div>
 
             <div>
               <label className={labelCls}>Ünvan</label>
-              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('')} />
+              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('address')} />
+              {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
             </div>
 
             {/* Təchizatçı */}
@@ -165,11 +195,13 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Məsul şəxs / Şöbə</label>
-                <input type="text" value={form.supplierPerson} onChange={(e) => set('supplierPerson', e.target.value)} placeholder="Ad Soyad və ya Şöbə" className={inputCls('')} />
+                <input type="text" value={form.supplierPerson} onChange={(e) => set('supplierPerson', e.target.value)} placeholder="Ad Soyad və ya Şöbə" className={inputCls('supplierPerson')} />
+                {errors.supplierPerson && <p className="mt-1 text-xs text-red-500">{errors.supplierPerson}</p>}
               </div>
               <div>
                 <label className={labelCls}>Əlaqə nömrəsi</label>
-                <input type="text" value={form.supplierPhone} onChange={(e) => set('supplierPhone', e.target.value)} placeholder="+994501234567" className={inputCls('')} />
+                <input type="text" value={form.supplierPhone} onChange={(e) => set('supplierPhone', e.target.value)} placeholder="+994501234567" className={inputCls('supplierPhone')} />
+                {errors.supplierPhone && <p className="mt-1 text-xs text-red-500">{errors.supplierPhone}</p>}
               </div>
             </div>
 
@@ -179,11 +211,13 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Məsul şəxs</label>
-                <input type="text" value={form.officeContactPerson} onChange={(e) => set('officeContactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls('')} />
+                <input type="text" value={form.officeContactPerson} onChange={(e) => set('officeContactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls('officeContactPerson')} />
+                {errors.officeContactPerson && <p className="mt-1 text-xs text-red-500">{errors.officeContactPerson}</p>}
               </div>
               <div>
                 <label className={labelCls}>Əlaqə nömrəsi</label>
-                <input type="text" value={form.officeContactPhone} onChange={(e) => set('officeContactPhone', e.target.value)} placeholder="+994501234567" className={inputCls('')} />
+                <input type="text" value={form.officeContactPhone} onChange={(e) => set('officeContactPhone', e.target.value)} placeholder="+994501234567" className={inputCls('officeContactPhone')} />
+                {errors.officeContactPhone && <p className="mt-1 text-xs text-red-500">{errors.officeContactPhone}</p>}
               </div>
             </div>
 
@@ -232,7 +266,8 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
             {/* Qeyd */}
             <div>
               <label className={labelCls}>Qeyd</label>
-              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls('')} resize-none`} />
+              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls('notes')} resize-none`} />
+              {errors.notes && <p className="mt-1 text-xs text-red-500">{errors.notes}</p>}
             </div>
           </div>
 

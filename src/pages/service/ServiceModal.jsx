@@ -87,8 +87,7 @@ export default function ServiceModal({ editing, onClose, onSaved }) {
         toast.success('Servis qeydi əlavə edildi')
       }
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } catch {
     } finally {
       setSaving(false)
     }

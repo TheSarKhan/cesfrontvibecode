@@ -3,9 +3,9 @@ import { auditApi } from '../../api/audit'
 import { useSearchParams } from 'react-router-dom'
 import {
   History, Search, Filter, RefreshCw,
-  PlusCircle, Edit3, Trash2, RotateCcw,
-  ChevronLeft, ChevronRight, X,
+  PlusCircle, Edit3, Trash2, RotateCcw, X,
 } from 'lucide-react'
+import Pagination from '../../components/common/Pagination'
 import { clsx } from 'clsx'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
@@ -60,6 +60,7 @@ export default function AuditPage() {
   const from       = searchParams.get('from') || ''
   const to         = searchParams.get('to') || ''
   const page       = parseInt(searchParams.get('page') || '0', 10)
+  const pageSize   = parseInt(searchParams.get('size') || '50', 10)
 
   const setParam = (key, val) => setSearchParams(prev => {
     const n = new URLSearchParams(prev)
@@ -87,7 +88,7 @@ export default function AuditPage() {
         from: from || undefined,
         to: to || undefined,
         page,
-        size: 50,
+        size: pageSize,
       })
       const data = res.data?.data || res.data
       setLogs(data?.content || [])
@@ -99,7 +100,7 @@ export default function AuditPage() {
     } finally {
       setLoading(false)
     }
-  }, [q, entityType, action, from, to, page])
+  }, [q, entityType, action, from, to, page, pageSize])
 
   useEffect(() => { load() }, [load])
 
@@ -276,47 +277,19 @@ export default function AuditPage() {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1">
-          <p className="text-xs text-gray-400">
-            Səhifə {page + 1} / {totalPages} · Cəmi {totalElements} qeyd
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              disabled={page === 0}
-              onClick={() => setParam('page', String(page - 1))}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              const p = totalPages <= 7 ? i : i + Math.max(0, page - 3)
-              if (p >= totalPages) return null
-              return (
-                <button
-                  key={p}
-                  onClick={() => setParam('page', String(p))}
-                  className={clsx(
-                    'w-7 h-7 text-xs rounded-lg transition-colors',
-                    p === page
-                      ? 'bg-amber-500 text-white font-bold'
-                      : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  )}
-                >
-                  {p + 1}
-                </button>
-              )
-            })}
-            <button
-              disabled={page >= totalPages - 1}
-              onClick={() => setParam('page', String(page + 1))}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page + 1}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        totalElements={totalElements}
+        onPage={(p) => setParam('page', String(p - 1))}
+        onPageSize={(s) => setSearchParams(prev => {
+          const n = new URLSearchParams(prev)
+          n.set('size', s)
+          n.delete('page')
+          return n
+        }, { replace: true })}
+      />
     </div>
   )
 }

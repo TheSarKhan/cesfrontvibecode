@@ -53,7 +53,6 @@ export default function RolesPage() {
       }))
       setRoleCounts(counts)
     } catch {
-      toast.error('Məlumatlar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -78,7 +77,6 @@ export default function RolesPage() {
       loadData()
     } catch (err) {
       if (err?.isPending) return
-      toast.error(err?.response?.data?.message || 'Silmə əməliyyatı uğursuz oldu')
     }
   }
 

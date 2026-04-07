@@ -118,7 +118,6 @@ function InspectionsTab({ equipmentId }) {
       cancelForm()
       toast.success(editingIns ? 'Baxış yeniləndi' : 'Baxış əlavə edildi')
     } catch {
-      toast.error(editingIns ? 'Yeniləmə uğursuz oldu' : 'Əlavə uğursuz oldu')
     } finally {
       setSaving(false)
     }
@@ -129,7 +128,6 @@ function InspectionsTab({ equipmentId }) {
     try {
       await garageApi.downloadInspectionDoc(equipmentId, ins.id, ins.documentName || `baxis-${ins.id}`)
     } catch {
-      toast.error('Yükləmə uğursuz oldu')
     } finally {
       setDownloading(null)
     }
@@ -143,7 +141,6 @@ function InspectionsTab({ equipmentId }) {
       setInspections((prev) => prev.filter((i) => i.id !== ins.id))
       toast.success('Baxış silindi')
     } catch {
-      toast.error('Silmə uğursuz oldu')
     } finally {
       setDeleting(null)
     }
@@ -369,7 +366,6 @@ function DocumentsTab({ equipmentId }) {
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
       toast.success('Sənəd silindi')
     } catch {
-      toast.error('Silmə uğursuz oldu')
     } finally {
       setDeleting(null)
     }
@@ -387,7 +383,6 @@ function DocumentsTab({ equipmentId }) {
       setDocuments((prev) => [...prev, res.data.data || res.data])
       toast.success('Sənəd yükləndi')
     } catch {
-      toast.error('Yükləmə uğursuz oldu')
     } finally {
       setUploading(null)
       e.target.value = ''
@@ -417,7 +412,6 @@ function DocumentsTab({ equipmentId }) {
       setSelectedFile(null)
       if (extraRef.current) extraRef.current.value = ''
     } catch {
-      toast.error('Yükləmə uğursuz oldu')
     } finally {
       setUploading(null)
     }
@@ -428,7 +422,6 @@ function DocumentsTab({ equipmentId }) {
     try {
       await garageApi.downloadDocument(equipmentId, doc.id, doc.documentName || `sened-${doc.id}`)
     } catch {
-      toast.error('Yükləmə uğursuz oldu')
     } finally {
       setDownloading(null)
     }
@@ -692,7 +685,6 @@ function ImagesTab({ equipmentId }) {
       setImages((prev) => [...prev, res.data.data || res.data])
       toast.success('Şəkil yükləndi')
     } catch {
-      toast.error('Yükləmə uğursuz oldu')
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -718,7 +710,6 @@ function ImagesTab({ equipmentId }) {
       setImages((prev) => prev.filter((i) => i.id !== img.id))
       toast.success('Şəkil silindi')
     } catch {
-      toast.error('Silmə uğursuz oldu')
     } finally {
       setDeleting(null)
     }
@@ -771,7 +762,7 @@ function ImagesTab({ equipmentId }) {
               onClick={() => {
                 garageApi.fetchImageBlob(equipmentId, img.id)
                   .then((url) => setLightbox({ url, name: img.imageName || `Şəkil ${img.id}` }))
-                  .catch(() => toast.error('Şəkil yüklənmədi'))
+                  .catch(() => {})
               }}
             >
               <AuthImage
@@ -918,8 +909,7 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
       })
       toast.success('Təhlükəsizlik avadanlıqları yadda saxlandı')
       onSaved?.()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Yadda saxlama uğursuz oldu')
+    } catch {
     } finally {
       setSavingSafety(false)
     }

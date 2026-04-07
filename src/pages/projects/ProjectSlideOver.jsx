@@ -1,12 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   X, Info, DollarSign, CheckCircle,
-  Upload, FileText, Plus, Trash2,
+  Upload, FileText, Plus, Trash2, Download,
   TrendingUp, TrendingDown, Calendar,
   AlertCircle, Phone, User, MapPin, Wrench, Building2,
-  Shield, Clock
+  Shield, Clock, Send, ChevronDown, ChevronUp
 } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
+import { accountingApi } from '../../api/accounting'
+import ProjectQaimeTab from './ProjectQaimeTab'
+import axiosInstance from '../../api/axios'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -21,6 +24,7 @@ const STATUS_CONFIG = {
 const TABS = [
   { id: 'info',     label: 'Məlumat',   icon: Info },
   { id: 'finance',  label: 'Maliyyə',   icon: DollarSign },
+  { id: 'qaime',    label: 'Qaimələr',  icon: FileText },
   { id: 'complete', label: 'Bağlanış',  icon: CheckCircle },
 ]
 
@@ -107,6 +111,26 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
   const [startDate, setStartDate] = useState(project.startDate?.substring(0, 10) || '')
   const [savingStartDate, setSavingStartDate] = useState(false)
 
+  const handleDownloadContract = async () => {
+    try {
+      const url = projectsApi.contractDownloadUrl(project.id)
+      const res = await axiosInstance.get(url, { responseType: 'blob' })
+      const baseName = project.contractFileName || `contract_${project.id}`
+      const cd = res.headers['content-disposition'] || ''
+      const match = cd.match(/filename="?([^";\s]+)"?/)
+      const serverExt = match ? match[1].substring(match[1].lastIndexOf('.')) : ''
+      const fileName = serverExt && !baseName.toLowerCase().endsWith(serverExt.toLowerCase())
+        ? baseName + serverExt : baseName
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(res.data)
+      link.download = fileName
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch {
+      toast.error('Fayl yüklənmədi')
+    }
+  }
+
   const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -125,8 +149,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       await projectsApi.uploadContract(project.id, fd, startDate)
       toast.success('Müqavilə yükləndi. Layihə aktiv oldu.')
       onContractUploaded()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Müqavilə yüklənmədi')
+    } catch {
     } finally {
       setUploading(false)
       setPendingFile(null)
@@ -142,7 +165,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       setEditingDate(false)
       onEndDateUpdated()
     } catch {
-      toast.error('Tarix yenilənmədi')
     } finally {
       setSavingDate(false)
     }
@@ -157,7 +179,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       setEditingStartDate(false)
       onEndDateUpdated()
     } catch {
-      toast.error('Tarix yenilənmədi')
     } finally {
       setSavingStartDate(false)
     }
@@ -398,9 +419,18 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       <Section title="Müqavilə">
         <InfoRow label="Status">
           {project.hasContract ? (
-            <span className="flex items-center gap-1 text-green-600 font-semibold">
-              <FileText size={11} />
-              Yüklənib
+            <span className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-green-600 font-semibold">
+                <FileText size={11} />
+                Yüklənib
+              </span>
+              <button
+                onClick={handleDownloadContract}
+                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+              >
+                <Download size={11} />
+                Endir
+              </button>
             </span>
           ) : (
             <span className="flex items-center gap-1 text-amber-600">
@@ -484,7 +514,6 @@ function FinanceTab({ project }) {
       const res = await projectsApi.getFinances(project.id)
       setFinances(res.data.data || res.data || { expenses: [], revenues: [] })
     } catch {
-      toast.error('Maliyyə məlumatları yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -509,14 +538,13 @@ function FinanceTab({ project }) {
       await projectsApi.addExpense(project.id, { key: expKey.trim(), value: parseFloat(expVal) })
       setExpKey(''); setExpVal('')
       load()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Xərc əlavə edilmədi') }
-    finally { setAddingExp(false) }
+    } catch { } finally { setAddingExp(false) }
   }
 
   const delExpense = async (id) => {
     if (!(await confirm({ title: 'Xərci sil', message: 'Bu xərci silmək istəyirsiniz?' }))) return
     try { await projectsApi.deleteExpense(project.id, id); load() }
-    catch { toast.error('Silmə uğursuz oldu') }
+    catch {}
   }
 
   const addRevenue = async () => {
@@ -526,14 +554,13 @@ function FinanceTab({ project }) {
       await projectsApi.addRevenue(project.id, { key: revKey.trim(), value: parseFloat(revVal) })
       setRevKey(''); setRevVal('')
       load()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Gəlir əlavə edilmədi') }
-    finally { setAddingRev(false) }
+    } catch { } finally { setAddingRev(false) }
   }
 
   const delRevenue = async (id) => {
     if (!(await confirm({ title: 'Gəliri sil', message: 'Bu gəliri silmək istəyirsiniz?' }))) return
     try { await projectsApi.deleteRevenue(project.id, id); load() }
-    catch { toast.error('Silmə uğursuz oldu') }
+    catch {}
   }
 
   const fmtMoney = (v) => parseFloat(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
@@ -699,46 +726,122 @@ function FinanceTab({ project }) {
 
 // ─── Bağlanış Tab ─────────────────────────────────────────────────────────────
 
+const MONTHS_AZ = ['Yanvar','Fevral','Mart','Aprel','May','İyun','İyul','Avqust','Sentyabr','Oktyabr','Noyabr','Dekabr']
+
 function CompleteTab({ project, onCompleted }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [form, setForm] = useState({
     evacuationCost: project.evacuationCost ?? '',
-    actualHours:    project.actualHours    ?? '',
-    overtimeRate:   '1.0',
   })
   const [saving, setSaving] = useState(false)
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }))
+
+  // ── Yekun Qaime state ──────────────────────────────────────────────────────
+  const [sentInvoices, setSentInvoices] = useState([])
+  const [showFinalForm, setShowFinalForm] = useState(false)
+  const [sendingFinal, setSendingFinal] = useState(false)
+  const [finalForm, setFinalForm] = useState({
+    periodMonth:        '',
+    periodYear:         new Date().getFullYear(),
+    standardDays:       '',
+    extraDays:          '',
+    extraHours:         '',
+    overtimeRate:       '1.0',
+    monthlyRate:        project.planEquipmentPrice || 14000,
+    workingDaysInMonth: 26,
+    workingHoursPerDay: 9,
+    invoiceDate:        new Date().toISOString().slice(0, 10),
+    invoiceNumber:      '',
+    notes:              '',
+  })
+  const setF = (field, val) => setFinalForm(f => ({ ...f, [field]: val }))
+
+  useEffect(() => {
+    accountingApi.getByProject(project.id)
+      .then(r => setSentInvoices((r.data?.data || []).filter(i => i.type === 'INCOME')))
+      .catch(() => {})
+  }, [project.id])
+
+  const finalCalc = useMemo(() => {
+    const monthly   = parseFloat(finalForm.monthlyRate)        || 0
+    const workDays  = parseFloat(finalForm.workingDaysInMonth) || 26
+    const workHours = parseFloat(finalForm.workingHoursPerDay) || 9
+    if (!monthly || !workDays || !workHours) return null
+    const rate     = parseFloat(finalForm.overtimeRate) || 1
+    const daily    = monthly / workDays
+    const stdAmt   = daily * (parseFloat(finalForm.standardDays) || 0)
+    const extDAmt  = daily * (parseFloat(finalForm.extraDays)    || 0)
+    const extHAmt  = (daily / workHours) * (parseFloat(finalForm.extraHours) || 0) * rate
+    const total = stdAmt + extDAmt + extHAmt
+    return total > 0 ? { daily, stdAmt, extDAmt, extHAmt, total } : null
+  }, [finalForm.monthlyRate, finalForm.workingDaysInMonth, finalForm.workingHoursPerDay,
+      finalForm.standardDays, finalForm.extraDays, finalForm.extraHours, finalForm.overtimeRate])
+
+  const handleSendFinalInvoice = async () => {
+    if (!finalForm.periodMonth) return toast.error('Dövr (ay) seçilməlidir')
+    if (!finalCalc || finalCalc.total <= 0) return toast.error('Məbləğ 0-dan böyük olmalıdır')
+    setSendingFinal(true)
+    try {
+      await accountingApi.create({
+        type:               'INCOME',
+        projectId:          project.id,
+        companyName:        project.companyName  || '',
+        equipmentName:      project.equipmentName || '',
+        invoiceDate:        finalForm.invoiceDate,
+        invoiceNumber:      finalForm.invoiceNumber || null,
+        notes:              finalForm.notes || null,
+        amount:             parseFloat(finalCalc.total.toFixed(2)),
+        periodMonth:        parseInt(finalForm.periodMonth),
+        periodYear:         parseInt(finalForm.periodYear),
+        standardDays:       finalForm.standardDays !== '' ? parseInt(finalForm.standardDays) : null,
+        extraDays:          finalForm.extraDays    !== '' ? parseInt(finalForm.extraDays)    : null,
+        extraHours:         finalForm.extraHours   !== '' ? parseFloat(finalForm.extraHours) : null,
+        monthlyRate:        parseFloat(finalForm.monthlyRate),
+        workingDaysInMonth: parseInt(finalForm.workingDaysInMonth),
+        workingHoursPerDay: parseInt(finalForm.workingHoursPerDay),
+        overtimeRate:       parseFloat(finalForm.overtimeRate) || 1,
+      })
+      toast.success('Yekun qaime mühasibatlığa göndərildi')
+      setShowFinalForm(false)
+      setFinalForm(f => ({ ...f, periodMonth: '', standardDays: '', extraDays: '', extraHours: '', overtimeRate: '1.0', invoiceNumber: '', notes: '' }))
+      const r = await accountingApi.getByProject(project.id)
+      setSentInvoices((r.data?.data || []).filter(i => i.type === 'INCOME'))
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+    } finally {
+      setSendingFinal(false)
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
   const isCompleted = project.status === 'COMPLETED'
   const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
 
-  // Calculated scheduled hours from coordinator plan or request dayCount
-  const scheduledHours = (project.planDayCount || project.dayCount || 0) * 9
+  // Gap 1: Faktiki tarixlər varsa, onlardan gün sayını hesabla; yoxdursa planDayCount istifadə et
+  const scheduledHours = (() => {
+    if (project.startDate && project.endDate) {
+      const days = Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
+      return days > 0 ? days * 9 : (project.planDayCount || project.dayCount || 0) * 9
+    }
+    return (project.planDayCount || project.dayCount || 0) * 9
+  })()
 
-  // Preview overtime calc
-  const actualH = parseFloat(form.actualHours || 0)
-  const overtimeH = Math.max(0, actualH - scheduledHours)
-  const dailyPrice = project.planEquipmentPrice && (project.planDayCount || project.dayCount)
-    ? parseFloat(project.planEquipmentPrice) / (project.planDayCount || project.dayCount)
-    : 0
-  const hourlyRate = dailyPrice / 9
-  const overtimePay = overtimeH * hourlyRate * parseFloat(form.overtimeRate || 1)
+  // Gap 1: Effektiv gün sayı (display üçün)
+  const effectiveDays = project.startDate && project.endDate
+    ? Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
+    : (project.planDayCount || project.dayCount || 0)
 
   const handleComplete = async () => {
     if (form.evacuationCost === '' || parseFloat(form.evacuationCost) < 0) return toast.error('Evakuator xərcini daxil edin')
-    if (!form.actualHours || parseFloat(form.actualHours) <= 0) return toast.error('Faktiki iş saatını daxil edin')
     if (!(await confirm({ title: 'Layihəni bağla', message: 'Layihəni bağlamaq istəyirsiniz? Bu əməliyyat geri alına bilməz.', confirmText: 'Bağla' }))) return
 
     setSaving(true)
     try {
       await projectsApi.complete(project.id, {
         evacuationCost: parseFloat(form.evacuationCost),
-        actualHours:    parseFloat(form.actualHours),
-        overtimeRate:   parseFloat(form.overtimeRate),
       })
       toast.success('Layihə bağlandı. Mühasibatlığa yönləndirildi.')
       onCompleted()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Layihə bağlanmadı')
+    } catch {
     } finally {
       setSaving(false)
     }
@@ -774,6 +877,203 @@ function CompleteTab({ project, onCompleted }) {
         </div>
       )}
 
+      {/* ── Yekun Qaime bölməsi ─────────────────────────────────────── */}
+      <div className="rounded-xl border border-indigo-200 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2.5 bg-indigo-50">
+          <div className="flex items-center gap-1.5">
+            <Send size={13} className="text-indigo-600" />
+            <span className="text-xs font-semibold text-indigo-700">Yekun Qaime</span>
+            {sentInvoices.length > 0 && (
+              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-bold rounded-full">
+                {sentInvoices.length}
+              </span>
+            )}
+          </div>
+          {!isCompleted && (
+            <button
+              onClick={() => setShowFinalForm(v => !v)}
+              className="flex items-center gap-1 px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg transition-colors"
+            >
+              {showFinalForm ? <ChevronUp size={11} /> : <Plus size={11} />}
+              {showFinalForm ? 'Bağla' : 'Göndər'}
+            </button>
+          )}
+        </div>
+
+        {/* Sent invoices list */}
+        {sentInvoices.length > 0 && (
+          <div className="divide-y divide-gray-100">
+            {sentInvoices.map(inv => (
+              <div key={inv.id} className="flex items-center gap-3 px-3 py-2 bg-white">
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-gray-800">
+                    {inv.periodMonth && inv.periodYear
+                      ? `${MONTHS_AZ[inv.periodMonth - 1]} ${inv.periodYear}`
+                      : inv.invoiceDate}
+                  </span>
+                  {inv.invoiceNumber && (
+                    <span className="ml-2 text-[10px] text-gray-400">№{inv.invoiceNumber}</span>
+                  )}
+                </div>
+                <span className="text-xs font-bold text-green-600 whitespace-nowrap">
+                  {parseFloat(inv.amount).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
+                </span>
+                <CheckCircle size={12} className="text-green-500 shrink-0" />
+              </div>
+            ))}
+            <div className="flex justify-between items-center px-3 py-2 bg-green-50">
+              <span className="text-[10px] font-semibold text-green-700">Ümumi</span>
+              <span className="text-xs font-bold text-green-700">
+                {sentInvoices.reduce((s, i) => s + parseFloat(i.amount || 0), 0)
+                  .toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
+              </span>
+            </div>
+          </div>
+        )}
+
+        {sentInvoices.length === 0 && !showFinalForm && (
+          <p className="text-xs text-gray-400 text-center py-3">Hələ qaime göndərilməyib</p>
+        )}
+
+        {/* Final invoice form */}
+        {showFinalForm && (
+          <div className="p-3 space-y-3 bg-white border-t border-indigo-100">
+            {/* Period */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Ay *</label>
+                <select value={finalForm.periodMonth} onChange={e => setF('periodMonth', e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                  <option value="">Seçin...</option>
+                  {MONTHS_AZ.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">İl</label>
+                <input type="number" value={finalForm.periodYear} onChange={e => setF('periodYear', e.target.value)}
+                  min="2020" max="2040"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            {/* Days & Hours */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Std. gün</label>
+                <input type="number" value={finalForm.standardDays} onChange={e => setF('standardDays', e.target.value)}
+                  min="0" max="31" placeholder="0"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Əl. gün</label>
+                <input type="number" value={finalForm.extraDays} onChange={e => setF('extraDays', e.target.value)}
+                  min="0" max="31" placeholder="0"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Əl. saat</label>
+                <input type="number" value={finalForm.extraHours} onChange={e => setF('extraHours', e.target.value)}
+                  min="0" step="0.5" placeholder="0"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            {/* Overtime rate */}
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">Əlavə saat dərəcəsi</label>
+              <div className="flex gap-2">
+                {[['1.0', 'Adi (1×)'], ['1.5', 'Əlavə (1.5×)']].map(([val, lbl]) => (
+                  <button type="button" key={val} onClick={() => setF('overtimeRate', val)}
+                    className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
+                      finalForm.overtimeRate === val
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                    }`}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rate fields */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Aylıq tarif ₼</label>
+                <input type="number" value={finalForm.monthlyRate} onChange={e => setF('monthlyRate', e.target.value)}
+                  min="1" step="0.01"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Norma gün</label>
+                <input type="number" value={finalForm.workingDaysInMonth} onChange={e => setF('workingDaysInMonth', e.target.value)}
+                  min="1" max="31"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Norma saat</label>
+                <input type="number" value={finalForm.workingHoursPerDay} onChange={e => setF('workingHoursPerDay', e.target.value)}
+                  min="1" max="24"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            {/* Live preview */}
+            {finalCalc && (
+              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 space-y-0.5">
+                {finalCalc.stdAmt > 0 && (
+                  <div className="flex justify-between text-[11px] text-gray-600">
+                    <span>Std. gün ({finalForm.standardDays} × {finalCalc.daily.toFixed(2)})</span>
+                    <span>{finalCalc.stdAmt.toFixed(2)} ₼</span>
+                  </div>
+                )}
+                {finalCalc.extDAmt > 0 && (
+                  <div className="flex justify-between text-[11px] text-gray-600">
+                    <span>Əl. gün ({finalForm.extraDays} × {finalCalc.daily.toFixed(2)})</span>
+                    <span>{finalCalc.extDAmt.toFixed(2)} ₼</span>
+                  </div>
+                )}
+                {finalCalc.extHAmt > 0 && (
+                  <div className="flex justify-between text-[11px] text-gray-600">
+                    <span>Əl. saat ({finalForm.extraHours} saat × {finalForm.overtimeRate})</span>
+                    <span>{finalCalc.extHAmt.toFixed(2)} ₼</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-xs font-bold text-green-700 border-t border-green-200 pt-1 mt-1">
+                  <span>Cəmi</span>
+                  <span>{finalCalc.total.toFixed(2)} ₼</span>
+                </div>
+              </div>
+            )}
+
+            {/* Date + invoice number */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
+                <input type="date" value={finalForm.invoiceDate} onChange={e => setF('invoiceDate', e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə №</label>
+                <input value={finalForm.invoiceNumber} onChange={e => setF('invoiceNumber', e.target.value)}
+                  placeholder="İstəyə bağlı"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              </div>
+            </div>
+
+            <button
+              onClick={handleSendFinalInvoice}
+              disabled={sendingFinal || !finalCalc}
+              className="w-full flex items-center justify-center gap-1.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              <Send size={12} />
+              {sendingFinal ? 'Göndərilir...' : 'Mühasibatlığa Göndər'}
+            </button>
+          </div>
+        )}
+      </div>
+      {/* ──────────────────────────────────────────────────────────────── */}
+
       <div className="space-y-4">
         {/* Planlaşdırılan saatlar — avtomatik (read-only) */}
         <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
@@ -785,7 +1085,10 @@ function CompleteTab({ project, onCompleted }) {
             {scheduledHours > 0 ? `${scheduledHours} saat` : '—'}
           </p>
           <p className="text-[10px] text-blue-400 mt-0.5">
-            {project.planDayCount || project.dayCount || 0} gün × 9 saat/gün
+            {effectiveDays} gün × 9 saat/gün
+            {project.startDate && project.endDate && project.planDayCount && effectiveDays !== (project.planDayCount || project.dayCount || 0) && (
+              <span className="ml-1 text-amber-500">(plan: {project.planDayCount} gün)</span>
+            )}
           </p>
         </div>
 
@@ -802,86 +1105,6 @@ function CompleteTab({ project, onCompleted }) {
               className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
           )}
         </div>
-
-        {/* Faktiki saat */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-            Faktiki İş Saatı {!isCompleted && <span className="text-red-500">*</span>}
-          </label>
-          {isCompleted ? (
-            <p className={clsx('text-sm font-bold',
-              parseFloat(project.actualHours) >= parseFloat(project.scheduledHours) ? 'text-green-600' : 'text-red-500')}>
-              {project.actualHours} saat
-            </p>
-          ) : (
-            <input type="number" value={form.actualHours} onChange={(e) => set('actualHours', e.target.value)}
-              placeholder="0" min="0" step="0.5"
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-          )}
-        </div>
-
-        {/* Əlavə vaxt dərəcəsi */}
-        {!isCompleted && (
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-              Əlavə Vaxt Dərəcəsi
-            </label>
-            <div className="flex gap-2">
-              {['1.0', '1.5'].map((rate) => (
-                <button
-                  key={rate}
-                  onClick={() => set('overtimeRate', rate)}
-                  className={clsx(
-                    'flex-1 py-2.5 text-sm font-semibold rounded-lg border transition-colors',
-                    form.overtimeRate === rate
-                      ? 'bg-amber-600 text-white border-amber-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-amber-400'
-                  )}
-                >
-                  {rate}× {rate === '1.0' ? '(adi)' : '(əlavə)'}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Overtime preview */}
-        {!isCompleted && form.actualHours && scheduledHours > 0 && (
-          <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1.5">
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>Planlaşdırılan saat</span>
-              <span className="font-medium text-gray-700">{scheduledHours} saat</span>
-            </div>
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>Faktiki saat</span>
-              <span className={clsx('font-medium', actualH >= scheduledHours ? 'text-green-600' : 'text-red-500')}>
-                {actualH} saat
-              </span>
-            </div>
-            <div className="flex justify-between text-xs text-gray-500 border-t border-gray-200 pt-1.5 mt-1">
-              <span>Əlavə vaxt</span>
-              <span className={clsx('font-semibold', overtimeH > 0 ? 'text-orange-600' : 'text-gray-400')}>
-                {overtimeH.toFixed(1)} saat
-              </span>
-            </div>
-            {overtimeH > 0 && (
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>Əlavə vaxt haqqı ({form.overtimeRate}×)</span>
-                <span className="font-semibold text-orange-600">
-                  +{overtimePay.toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-                </span>
-              </div>
-            )}
-            {form.evacuationCost && (
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>Evakuator xərci</span>
-                <span className="text-red-500 font-semibold">
-                  −{parseFloat(form.evacuationCost || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-                </span>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Completed summary */}
         {isCompleted && project.overtimeHours > 0 && (
@@ -982,6 +1205,7 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
             />
           )}
           {activeTab === 'finance' && <FinanceTab project={project} />}
+          {activeTab === 'qaime' && <ProjectQaimeTab project={project} />}
           {activeTab === 'complete' && (
             <CompleteTab project={project} onCompleted={onSaved} />
           )}

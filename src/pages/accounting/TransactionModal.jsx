@@ -120,7 +120,6 @@ export default function TransactionModal({ editing, defaultType, onClose, onSave
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
     } finally {
       setSaving(false)
     }

@@ -25,12 +25,12 @@ const STATUS_CONFIG = {
 }
 const PAYMENT_LABEL = { CASH: 'Nağd', TRANSFER: 'Köçürmə' }
 
-function Field({ label, value }) {
-  if (!value) return null
+function Field({ label, value, alwaysShow = false }) {
+  if (!value && !alwaysShow) return null
   return (
     <div>
       <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-sm text-gray-700 dark:text-gray-200">{value}</p>
+      <p className="text-sm text-gray-700 dark:text-gray-200">{value || '—'}</p>
     </div>
   )
 }
@@ -158,7 +158,18 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
                   <Field label="Əlaqə şəxsi" value={contractor.contactPerson} />
                   <Field label="Telefon" value={contractor.phone} />
                   <Field label="E-poçt" value={contractor.email} />
-                  <Field label="Ödəniş növü" value={PAYMENT_LABEL[contractor.paymentType] || contractor.paymentType} />
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Ödəniş növü</p>
+                    {contractor.paymentType
+                      ? <div className="flex flex-wrap gap-1 mt-1">
+                          {contractor.paymentType.split(',').filter(Boolean).map(pt => (
+                            <span key={pt} className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                              {PAYMENT_LABEL[pt] || pt}
+                            </span>
+                          ))}
+                        </div>
+                      : <p className="text-sm text-gray-700 dark:text-gray-200">—</p>}
+                  </div>
                 </div>
               </div>
               <div className="border-t border-gray-100 dark:border-gray-800 pt-4">

@@ -73,7 +73,7 @@ export default function TrashPage() {
     if (search) params.q = search
     trashApi.getAllPaged(params)
       .then(res => setData(res.data.data || res.data))
-      .catch(() => toast.error('Məlumatlar yüklənmədi'))
+      .catch(() => {})
       .finally(() => setLoading(false))
   }, [activeModule, page, pageSize, search])
 
@@ -88,8 +88,7 @@ export default function TrashPage() {
       await trashApi.restore(item.entityType, item.id)
       toast.success('Məlumat bərpa edildi')
       load()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+    } catch {
     } finally {
       setRestoring(null)
     }

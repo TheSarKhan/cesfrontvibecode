@@ -65,7 +65,6 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setSaving(false)
     }

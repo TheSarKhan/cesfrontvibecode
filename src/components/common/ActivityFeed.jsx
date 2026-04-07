@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { auditApi } from '../../api/audit'
+import axiosInstance from '../../api/axios'
 import { Clock, RefreshCw, PlusCircle, Edit3, Trash2, RotateCcw, LogIn, LogOut, CheckCircle, XCircle } from 'lucide-react'
 import { clsx } from 'clsx'
 
@@ -31,10 +31,10 @@ export default function ActivityFeed({ entityType, entityId, className }) {
 
   useEffect(() => {
     setLoading(true)
-    const call = entityType && entityId
-      ? auditApi.getForEntity(entityType, entityId)
-      : auditApi.getRecent()
-    call
+    const url = entityType && entityId
+      ? `/audit/${entityType}/${entityId}`
+      : '/audit/recent'
+    axiosInstance.get(url, { _suppressToast: true })
       .then(r => setLogs(r.data?.data || r.data || []))
       .catch(() => setLogs([]))
       .finally(() => setLoading(false))

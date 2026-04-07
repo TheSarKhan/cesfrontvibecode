@@ -1,9 +1,9 @@
 import { X, Printer } from 'lucide-react'
 
 const TYPE_LABEL = {
-  INCOME:             'A — Gəlir Qaiməsi',
-  CONTRACTOR_EXPENSE: 'B1 — Podratçı Qaiməsi',
-  COMPANY_EXPENSE:    'B2 — Şirkət Xərci',
+  INCOME:             'Gəlir Qaiməsi',
+  CONTRACTOR_EXPENSE: 'Ödəmə Qaiməsi',
+  COMPANY_EXPENSE:    'Xərc Qaiməsi',
 }
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'

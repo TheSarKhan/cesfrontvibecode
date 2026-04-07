@@ -34,8 +34,7 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
       setOperator(updated)
       onUpdated(updated)
       toast.success('Sənəd yükləndi')
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Yükləmə uğursuz oldu')
+    } catch {
     } finally {
       setLoading(null)
       if (fileRefs.current[type]) fileRefs.current[type].value = ''
@@ -54,7 +53,6 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
       onUpdated(updated)
       toast.success('Sənəd silindi')
     } catch {
-      toast.error('Silmə uğursuz oldu')
     } finally {
       setDeleting(null)
     }

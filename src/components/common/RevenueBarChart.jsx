@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { accountingApi } from '../../api/accounting'
 
 const MONTHS = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'İyn', 'İyl', 'Avq', 'Sen', 'Okt', 'Noy', 'Dek']
 
@@ -14,7 +12,7 @@ function buildMonthlyData(invoices) {
     if (!inv.issueDate) return
     const d = new Date(inv.issueDate)
     const found = months.find(m => m.year === d.getFullYear() && m.monthNum === d.getMonth())
-    if (found) found.total += (inv.totalAmount || inv.amount || 0)
+    if (found) found.total += Number(inv.amount || inv.totalAmount || 0)
   })
   return months
 }
@@ -30,18 +28,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   )
 }
 
-export default function RevenueBarChart() {
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(true)
+export default function RevenueBarChart({ invoices }) {
+  const data = buildMonthlyData(invoices)
 
-  useEffect(() => {
-    accountingApi.getAll().then(r => {
-      const invoices = r.data?.data || r.data || []
-      setData(buildMonthlyData(invoices))
-    }).catch(() => setData([])).finally(() => setLoading(false))
-  }, [])
-
-  if (loading) return <div className="h-40 flex items-center justify-center text-xs text-gray-400">Yüklənir...</div>
+  if (!invoices) return <div className="h-40 flex items-center justify-center text-xs text-gray-400">Yüklənir...</div>
   if (data.every(d => d.total === 0)) return <div className="h-40 flex items-center justify-center text-xs text-gray-400">Məlumat yoxdur</div>
 
   return (

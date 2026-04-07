@@ -25,4 +25,18 @@ export const operatorsApi = {
     if (win) win.document.title = fileName || 'Sənəd'
     setTimeout(() => URL.revokeObjectURL(url), 60000)
   },
+
+  downloadDocument: async (id, docId, fileName) => {
+    const res = await api.get(`/operators/${id}/documents/${docId}/download`, { responseType: 'blob' })
+    const cd = res.headers['content-disposition'] || ''
+    const match = cd.match(/filename="?([^";\s]+)"?/)
+    const serverExt = match ? match[1].substring(match[1].lastIndexOf('.')) : ''
+    const name = serverExt && !fileName?.toLowerCase().endsWith(serverExt.toLowerCase())
+      ? (fileName || 'sened') + serverExt : (fileName || 'sened')
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(res.data)
+    link.download = name
+    link.click()
+    URL.revokeObjectURL(link.href)
+  },
 }

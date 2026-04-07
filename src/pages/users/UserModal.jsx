@@ -45,7 +45,7 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
     setRolesLoading(true)
     rolesApi.getByDepartment(form.departmentId)
       .then((res) => setRoles(res.data.data || []))
-      .catch(() => toast.error('Rollar yüklənmədi'))
+      .catch(() => {})
       .finally(() => setRolesLoading(false))
   }, [form.departmentId])
 
@@ -88,8 +88,7 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
         toast.success('İstifadəçi yaradıldı')
       }
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu')
+    } catch {
     } finally {
       setLoading(false)
     }

@@ -149,6 +149,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
           {tab === 'info' && (
             <div className="p-5 space-y-5">
               <div className="grid grid-cols-2 gap-4">
+                <Field label="ID" value={String(customer.id)} />
                 <Field label="Şirkət adı" value={customer.companyName} />
                 <Field label="VÖEN" value={customer.voen} />
                 <Field label="Ünvan" value={customer.address} />
@@ -245,14 +246,13 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{doc.documentName || '—'}</p>
                       <p className="text-xs text-gray-400">{doc.fileType} · {formatDate(doc.documentDate || doc.createdAt)}</p>
                     </div>
-                    <a
-                      href={customersApi.getDocumentDownloadUrl(customer.id, doc.id)}
-                      download
+                    <button
+                      onClick={() => customersApi.downloadDocument(customer.id, doc.id, doc.documentName)}
                       className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
                       title="Yüklə"
                     >
                       <Download size={14} />
-                    </a>
+                    </button>
                     <button
                       onClick={() => handleDeleteDoc(doc.id)}
                       className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"

@@ -125,7 +125,6 @@ export default function RequestsPage() {
       const res = await requestsApi.getAllPaged(params)
       setData(res.data.data || res.data)
     } catch {
-      toast.error('Sorğular yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -183,7 +182,6 @@ export default function RequestsPage() {
       load()
     } catch (err) {
       if (err?.isPending) return
-      toast.error('Silmə uğursuz oldu')
     }
   }
 
@@ -193,8 +191,7 @@ export default function RequestsPage() {
       await requestsApi.sendToCoordinator(request.id)
       toast.success('Kordinatora göndərildi')
       load()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } catch {
     }
   }
 
@@ -489,7 +486,7 @@ export default function RequestsPage() {
               <span>{data.totalElements} nəticə</span>
               <select
                 value={size}
-                onChange={(e) => { setParam('size', e.target.value); setParam('page', '') }}
+                onChange={(e) => setSearchParams(p => { const n = new URLSearchParams(p); n.set('size', e.target.value); n.delete('page'); return n }, { replace: true })}
                 className="ml-2 px-1.5 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400"
               >
                 {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}

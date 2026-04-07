@@ -5,6 +5,8 @@ export const projectsApi = {
   getAllPaged: (params) => api.get('/projects/paged', { params }),
   getById: (id) => api.get(`/projects/${id}`),
 
+  contractDownloadUrl: (id) => `/projects/${id}/contract`,
+
   uploadContract: (id, formData, startDate) => {
     const url = startDate
       ? `/projects/${id}/contract?startDate=${startDate}`
