@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Trash2, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, FileText, ChevronDown, ChevronUp, Send, Lock } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useAuthStore } from '../../store/authStore'
+import { clsx } from 'clsx'
 
 const MONTHS = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
@@ -41,7 +43,11 @@ export default function ProjectQaimeTab({ project }) {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [sendingId, setSendingId] = useState(null)
   const confirm = useConfirm()
+  const canCreate = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canPost'))
+  const canSend = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canSendToAccounting'))
+  const canDelete = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canDelete'))
 
   useEffect(() => {
     load()
@@ -107,6 +113,7 @@ export default function ProjectQaimeTab({ project }) {
         workingDaysInMonth: parseInt(form.workingDaysInMonth),
         workingHoursPerDay: parseInt(form.workingHoursPerDay),
         overtimeRate: parseFloat(form.overtimeRate) || 1,
+        status: 'DRAFT',
       })
       toast.success('Qaimə yaradıldı')
       setForm(emptyForm)
@@ -116,6 +123,25 @@ export default function ProjectQaimeTab({ project }) {
       toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSend(id, periodLabel) {
+    const ok = await confirm({
+      title: 'Mühasibatlığa Göndər',
+      message: `"${periodLabel}" qaməsi mühasibatlığa göndərilsin?`,
+      confirmText: 'Göndər',
+    })
+    if (!ok) return
+    setSendingId(id)
+    try {
+      await accountingApi.sendToAccounting(id)
+      toast.success('Qaimə mühasibatlığa göndərildi')
+      load()
+    } catch {
+      toast.error('Göndərmə uğursuz oldu')
+    } finally {
+      setSendingId(null)
     }
   }
 
@@ -300,9 +326,9 @@ export default function ProjectQaimeTab({ project }) {
               rows={2} placeholder="İstəyə bağlı qeyd..." className={inputCls + ' resize-none'} />
           </div>
 
-          <button type="submit" disabled={saving || calc.total <= 0}
+          <button type="submit" disabled={saving || calc.total <= 0 || !canCreate}
             className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors">
-            {saving ? 'Göndərilir...' : 'Muhasibatlığa Göndər'}
+            {saving ? 'Yaradılır...' : 'Qaime Yarat'}
           </button>
         </form>
       )}
@@ -317,35 +343,62 @@ export default function ProjectQaimeTab({ project }) {
         </div>
       ) : (
         <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
-          {invoices.map(inv => (
-            <div key={inv.id} className="flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold text-gray-800">
-                    {periodLabel(inv.periodMonth, inv.periodYear)}
-                  </span>
-                  {inv.invoiceNumber && (
-                    <span className="text-[10px] text-gray-400">№{inv.invoiceNumber}</span>
+          {invoices.map(inv => {
+            const isSent = inv.status === 'SENT'
+            const periodLbl = periodLabel(inv.periodMonth, inv.periodYear)
+            return (
+              <div key={inv.id} className="flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-gray-800">
+                      {periodLbl}
+                    </span>
+                    <span className={clsx(
+                      'px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1',
+                      isSent
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-amber-50 text-amber-700'
+                    )}>
+                      {isSent ? <Lock size={10} /> : <span>DRAFT</span>}
+                      {isSent ? 'SENT' : ''}
+                    </span>
+                    {inv.invoiceNumber && (
+                      <span className="text-[10px] text-gray-400">№{inv.invoiceNumber}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400 flex-wrap">
+                    {inv.standardDays != null && <span>Std: {inv.standardDays} gün</span>}
+                    {inv.extraDays != null && inv.extraDays > 0 && <span>Əl: {inv.extraDays} gün</span>}
+                    {inv.extraHours != null && inv.extraHours > 0 && <span>Əl: {inv.extraHours} saat</span>}
+                    <span>{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-green-600 whitespace-nowrap">
+                  {fmtMoney(inv.amount)} ₼
+                </span>
+                <div className="flex items-center gap-0.5">
+                  {!isSent && canSend && (
+                    <button
+                      onClick={() => handleSend(inv.id, periodLbl)}
+                      disabled={sendingId === inv.id}
+                      className="p-1 rounded text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                      title="Mühasibatlığa göndər"
+                    >
+                      <Send size={12} />
+                    </button>
+                  )}
+                  {!isSent && canDelete && (
+                    <button
+                      onClick={() => handleDelete(inv.id, periodLbl)}
+                      className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   )}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gray-400 flex-wrap">
-                  {inv.standardDays != null && <span>Std: {inv.standardDays} gün</span>}
-                  {inv.extraDays != null && inv.extraDays > 0 && <span>Əl: {inv.extraDays} gün</span>}
-                  {inv.extraHours != null && inv.extraHours > 0 && <span>Əl: {inv.extraHours} saat</span>}
-                  <span>{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>
-                </div>
               </div>
-              <span className="text-sm font-bold text-green-600 whitespace-nowrap">
-                {fmtMoney(inv.amount)} ₼
-              </span>
-              <button
-                onClick={() => handleDelete(inv.id, periodLabel(inv.periodMonth, inv.periodYear))}
-                className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ))}
+            )
+          })}
           <div className="flex justify-between items-center px-3 py-2 bg-green-50">
             <span className="text-[10px] font-semibold text-green-700">Ümumi cəmi</span>
             <span className="text-sm font-bold text-green-700">

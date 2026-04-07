@@ -11,6 +11,7 @@ export const accountingApi = {
   delete: (id) => api.delete(`/accounting/invoices/${id}`),
   getByProject: (projectId) => api.get(`/accounting/invoices/by-project/${projectId}`),
   patchFields: (id, data) => api.patch(`/accounting/invoices/${id}/fields`, data),
+  sendToAccounting: (id) => api.patch(`/accounting/invoices/${id}/fields`, { status: 'SENT' }),
 
   // ── Transactions (Əməliyyatlar) ──
   getTransactions: (params) => api.get('/accounting/transactions', { params }),
