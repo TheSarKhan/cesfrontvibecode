@@ -1,5 +1,6 @@
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { isTokenExpired } from '../utils/jwt'
 
 const BASE_URL = '/api'
 
@@ -8,11 +9,58 @@ export const axiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// ── Request interceptor: attach access token ─────────────────────────────────
+// ── Request interceptor: token yoxla, lazımsa refresh et ─────────────────────
 axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken')
-    if (token) config.headers.Authorization = `Bearer ${token}`
+  async (config) => {
+    const accessToken = localStorage.getItem('accessToken')
+    const refreshToken = localStorage.getItem('refreshToken')
+
+    // Hər ikisi yoxdursa — login-ə
+    if (!accessToken && !refreshToken) {
+      clearAuthAndRedirect()
+      return Promise.reject(new Error('Token yoxdur'))
+    }
+
+    // Access token vaxtı bitibsə — refresh cəhdi
+    if (accessToken && isTokenExpired(accessToken)) {
+      if (!refreshToken || isTokenExpired(refreshToken)) {
+        // Refresh da bitib — login-ə
+        clearAuthAndRedirect()
+        return Promise.reject(new Error('Session vaxtı bitdi'))
+      }
+
+      // Refresh token hələ keçərlidir — yeni access al
+      if (!isRefreshing) {
+        isRefreshing = true
+        try {
+          const { data } = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken })
+          const newAccessToken = data.data.accessToken
+          const newRefreshToken = data.data.refreshToken
+          localStorage.setItem('accessToken', newAccessToken)
+          localStorage.setItem('refreshToken', newRefreshToken)
+          axiosInstance.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`
+          processQueue(null, newAccessToken)
+          config.headers.Authorization = `Bearer ${newAccessToken}`
+        } catch {
+          processQueue(new Error('Refresh uğursuz'), null)
+          clearAuthAndRedirect()
+          return Promise.reject(new Error('Session vaxtı bitdi'))
+        } finally {
+          isRefreshing = false
+        }
+      } else {
+        // Artıq refresh gedir — queue-ya əlavə et
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then((token) => {
+          config.headers.Authorization = `Bearer ${token}`
+          return config
+        })
+      }
+    } else if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
+    }
+
     return config
   },
   (error) => Promise.reject(error)

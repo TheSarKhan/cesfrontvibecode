@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { authApi } from '../api/auth'
+import { isTokenExpired } from '../utils/jwt'
 
 const parseUser = () => {
   try {
@@ -9,10 +10,25 @@ const parseUser = () => {
   }
 }
 
+const validateTokens = () => {
+  const accessToken = localStorage.getItem('accessToken')
+  const refreshToken = localStorage.getItem('refreshToken')
+
+  // Hər ikisi bitibsə — clear et
+  if (accessToken && isTokenExpired(accessToken) && refreshToken && isTokenExpired(refreshToken)) {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('user')
+    return false
+  }
+
+  return !!accessToken
+}
+
 export const useAuthStore = create((set, get) => ({
   user: parseUser(),
   accessToken: localStorage.getItem('accessToken') || null,
-  isAuthenticated: !!localStorage.getItem('accessToken'),
+  isAuthenticated: validateTokens(),
 
   login: async (credentials) => {
     const { data } = await authApi.login(credentials)
