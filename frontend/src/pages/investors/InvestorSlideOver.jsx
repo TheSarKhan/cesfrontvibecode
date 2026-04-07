@@ -145,9 +145,13 @@ export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete 
                 <div>
                   <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Ödəniş növü</p>
                   {investor.paymentType
-                    ? <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                        {PAYMENT_LABEL[investor.paymentType] || investor.paymentType}
-                      </span>
+                    ? <div className="flex flex-wrap gap-1 mt-1">
+                        {investor.paymentType.split(',').filter(Boolean).map(pt => (
+                          <span key={pt} className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                            {PAYMENT_LABEL[pt] || pt}
+                          </span>
+                        ))}
+                      </div>
                     : <span className="text-sm text-gray-400">—</span>
                   }
                 </div>

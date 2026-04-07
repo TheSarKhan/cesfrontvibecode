@@ -90,7 +90,6 @@ export default function ProjectFinanceModal({ project, onClose, onSaved }) {
       const res = await projectsApi.getFinances(project.id)
       setFinances(res.data.data || res.data || { expenses: [], revenues: [] })
     } catch {
-      toast.error('Maliyyə məlumatları yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -105,7 +104,6 @@ export default function ProjectFinanceModal({ project, onClose, onSaved }) {
       await load()
       onSaved?.()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xərc əlavə edilmədi')
       throw err
     }
   }
@@ -118,7 +116,6 @@ export default function ProjectFinanceModal({ project, onClose, onSaved }) {
       load()
       onSaved?.()
     } catch {
-      toast.error('Silmə uğursuz oldu')
     }
   }
 
@@ -129,7 +126,6 @@ export default function ProjectFinanceModal({ project, onClose, onSaved }) {
       await load()
       onSaved?.()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Gəlir əlavə edilmədi')
       throw err
     }
   }
@@ -142,7 +138,6 @@ export default function ProjectFinanceModal({ project, onClose, onSaved }) {
       load()
       onSaved?.()
     } catch {
-      toast.error('Silmə uğursuz oldu')
     }
   }
 

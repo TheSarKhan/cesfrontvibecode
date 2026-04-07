@@ -4,6 +4,8 @@ import ProtectedRoute from './components/common/ProtectedRoute'
 import GuestRoute from './components/common/GuestRoute'
 import MainLayout from './components/layout/MainLayout'
 import LoginPage from './pages/auth/LoginPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import RolesPage from './pages/roles/RolesPage'
 import UsersPage from './pages/users/UsersPage'
@@ -36,6 +38,8 @@ export default function App() {
         {/* Guest only */}
         <Route element={<GuestRoute />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
 
         {/* Protected */}

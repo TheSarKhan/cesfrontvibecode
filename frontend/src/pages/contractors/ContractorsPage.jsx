@@ -79,7 +79,6 @@ export default function ContractorsPage() {
       setData(res.data.data || res.data)
       setSelectedIds(new Set())
     } catch {
-      toast.error('Podratçılar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -100,7 +99,6 @@ export default function ContractorsPage() {
       setSelectedIds(new Set())
       load()
     } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }
@@ -114,7 +112,6 @@ export default function ContractorsPage() {
       load()
     } catch (err) {
       if (err?.isPending) return
-      toast.error('Silmə uğursuz oldu')
     }
   }
 
@@ -199,7 +196,13 @@ export default function ContractorsPage() {
           return (
             <button
               key={chip.label}
-              onClick={() => { setStatusFilter(chip.status); setRiskFilter(chip.risk) }}
+              onClick={() => setSearchParams(p => {
+                const n = new URLSearchParams(p)
+                chip.status ? n.set('status', chip.status) : n.delete('status')
+                chip.risk   ? n.set('risk',   chip.risk)   : n.delete('risk')
+                n.delete('page')
+                return n
+              }, { replace: true })}
               className={clsx(
                 'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
                 active
@@ -322,7 +325,17 @@ export default function ContractorsPage() {
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{c.voen || '—'}</td>
                     <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400" title={c.contactPerson || ''}>{c.contactPerson || '—'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{PAYMENT_LABEL[c.paymentType] || c.paymentType || '—'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                      {c.paymentType
+                        ? <div className="flex flex-wrap gap-1">
+                            {c.paymentType.split(',').filter(Boolean).map(pt => (
+                              <span key={pt} className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                                {PAYMENT_LABEL[pt] || pt}
+                              </span>
+                            ))}
+                          </div>
+                        : '—'}
+                    </td>
                     <td className="py-3 px-4">
                       <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', risk.cls)}>
                         {risk.label}

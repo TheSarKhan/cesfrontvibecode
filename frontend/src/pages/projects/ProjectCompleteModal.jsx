@@ -41,8 +41,7 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
       toast.success('Layihə uğurla bağlandı. Mühasibatlığa yönləndirildi.')
       onSaved()
       onClose()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Layihə bağlanmadı')
+    } catch {
     } finally {
       setSaving(false)
     }

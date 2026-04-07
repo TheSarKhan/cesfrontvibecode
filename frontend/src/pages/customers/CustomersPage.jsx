@@ -214,7 +214,13 @@ export default function CustomersPage() {
           return (
             <button
               key={chip.label}
-              onClick={() => { setStatusFilter(chip.status); setRiskFilter(chip.risk) }}
+              onClick={() => setSearchParams(p => {
+                const n = new URLSearchParams(p)
+                chip.status ? n.set('status', chip.status) : n.delete('status')
+                chip.risk   ? n.set('risk',   chip.risk)   : n.delete('risk')
+                n.delete('page')
+                return n
+              }, { replace: true })}
               className={clsx(
                 'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
                 active

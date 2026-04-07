@@ -69,7 +69,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         // Auto-expand if editing and already has approval depts
         if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
       })
-      .catch(() => toast.error('Modullar yüklənmədi'))
+      .catch(() => {})
       .finally(() => setModulesLoading(false))
   }, [editing])
 
@@ -138,8 +138,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         toast.success('Rol yaradıldı')
       }
       onSaved()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu')
+    } catch {
     } finally {
       setLoading(false)
     }
@@ -189,7 +188,8 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
                     setForm((f) => ({ ...f, departmentId: e.target.value }))
                     if (errors.departmentId) setErrors((prev) => ({ ...prev, departmentId: undefined }))
                   }}
-                  className={inputCls('departmentId')}
+                  disabled={!!currentDept}
+                  className={clsx(inputCls('departmentId'), currentDept && 'opacity-60 cursor-not-allowed')}
                 >
                   <option value="">Departament seçin</option>
                   {departments.map((d) => (

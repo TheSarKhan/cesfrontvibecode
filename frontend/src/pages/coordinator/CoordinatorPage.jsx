@@ -71,8 +71,7 @@ export default function CoordinatorPage() {
       await coordinatorApi.acceptOffer(r.requestId)
       toast.success('Təklif təsdiq edildi — layihə yaradıldı')
       load()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } catch {
     } finally {
       setActionLoading(null)
     }
@@ -86,8 +85,7 @@ export default function CoordinatorPage() {
       await coordinatorApi.rejectOffer(r.requestId)
       toast.success('Təklif ləğv edildi')
       load()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Uğursuz oldu')
+    } catch {
     } finally {
       setActionLoading(null)
     }
@@ -103,7 +101,6 @@ export default function CoordinatorPage() {
       const res = await coordinatorApi.getRequestsPaged(params)
       setData(res.data.data || res.data)
     } catch {
-      toast.error('Sorğular yüklənmədi')
     } finally {
       setLoading(false)
     }

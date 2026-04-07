@@ -46,11 +46,11 @@ export const garageApi = {
   // Download helpers (axios blob → browser download)
   downloadDocument: (id, docId, fileName) =>
     api.get(`/garage/equipment/${id}/documents/${docId}/download`, { responseType: 'blob' })
-      .then((res) => triggerDownload(res.data, fileName)),
+      .then((res) => triggerDownload(res.data, withExt(fileName, res.headers['content-disposition']))),
 
   downloadInspectionDoc: (id, inspectionId, fileName) =>
     api.get(`/garage/equipment/${id}/inspections/${inspectionId}/download`, { responseType: 'blob' })
-      .then((res) => triggerDownload(res.data, fileName)),
+      .then((res) => triggerDownload(res.data, withExt(fileName, res.headers['content-disposition']))),
 
   // Images (embedded in getById response as `images` array)
   addImage: (id, file) => {
@@ -82,4 +82,17 @@ function triggerDownload(blob, fileName) {
   a.download = fileName || 'fayl'
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// Extract extension from Content-Disposition header and append to name if missing
+function withExt(name, contentDisposition) {
+  if (!contentDisposition) return name
+  const match = contentDisposition.match(/filename="?([^";\s]+)"?/)
+  if (!match) return name
+  const serverFile = match[1]
+  const dotIdx = serverFile.lastIndexOf('.')
+  if (dotIdx === -1) return name
+  const ext = serverFile.substring(dotIdx) // e.g. ".pdf"
+  if (name.toLowerCase().endsWith(ext.toLowerCase())) return name
+  return name + ext
 }

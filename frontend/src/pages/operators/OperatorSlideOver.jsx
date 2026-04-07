@@ -45,8 +45,7 @@ export default function OperatorSlideOver({ operator: initial, onClose, onEdit, 
       setOperator(updated)
       onUpdated?.(updated)
       toast.success('Sənəd yükləndi')
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Yükləmə uğursuz oldu')
+    } catch {
     } finally {
       setUploading(null)
       if (fileRefs.current[type]) fileRefs.current[type].value = ''
@@ -65,7 +64,6 @@ export default function OperatorSlideOver({ operator: initial, onClose, onEdit, 
       onUpdated?.(updated)
       toast.success('Sənəd silindi')
     } catch {
-      toast.error('Silmə uğursuz oldu')
     } finally {
       setDeleting(null)
     }
@@ -237,7 +235,7 @@ export default function OperatorSlideOver({ operator: initial, onClose, onEdit, 
                               <Eye size={13} />
                             </button>
                             <button
-                              onClick={() => operatorsApi.previewDocument(operator.id, doc.id, doc.fileName)}
+                              onClick={() => operatorsApi.downloadDocument(operator.id, doc.id, doc.fileName)}
                               className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                               title="Endir"
                             >

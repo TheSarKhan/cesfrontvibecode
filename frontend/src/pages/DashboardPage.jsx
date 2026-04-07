@@ -12,11 +12,7 @@ import ActivityFeed from '../components/common/ActivityFeed'
 import EquipmentPieChart from '../components/common/EquipmentPieChart'
 import RevenueBarChart from '../components/common/RevenueBarChart'
 import ProjectStatusChart from '../components/common/ProjectStatusChart'
-import { projectsApi } from '../api/projects'
-import { accountingApi } from '../api/accounting'
-import { requestsApi } from '../api/requests'
-import { garageApi } from '../api/garage'
-import { dashboardApi } from '../api/dashboard'
+import axiosInstance from '../api/axios'
 import { clsx } from 'clsx'
 
 const fmt = (n) =>
@@ -155,16 +151,12 @@ export default function DashboardPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const [projRes, sumRes, reqRes, statsRes] = await Promise.allSettled([
-        projectsApi.getAll(),
-        accountingApi.getSummary(),
-        requestsApi.getAll(),
-        dashboardApi.getStats(),
-      ])
-      if (projRes.status === 'fulfilled') setProjects(projRes.value.data.data || projRes.value.data || [])
-      if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data.data || sumRes.value.data)
-      if (reqRes.status === 'fulfilled') setRequests(reqRes.value.data.data || reqRes.value.data || [])
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data.data || statsRes.value.data)
+      const res = await axiosInstance.get('/dashboard/stats')
+      const data = res.data.data || res.data
+      setStats(data)
+      setProjects(data.projects || [])
+      setSummary(data.accountingSummary || null)
+      setRequests(data.requests || [])
     } finally {
       setLoading(false)
     }
@@ -347,7 +339,7 @@ export default function DashboardPage() {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <h3 className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">Aylıq Gəlir (son 6 ay)</h3>
-            <RevenueBarChart />
+            <RevenueBarChart invoices={stats?.invoices} />
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <h3 className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">Layihə Statusu</h3>

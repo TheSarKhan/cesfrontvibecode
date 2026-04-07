@@ -26,7 +26,7 @@ const EMPTY = {
   voen: '',
   contactPerson: '',
   address: '',
-  paymentType: '',
+  paymentType: [],
   status: 'ACTIVE',
   riskLevel: 'LOW',
   rating: '',
@@ -46,7 +46,7 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
         voen: editing.voen || '',
         contactPerson: editing.contactPerson || '',
         address: editing.address || '',
-        paymentType: editing.paymentType || '',
+        paymentType: editing.paymentType ? editing.paymentType.split(',').filter(Boolean) : [],
         status: editing.status || 'ACTIVE',
         riskLevel: editing.riskLevel || 'LOW',
         rating: editing.rating ?? '',
@@ -82,6 +82,7 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
 
     const payload = {
       ...form,
+      paymentType: form.paymentType.join(','),
       rating: form.rating !== '' ? parseFloat(form.rating) : null,
     }
 
@@ -97,7 +98,6 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error('Əməliyyat uğursuz oldu')
     } finally {
       setLoading(false)
     }
@@ -186,10 +186,12 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
                   <button
                     key={p.value}
                     type="button"
-                    onClick={() => set('paymentType', form.paymentType === p.value ? '' : p.value)}
+                    onClick={() => set('paymentType', form.paymentType.includes(p.value)
+                      ? form.paymentType.filter(v => v !== p.value)
+                      : [...form.paymentType, p.value])}
                     className={clsx(
                       'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      form.paymentType === p.value
+                      form.paymentType.includes(p.value)
                         ? 'bg-amber-500 text-white border-amber-500'
                         : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-amber-400'
                     )}

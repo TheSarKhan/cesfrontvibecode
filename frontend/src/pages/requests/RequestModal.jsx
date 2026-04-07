@@ -14,7 +14,8 @@ const EMPTY = {
   customerId: null,
   companyName: '',
   contactPerson: '',
-  contactPhone: '',
+  phonePrefix: '+994',
+  phoneLocal: '',
   projectName: '',
   region: '',
   requestDate: new Date().toISOString().slice(0, 10),
@@ -23,6 +24,37 @@ const EMPTY = {
   transportationRequired: false,
   params: [],
   notes: '',
+}
+
+const COUNTRY_CODES = [
+  { code: '+994', flag: '🇦🇿', label: 'AZ' },
+  { code: '+90',  flag: '🇹🇷', label: 'TR' },
+  { code: '+7',   flag: '🇷🇺', label: 'RU' },
+  { code: '+995', flag: '🇬🇪', label: 'GE' },
+  { code: '+380', flag: '🇺🇦', label: 'UA' },
+  { code: '+998', flag: '🇺🇿', label: 'UZ' },
+  { code: '+996', flag: '🇰🇬', label: 'KG' },
+  { code: '+992', flag: '🇹🇯', label: 'TJ' },
+  { code: '+993', flag: '🇹🇲', label: 'TM' },
+  { code: '+1',   flag: '🇺🇸', label: 'US' },
+  { code: '+44',  flag: '🇬🇧', label: 'GB' },
+  { code: '+49',  flag: '🇩🇪', label: 'DE' },
+  { code: '+33',  flag: '🇫🇷', label: 'FR' },
+  { code: '+971', flag: '🇦🇪', label: 'AE' },
+]
+
+function parsePhone(full) {
+  if (!full) return { prefix: '+994', local: '' }
+  const sorted = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length)
+  for (const c of sorted) {
+    if (full.startsWith(c.code)) return { prefix: c.code, local: full.slice(c.code.length) }
+  }
+  return { prefix: '+994', local: full }
+}
+
+function FieldError({ msg }) {
+  if (!msg) return null
+  return <p className="text-[11px] text-red-500 mt-1">{msg}</p>
 }
 
 const STEPS = [
@@ -42,6 +74,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   const [searchLoading, setSearchLoading] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [visited, setVisited] = useState([0])
+  const [errors, setErrors] = useState({})
   const searchTimeout = useRef(null)
 
   const isDirty = useMemo(() => {
@@ -68,7 +101,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
         customerId: editing.customerId || null,
         companyName: editing.companyName || '',
         contactPerson: editing.contactPerson || '',
-        contactPhone: editing.contactPhone || '',
+        ...(() => { const p = parsePhone(editing.contactPhone); return { phonePrefix: p.prefix, phoneLocal: p.local } })(),
         projectName: editing.projectName || '',
         region: editing.region || '',
         requestDate: editing.requestDate || '',
@@ -91,7 +124,51 @@ export default function RequestModal({ editing, onClose, onSaved }) {
     }
   }, [editing])
 
-  const set = (field, value) => setForm((prev) => ({ ...prev, [field]: value }))
+  const set = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    if (errors[field]) setErrors((e) => { const n = { ...e }; delete n[field]; return n })
+  }
+
+  const validate = (s) => {
+    const errs = {}
+    if (s === 0) {
+      const name = form.companyName.trim()
+      if (!name) errs.companyName = 'Şirkət adı tələb olunur'
+      else if (name.length < 2) errs.companyName = 'Minimum 2 simvol olmalıdır'
+      else if (name.length > 100) errs.companyName = 'Maksimum 100 simvol ola bilər'
+
+      if (form.contactPerson && form.contactPerson.length > 100)
+        errs.contactPerson = 'Maksimum 100 simvol ola bilər'
+
+      if (form.phoneLocal) {
+        const digits = form.phoneLocal.replace(/\D/g, '')
+        if (digits.length < 4) errs.phoneLocal = 'Nömrə çox qısadır'
+        else if (digits.length > 15) errs.phoneLocal = 'Nömrə çox uzundur (maks. 15 rəqəm)'
+      }
+    }
+    if (s === 1) {
+      if (form.projectName && form.projectName.length > 200)
+        errs.projectName = 'Maksimum 200 simvol ola bilər'
+      if (form.region && form.region.length > 100)
+        errs.region = 'Maksimum 100 simvol ola bilər'
+      if (form.dayCount !== '' && form.dayCount !== null) {
+        const n = parseInt(form.dayCount)
+        if (isNaN(n) || n < 1) errs.dayCount = 'Müddət müsbət tam rəqəm olmalıdır'
+        else if (n > 3650) errs.dayCount = 'Maksimum 3650 gün/ay ola bilər'
+      }
+    }
+    if (s === 2) {
+      if (form.notes && form.notes.length > 500)
+        errs.notes = `Maksimum 500 simvol ola bilər (${form.notes.length}/500)`
+      form.params.forEach((p, i) => {
+        if (p.paramKey.trim() && !p.paramValue.trim())
+          errs[`param_${i}`] = 'Dəyər tələb olunur'
+        if (p.paramKey.length > 100) errs[`paramKey_${i}`] = 'Maksimum 100 simvol'
+        if (p.paramValue.length > 200) errs[`param_${i}`] = 'Maksimum 200 simvol'
+      })
+    }
+    return errs
+  }
 
   // Müştəri axtarışı
   const handleCustomerSearch = (val) => {
@@ -115,12 +192,15 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   const selectCustomer = (c) => {
     setCustomerSearch(c.companyName)
     setCustomerResults([])
+    const rawPhone = c.officeContactPhone || c.supplierPhone || ''
+    const { prefix, local } = parsePhone(rawPhone)
     setForm((prev) => ({
       ...prev,
       customerId: c.id,
       companyName: c.companyName,
       contactPerson: c.officeContactPerson || c.supplierPerson || '',
-      contactPhone: c.officeContactPhone || c.supplierPhone || '',
+      phonePrefix: prefix,
+      phoneLocal: local,
     }))
   }
 
@@ -133,10 +213,12 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   }))
 
   const goNext = () => {
-    if (step === 0 && !form.companyName.trim()) {
-      toast.error('Şirkət adı tələb olunur')
+    const errs = validate(step)
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
       return
     }
+    setErrors({})
     const next = step + 1
     setStep(next)
     setVisited((v) => v.includes(next) ? v : [...v, next])
@@ -156,10 +238,14 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   }
 
   const handleSubmit = async () => {
-    if (!form.companyName.trim()) return toast.error('Şirkət adı tələb olunur')
+    const e0 = validate(0), e1 = validate(1), e2 = validate(2)
+    if (Object.keys(e0).length) { setStep(0); setErrors(e0); return }
+    if (Object.keys(e1).length) { setStep(1); setErrors(e1); return }
+    if (Object.keys(e2).length) { setStep(2); setErrors(e2); return }
 
     const payload = {
       ...form,
+      contactPhone: form.phoneLocal ? form.phonePrefix + form.phoneLocal : '',
       projectType: form.projectType || null,
       dayCount: form.dayCount ? parseInt(form.dayCount) : null,
       requestDate: form.requestDate || null,
@@ -178,7 +264,6 @@ export default function RequestModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu')
     } finally {
       setLoading(false)
     }
@@ -272,11 +357,12 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                     value={customerSearch}
                     onChange={(e) => handleCustomerSearch(e.target.value)}
                     placeholder="Şirkət adı yazın və ya axtarın..."
-                    className={inputCls}
+                    className={clsx(inputCls, errors.companyName && 'border-red-400 focus:ring-red-400')}
                     autoFocus
                   />
                   <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 </div>
+                <FieldError msg={errors.companyName} />
                 {customerResults.length > 0 && (
                   <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
                     {customerResults.map((c) => (
@@ -297,11 +383,30 @@ export default function RequestModal({ editing, onClose, onSaved }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Əlaqə şəxsi</label>
-                  <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls} />
+                  <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={clsx(inputCls, errors.contactPerson && 'border-red-400')} />
+                  <FieldError msg={errors.contactPerson} />
                 </div>
                 <div>
                   <label className={labelCls}>Əlaqə nömrəsi</label>
-                  <input type="text" value={form.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} placeholder="+994501234567" className={inputCls} />
+                  <div className="flex gap-1.5">
+                    <select
+                      value={form.phonePrefix}
+                      onChange={(e) => set('phonePrefix', e.target.value)}
+                      className="border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 shrink-0"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={form.phoneLocal}
+                      onChange={(e) => set('phoneLocal', e.target.value.replace(/[^\d\s\-().]/g, ''))}
+                      placeholder="501234567"
+                      className={clsx(inputCls, 'flex-1', errors.phoneLocal && 'border-red-400')}
+                    />
+                  </div>
+                  <FieldError msg={errors.phoneLocal} />
                 </div>
               </div>
 
@@ -319,7 +424,8 @@ export default function RequestModal({ editing, onClose, onSaved }) {
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
               <div>
                 <label className={labelCls}>Layihə adı</label>
-                <input type="text" value={form.projectName} onChange={(e) => set('projectName', e.target.value)} placeholder="Layihənin adı" className={inputCls} autoFocus />
+                <input type="text" value={form.projectName} onChange={(e) => set('projectName', e.target.value)} placeholder="Layihənin adı" className={clsx(inputCls, errors.projectName && 'border-red-400')} autoFocus />
+                <FieldError msg={errors.projectName} />
               </div>
 
               <div>

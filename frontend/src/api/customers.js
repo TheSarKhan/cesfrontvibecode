@@ -16,8 +16,17 @@ export const customersApi = {
     return api.post(`/customers/${id}/documents`, fd, { headers: { 'Content-Type': undefined } })
   },
   deleteDocument: (id, documentId) => api.delete(`/customers/${id}/documents/${documentId}`),
-  getDocumentDownloadUrl: (id, documentId) => {
-    const base = api.defaults.baseURL || ''
-    return `${base}/customers/${id}/documents/${documentId}/download`
+  downloadDocument: async (id, documentId, fileName) => {
+    const res = await api.get(`/customers/${id}/documents/${documentId}/download`, { responseType: 'blob' })
+    const cd = res.headers['content-disposition'] || ''
+    const match = cd.match(/filename="?([^";\s]+)"?/)
+    const serverExt = match ? match[1].substring(match[1].lastIndexOf('.')) : ''
+    const name = serverExt && !fileName?.toLowerCase().endsWith(serverExt.toLowerCase())
+      ? (fileName || 'sened') + serverExt : (fileName || 'sened')
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(res.data)
+    link.download = name
+    link.click()
+    URL.revokeObjectURL(link.href)
   },
 }

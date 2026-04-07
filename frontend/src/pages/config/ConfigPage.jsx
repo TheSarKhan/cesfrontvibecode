@@ -66,7 +66,6 @@ export default function ConfigPage() {
         setActiveCategory(cats[0])
       }
     } catch {
-      toast.error('Konfiqurasiya yüklənmədi')
     } finally {
       setLoadingCats(false)
     }
@@ -81,7 +80,6 @@ export default function ConfigPage() {
       const res = await configApi.getAllPaged(params)
       setTableData(res.data.data || res.data)
     } catch {
-      toast.error('Konfiqurasiya yüklənmədi')
     } finally {
       setLoadingItems(false)
     }
@@ -98,8 +96,7 @@ export default function ConfigPage() {
       await configApi.delete(item.id)
       toast.success('Element silindi')
       reload()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Silmə uğursuz oldu')
+    } catch {
     }
   }
 
@@ -108,8 +105,7 @@ export default function ConfigPage() {
       await configApi.update(item.id, { ...item, active: !item.active })
       toast.success(item.active ? 'Deaktiv edildi' : 'Aktiv edildi')
       reload()
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Dəyişmə uğursuz oldu')
+    } catch {
     }
   }
 
