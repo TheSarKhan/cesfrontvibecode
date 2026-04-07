@@ -22,7 +22,9 @@
       "Bash('C:/Program Files/Eclipse Adoptium/jdk-21.0.6.7-hotspot/bin/javac' --version)",
       "Read(//c/Users/serxa/.m2/wrapper/dists/**)",
       "Bash(\"C:/Users/serxa/.m2/wrapper/dists/apache-maven-3.9.12-bin/5nmfsn99br87k5d4ajlekdq10k/apache-maven-3.9.12/bin/mvn\" -f \"c:/Users/serxa/OneDrive/Desktop/CES ERP/backend/pom.xml\" compile -q)",
-      "Read(//c/Program Files/**)"
+      "Read(//c/Program Files/**)",
+      "Bash(grep -rn \"investor\\\\|Investor\" 'c:/Users/serxa/OneDrive/Desktop/CES ERP/backend/src/main/java/com/ces/erp/' --include=*.java -l)",
+      "Bash(find 'c:/Users/serxa/OneDrive/Desktop/CES ERP/backend/src/main/java/com/ces/erp/project/dto/' -name *.java)"
     ]
   }
 }

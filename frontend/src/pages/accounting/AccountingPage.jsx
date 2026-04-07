@@ -374,7 +374,7 @@ const filteredTransactions = useMemo(() => {
                               </button>
                             )}
                             {canEdit && inv.status !== 'SENT' && <button onClick={() => setInvoiceModal({ open: true, editing: inv, defaultType: null })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
-                            {inv.status === 'SENT' && canReturn && <button onClick={() => handleReturnToProject(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-orange-500 transition-colors" title="Layihəyə geri göndər"><ArrowUpRight size={13} /></button>}
+                            {inv.projectId && <button onClick={() => handleReturnToProject(inv)} className="px-3 py-1.5 text-xs font-semibold rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 transition-colors flex items-center gap-1" title="Layihəyə geri göndər"><ArrowUpRight size={13} /> Geri Qaytar</button>}
                             {canDelete && inv.status !== 'SENT' && <button onClick={() => handleDeleteInvoice(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
                           </div>
                         </td>
