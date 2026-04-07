@@ -366,8 +366,8 @@ const filteredTransactions = useMemo(() => {
                                 <PenLine size={13} />
                               </button>
                             )}
-                            {canEdit && <button onClick={() => setInvoiceModal({ open: true, editing: inv, defaultType: null })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
-                            {canDelete && <button onClick={() => handleDeleteInvoice(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
+                            {canEdit && inv.status !== 'SENT' && <button onClick={() => setInvoiceModal({ open: true, editing: inv, defaultType: null })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"><Pencil size={13} /></button>}
+                            {canDelete && inv.status !== 'SENT' && <button onClick={() => handleDeleteInvoice(inv)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={13} /></button>}
                           </div>
                         </td>
                       </tr>

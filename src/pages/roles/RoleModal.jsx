@@ -63,6 +63,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
             canDelete: existing?.canDelete || false,
             canSendToCoordinator: existing?.canSendToCoordinator || false,
             canSubmitOffer: existing?.canSubmitOffer || false,
+            canSendToAccounting: existing?.canSendToAccounting || false,
           }
         })
         setPermMap(map)
@@ -119,7 +120,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     setLoading(true)
     try {
       const permissions = Object.entries(permMap)
-        .filter(([, p]) => p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator || p.canSubmitOffer)
+        .filter(([, p]) => p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator || p.canSubmitOffer || p.canSendToAccounting)
         .map(([moduleId, p]) => ({ moduleId: Number(moduleId), ...p }))
 
       const payload = {
@@ -378,6 +379,16 @@ function ModuleRow({
                 className="accent-purple-600 w-4 h-4 cursor-pointer"
               />
               <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Təklif göndər</span>
+            </label>
+          ) : mod.code === 'ACCOUNTING' ? (
+            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={permMap[mod.id]?.canSendToAccounting || false}
+                onChange={() => onTogglePerm(mod.id, 'canSendToAccounting')}
+                className="accent-purple-600 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Mühasibatlığa göndər</span>
             </label>
           ) : <span />}
         </td>
