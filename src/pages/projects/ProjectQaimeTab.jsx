@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Trash2, FileText, ChevronDown, ChevronUp, Send, Lock } from 'lucide-react'
+import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -138,23 +138,6 @@ export default function ProjectQaimeTab({ project }) {
       toast.error('Göndərmə uğursuz oldu')
     } finally {
       setSendingId(null)
-    }
-  }
-
-  async function handleDelete(id, label) {
-    const ok = await confirm({
-      title: 'Qaiməni sil',
-      message: `"${label}" qaiməsi silinəcək. Davam etmək istəyirsiniz?`,
-      confirmText: 'Sil',
-      danger: true,
-    })
-    if (!ok) return
-    try {
-      await accountingApi.delete(id)
-      toast.success('Qaimə silindi')
-      load()
-    } catch {
-      toast.error('Silinmə uğursuz oldu')
     }
   }
 
@@ -367,14 +350,6 @@ export default function ProjectQaimeTab({ project }) {
                       title="Mühasibatlığa göndər"
                     >
                       <Send size={12} />
-                    </button>
-                  )}
-                  {!isSent && canDelete && (
-                    <button
-                      onClick={() => handleDelete(inv.id, periodLbl)}
-                      className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={12} />
                     </button>
                   )}
                 </div>
