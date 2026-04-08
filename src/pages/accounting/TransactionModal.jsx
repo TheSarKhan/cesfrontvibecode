@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
@@ -177,7 +178,7 @@ export default function TransactionModal({ editing, defaultType, onClose, onSave
                 placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
             </Field>
             <Field label="Tarix" required>
-              <input type="date" value={form.transactionDate} onChange={e => set('transactionDate', e.target.value)} className={inputCls} />
+              <DateInput value={form.transactionDate} onChange={e => set('transactionDate', e.target.value)} className={inputCls} />
             </Field>
           </div>
 

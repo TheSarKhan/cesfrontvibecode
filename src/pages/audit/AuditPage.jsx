@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { auditApi } from '../../api/audit'
 import { useSearchParams } from 'react-router-dom'
@@ -135,7 +136,7 @@ export default function AuditPage() {
           {/* Search */}
           <div className="relative flex-1 min-w-48">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
+            <DateInput
               ref={searchRef}
               value={q}
               onChange={e => setParam('q', e.target.value)}
@@ -165,16 +166,14 @@ export default function AuditPage() {
           </select>
 
           {/* Date from */}
-          <input
-            type="date"
+          <DateInput
             value={from}
             onChange={e => setParam('from', e.target.value)}
             className="px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-1 focus:ring-amber-400 text-gray-700 dark:text-gray-200"
           />
 
           {/* Date to */}
-          <input
-            type="date"
+          <DateInput
             value={to}
             onChange={e => setParam('to', e.target.value)}
             className="px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-1 focus:ring-amber-400 text-gray-700 dark:text-gray-200"

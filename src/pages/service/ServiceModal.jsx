@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { serviceApi } from '../../api/service'
@@ -128,10 +129,10 @@ export default function ServiceModal({ editing, onClose, onSaved }) {
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Servis tarixi" required>
-              <input type="date" value={form.serviceDate} onChange={e => set('serviceDate', e.target.value)} className={inputCls} />
+              <DateInput value={form.serviceDate} onChange={e => set('serviceDate', e.target.value)} className={inputCls} />
             </Field>
             <Field label="Növbəti servis tarixi">
-              <input type="date" value={form.nextServiceDate} onChange={e => set('nextServiceDate', e.target.value)} className={inputCls} />
+              <DateInput value={form.nextServiceDate} onChange={e => set('nextServiceDate', e.target.value)} className={inputCls} />
             </Field>
           </div>
 

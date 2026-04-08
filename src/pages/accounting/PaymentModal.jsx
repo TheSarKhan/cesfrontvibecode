@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
@@ -161,14 +162,14 @@ export default function PaymentModal({ editing, onClose, onSaved }) {
                 placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
             </Field>
             <Field label="Ödəniş tarixi" required>
-              <input type="date" value={form.paymentDate} onChange={e => set('paymentDate', e.target.value)} className={inputCls} />
+              <DateInput value={form.paymentDate} onChange={e => set('paymentDate', e.target.value)} className={inputCls} />
             </Field>
           </div>
 
           {/* Due date + Status */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Son ödəniş tarixi" hint="Vaxtında ödənilməlidir">
-              <input type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} className={inputCls} />
+              <DateInput value={form.dueDate} onChange={e => set('dueDate', e.target.value)} className={inputCls} />
             </Field>
             <Field label="Status">
               <select value={form.status} onChange={e => set('status', e.target.value)} className={inputCls}>

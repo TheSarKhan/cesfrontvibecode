@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock, CheckCircle, ShieldCheck, Save } from 'lucide-react'
 import { garageApi } from '../../api/garage'
@@ -205,8 +206,7 @@ function InspectionsTab({ equipmentId }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Baxış tarixi *</label>
-              <input
-                type="date"
+              <DateInput
                 value={form.inspectionDate}
                 onChange={(e) => setForm((f) => ({ ...f, inspectionDate: e.target.value }))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -214,8 +214,7 @@ function InspectionsTab({ equipmentId }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Növbəti baxış</label>
-              <input
-                type="date"
+              <DateInput
                 value={form.nextDate}
                 onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -491,7 +490,7 @@ function DocumentsTab({ equipmentId }) {
                       : <Upload size={11} />
                     }
                     {isUploading ? 'Yüklənir...' : 'Yüklə'}
-                    <input
+                    <DateInput
                       ref={el => mandatoryRefs.current[mDoc.value] = el}
                       type="file" className="hidden" disabled={isUploading}
                       onChange={(e) => handleMandatoryUpload(e, mDoc.value)}

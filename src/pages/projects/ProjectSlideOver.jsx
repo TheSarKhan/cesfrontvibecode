@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   X, Info, DollarSign, CheckCircle,
@@ -74,8 +75,7 @@ function StartDateDialog({ onConfirm, onCancel }) {
       <div className="relative z-10 bg-white rounded-2xl p-6 w-80 shadow-2xl">
         <h3 className="text-sm font-bold text-gray-800 mb-1">Başlanğıc tarixini seçin</h3>
         <p className="text-xs text-gray-400 mb-4">Layihənin başlanğıc tarixi. Boş buraxsanız bu gün istifadə ediləcək.</p>
-        <input
-          type="date"
+        <DateInput
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
@@ -360,8 +360,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
           {project.status !== 'COMPLETED' ? (
             editingStartDate ? (
               <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
+                <DateInput
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -389,8 +388,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
           {project.status !== 'COMPLETED' ? (
             editingDate ? (
               <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
+                <DateInput
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -1050,7 +1048,7 @@ function CompleteTab({ project, onCompleted }) {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
-                <input type="date" value={finalForm.invoiceDate} onChange={e => setF('invoiceDate', e.target.value)}
+                <DateInput value={finalForm.invoiceDate} onChange={e => setF('invoiceDate', e.target.value)}
                   className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
               </div>
               <div>

@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { garageApi } from '../../api/garage'
@@ -304,7 +305,7 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
             <>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Alınma tarixi">
-                  <input type="date" value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)}
+                  <DateInput value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)}
                     className={inputCls('')} />
                 </Field>
                 <Field label="Alış qiyməti (AZN)">

@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
@@ -22,8 +23,6 @@ function periodLabel(month, year) {
 }
 
 const emptyForm = {
-  periodMonth: '',
-  periodYear: new Date().getFullYear(),
   standardDays: '',
   extraDays: '',
   extraHours: '',
@@ -87,7 +86,6 @@ export default function ProjectQaimeTab({ project }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.periodMonth) return toast.error('Dövr seçilməlidir')
     if (!form.invoiceDate) return toast.error('Tarix seçilməlidir')
     if (calc.total <= 0) return toast.error('Məbləğ 0-dan böyük olmalıdır')
 
@@ -98,6 +96,7 @@ export default function ProjectQaimeTab({ project }) {
     })
     if (!ok) return
 
+    const d = new Date(form.invoiceDate)
     setSaving(true)
     try {
       const res = await accountingApi.create({
@@ -108,8 +107,8 @@ export default function ProjectQaimeTab({ project }) {
         invoiceDate: form.invoiceDate,
         notes: form.notes || null,
         amount: parseFloat(calc.total.toFixed(2)),
-        periodMonth: parseInt(form.periodMonth),
-        periodYear: parseInt(form.periodYear),
+        periodMonth: d.getMonth() + 1,
+        periodYear: d.getFullYear(),
         standardDays: form.standardDays !== '' ? parseInt(form.standardDays) : null,
         extraDays: form.extraDays !== '' ? parseInt(form.extraDays) : null,
         extraHours: form.extraHours !== '' ? parseFloat(form.extraHours) : null,
@@ -122,6 +121,7 @@ export default function ProjectQaimeTab({ project }) {
       toast.success('Qaimə yaradıldı')
       setJustCreatedId(res.data?.data?.id)
       setForm(emptyForm)
+      setShowForm(false)
       load()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Xəta baş verdi')
@@ -178,25 +178,7 @@ export default function ProjectQaimeTab({ project }) {
       {/* Form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
-          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Yeni Aylıq Qaime</p>
-
-          {/* Row 1: Period */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls}>Ay *</label>
-              <select value={form.periodMonth} onChange={e => set('periodMonth', e.target.value)} className={inputCls} required>
-                <option value="">Seçin...</option>
-                {MONTHS.map((m, i) => (
-                  <option key={i + 1} value={i + 1}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>İl *</label>
-              <input type="number" value={form.periodYear} onChange={e => set('periodYear', e.target.value)}
-                min="2020" max="2040" className={inputCls} required />
-            </div>
-          </div>
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Yeni Qaime</p>
 
           {/* Row 2: Standard + Extra days */}
           <div className="grid grid-cols-2 gap-2">
@@ -289,7 +271,7 @@ export default function ProjectQaimeTab({ project }) {
           {/* Date */}
           <div>
             <label className={labelCls}>Tarix *</label>
-            <input type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)}
+            <DateInput value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)}
               className={inputCls} required />
           </div>
 

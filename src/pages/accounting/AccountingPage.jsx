@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Plus, Search, Pencil, Trash2,
@@ -638,7 +639,7 @@ const filteredTransactions = useMemo(() => {
             <div className="px-5 py-4 space-y-3">
               <div>
                 <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
-                <input
+                <DateInput
                   value={fieldsModal.form.invoiceNumber}
                   onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, invoiceNumber: e.target.value } }))}
                   placeholder="Q-2026-0042"
@@ -648,7 +649,7 @@ const filteredTransactions = useMemo(() => {
               {fieldsModal.inv.type === 'INCOME' && (
                 <div>
                   <label className="block text-[10px] font-medium text-gray-500 mb-1">ETaxes ID</label>
-                  <input
+                  <DateInput
                     value={fieldsModal.form.etaxesId}
                     onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, etaxesId: e.target.value } }))}
                     placeholder="ETX-2026-00001"
@@ -658,8 +659,7 @@ const filteredTransactions = useMemo(() => {
               )}
               <div>
                 <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
-                <input
-                  type="date"
+                <DateInput
                   value={fieldsModal.form.invoiceDate}
                   onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, invoiceDate: e.target.value } }))}
                   className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"

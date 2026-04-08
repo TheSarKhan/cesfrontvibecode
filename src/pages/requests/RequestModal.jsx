@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
 import { X, Plus, Trash2, Search, MapPin, ChevronRight, ChevronLeft, Check, Building2, FolderKanban, Settings2 } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
@@ -448,7 +449,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Sorğu tarixi</label>
-                  <input type="date" value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={inputCls} />
+                  <DateInput value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Layihə tipi</label>

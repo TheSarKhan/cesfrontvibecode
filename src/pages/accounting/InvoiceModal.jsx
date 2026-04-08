@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
 import { X, ChevronDown, ChevronUp } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
@@ -245,7 +246,7 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
                 placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
             </Field>
             <Field label="Tarix" required>
-              <input type="date" value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} className={inputCls} />
+              <DateInput value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} className={inputCls} />
             </Field>
           </div>
 
