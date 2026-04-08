@@ -136,7 +136,7 @@ export default function AuditPage() {
           {/* Search */}
           <div className="relative flex-1 min-w-48">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <DateInput
+            <input
               ref={searchRef}
               value={q}
               onChange={e => setParam('q', e.target.value)}

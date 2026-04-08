@@ -212,7 +212,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
             <div className="flex flex-col h-full">
               <div className="p-4 border-b border-gray-100 dark:border-gray-800 space-y-2 shrink-0">
                 <div className="grid grid-cols-2 gap-2">
-                  <DateInput
+                  <input
                     type="text"
                     value={docName}
                     onChange={e => setDocName(e.target.value)}

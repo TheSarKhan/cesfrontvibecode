@@ -490,7 +490,7 @@ function DocumentsTab({ equipmentId }) {
                       : <Upload size={11} />
                     }
                     {isUploading ? 'Yüklənir...' : 'Yüklə'}
-                    <DateInput
+                    <input
                       ref={el => mandatoryRefs.current[mDoc.value] = el}
                       type="file" className="hidden" disabled={isUploading}
                       onChange={(e) => handleMandatoryUpload(e, mDoc.value)}

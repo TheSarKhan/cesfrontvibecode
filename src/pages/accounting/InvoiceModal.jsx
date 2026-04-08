@@ -251,18 +251,10 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
           </div>
 
           {/* Qaimə nömrəsi */}
-          <Field label="Qaimə nömrəsi" hint="Sonradan da əlavə edilə bilər">
+          <Field label="Qaimə nömrəsi" hint="Seriya + nömrə (məs. MT251010637360)">
             <input type="text" value={form.invoiceNumber} onChange={e => set('invoiceNumber', e.target.value)}
-              placeholder="Q-2026-0001" className={inputCls} />
+              placeholder="MT251010637360" className={inputCls + ' font-mono'} />
           </Field>
-
-          {/* A — ETaxes ID */}
-          {isA && (
-            <Field label="ETaxes ID" hint="New e-Taxes platformasından alınan unikal ID">
-              <input type="text" value={form.etaxesId} onChange={e => set('etaxesId', e.target.value)}
-                placeholder="ETX-2026-00001" className={inputCls} />
-            </Field>
-          )}
 
           {/* A — Aylıq iş cədvəli */}
           {isA && (

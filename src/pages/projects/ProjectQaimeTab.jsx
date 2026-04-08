@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock } from 'lucide-react'
+import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock, CheckCircle, Undo2 } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -22,16 +22,18 @@ function periodLabel(month, year) {
   return `${MONTHS[month - 1]} ${year}`
 }
 
-const emptyForm = {
-  standardDays: '',
-  extraDays: '',
-  extraHours: '',
-  overtimeRate: '1.0',
-  monthlyRate: 14000,
-  workingDaysInMonth: 26,
-  workingHoursPerDay: 9,
-  invoiceDate: new Date().toISOString().slice(0, 10),
-  notes: '',
+function getDefaultForm(project) {
+  return {
+    standardDays: '',
+    extraDays: '',
+    extraHours: '',
+    overtimeRate: '1.0',
+    monthlyRate: project?.planEquipmentPrice || 14000,
+    workingDaysInMonth: 26,
+    workingHoursPerDay: 9,
+    invoiceDate: new Date().toISOString().slice(0, 10),
+    notes: '',
+  }
 }
 
 export default function ProjectQaimeTab({ project }) {
@@ -39,7 +41,7 @@ export default function ProjectQaimeTab({ project }) {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState(getDefaultForm(project))
   const [sendingId, setSendingId] = useState(null)
   const [justCreatedId, setJustCreatedId] = useState(null)
   const { confirm, ConfirmDialog } = useConfirm()
@@ -120,7 +122,7 @@ export default function ProjectQaimeTab({ project }) {
       })
       toast.success('Qaimə yaradıldı')
       setJustCreatedId(res.data?.data?.id)
-      setForm(emptyForm)
+      setForm(getDefaultForm(project))
       setShowForm(false)
       load()
     } catch (err) {
@@ -336,8 +338,13 @@ export default function ProjectQaimeTab({ project }) {
       ) : (
         <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
           {invoices.map(inv => {
-            const isSent = inv.status === 'SENT'
             const periodLbl = periodLabel(inv.periodMonth, inv.periodYear)
+            const statusCfg = {
+              DRAFT: { cls: 'bg-gray-50 text-gray-500', icon: null, label: 'Qaralama' },
+              SENT: { cls: 'bg-amber-50 text-amber-700', icon: <Send size={10} />, label: 'Göndərilib' },
+              APPROVED: { cls: 'bg-green-50 text-green-700', icon: <CheckCircle size={10} />, label: 'Təsdiqlənib' },
+              RETURNED: { cls: 'bg-red-50 text-red-600', icon: <Undo2 size={10} />, label: 'Geri qaytarılıb' },
+            }[inv.status] || { cls: 'bg-gray-50 text-gray-500', icon: null, label: inv.status }
             return (
               <div key={inv.id} className="flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors">
                 <div className="flex-1 min-w-0">
@@ -347,12 +354,10 @@ export default function ProjectQaimeTab({ project }) {
                     </span>
                     <span className={clsx(
                       'px-1.5 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1',
-                      isSent
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-amber-50 text-amber-700'
+                      statusCfg.cls
                     )}>
-                      {isSent ? <Lock size={10} /> : <span>DRAFT</span>}
-                      {isSent ? 'SENT' : ''}
+                      {statusCfg.icon}
+                      {statusCfg.label}
                     </span>
                     {inv.invoiceNumber && (
                       <span className="text-[10px] text-gray-400">№{inv.invoiceNumber}</span>
@@ -369,7 +374,7 @@ export default function ProjectQaimeTab({ project }) {
                   {fmtMoney(inv.amount)} ₼
                 </span>
                 <div className="flex items-center gap-0.5">
-                  {!isSent && canSend && (
+                  {inv.status === 'DRAFT' && canSend && (
                     <button
                       onClick={() => handleSend(inv.id, periodLbl)}
                       disabled={sendingId === inv.id}
