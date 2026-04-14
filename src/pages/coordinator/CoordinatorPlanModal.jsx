@@ -276,10 +276,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
   const calcEquipmentTotal = () => {
     if (!unitPrice) return 0
     if (projectType === 'DAILY') return autoDayCount * unitPrice
-    if (projectType === 'MONTHLY') {
-      if (!autoDayCount) return unitPrice
-      return (unitPrice / 26) * autoDayCount
-    }
+    if (projectType === 'MONTHLY') return unitPrice
     return autoDayCount ? autoDayCount * unitPrice : unitPrice
   }
   const equipmentTotal = calcEquipmentTotal()
@@ -817,11 +814,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                       {projectType === 'DAILY' && !autoDayCount && (
                         <span className="text-gray-400">Tarixləri seçin</span>
                       )}
-                      {projectType === 'MONTHLY' && !autoDayCount && (
+                      {projectType === 'MONTHLY' && (
                         <span>Sabit aylıq: <span className="font-bold">{fmt(unitPrice)} AZN</span></span>
-                      )}
-                      {projectType === 'MONTHLY' && autoDayCount > 0 && (
-                        <span>{fmt(unitPrice)} ÷ 26 × {autoDayCount} = <span className="font-bold">{fmt(equipmentTotal)} AZN</span></span>
                       )}
                       {!projectType && autoDayCount > 0 && (
                         <span>{autoDayCount} × {fmt(unitPrice)} = <span className="font-bold">{fmt(equipmentTotal)} AZN</span></span>

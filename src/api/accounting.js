@@ -14,6 +14,7 @@ export const accountingApi = {
   sendToAccounting: (id) => api.patch(`/accounting/invoices/${id}/fields`, { status: 'SENT' }),
   approve: (id) => api.patch(`/accounting/invoices/${id}/approve`),
   returnToProject: (id) => api.patch(`/accounting/invoices/${id}/return`),
+  resubmit: (id, data) => api.post(`/accounting/invoices/${id}/resubmit`, data),
 
   // ── Transactions (Əməliyyatlar) ──
   getTransactions: (params) => api.get('/accounting/transactions', { params }),

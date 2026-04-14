@@ -234,7 +234,19 @@ const filteredTransactions = useMemo(() => {
 
   const handleApprove = async (inv) => {
     if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${inv.invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Layihənin maliyyə hissəsinə gəlir olaraq əlavə ediləcək.` }))) return
-    try { await accountingApi.approve(inv.id); toast.success('Qaimə təsdiqləndi'); loadAll(); loadInvoices() }
+    try {
+      if (expandedId === inv.id) {
+        await accountingApi.patchFields(inv.id, {
+          invoiceNumber: inlineForm.invoiceNumber || null,
+          invoiceDate:   inlineForm.invoiceDate   || null,
+          notes:         inlineForm.notes         || null,
+        })
+      }
+      await accountingApi.approve(inv.id)
+      toast.success('Qaimə təsdiqləndi')
+      loadAll()
+      loadInvoices()
+    }
     catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
   }
 
