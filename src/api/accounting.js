@@ -15,6 +15,7 @@ export const accountingApi = {
   approve: (id) => api.patch(`/accounting/invoices/${id}/approve`),
   returnToProject: (id) => api.patch(`/accounting/invoices/${id}/return`),
   resubmit: (id, data) => api.post(`/accounting/invoices/${id}/resubmit`, data),
+  returnToDraft: (id) => api.patch(`/accounting/invoices/${id}/draft`),
 
   // ── Transactions (Əməliyyatlar) ──
   getTransactions: (params) => api.get('/accounting/transactions', { params }),
@@ -38,8 +39,19 @@ export const accountingApi = {
   deleteBudget: (id) => api.delete(`/accounting/budgets/${id}`),
 
   // ── Reports & Analytics ──
-  getCashFlow: (params) => api.get('/accounting/reports/cash-flow', { params }),
-  getProfitLoss: (params) => api.get('/accounting/reports/profit-loss', { params }),
-  getExpenseBreakdown: (params) => api.get('/accounting/reports/expense-breakdown', { params }),
+  getReportSummary: (params) => api.get('/accounting/reports/summary', { params }),
   getMonthlyTrend: (params) => api.get('/accounting/reports/monthly-trend', { params }),
+  getProjectReport: (params) => api.get('/accounting/reports/by-project', { params }),
+  getPartnerReport: (params) => api.get('/accounting/reports/by-partner', { params }),
+  getExpenseBreakdown: (params) => api.get('/accounting/reports/expense-breakdown', { params }),
+  getCashFlowReport: (params) => api.get('/accounting/reports/cash-flow', { params }),
+  getComparison: (params) => api.get('/accounting/reports/comparison', { params }),
+  getReceivableReport: (params) => api.get('/accounting/reports/receivables', { params }),
+
+  // ── Receivables (Debitorlar) ──
+  getReceivables: (params) => api.get('/accounting/receivables', { params }),
+  getReceivable: (id) => api.get(`/accounting/receivables/${id}`),
+  addReceivablePayment: (id, data) => api.post(`/accounting/receivables/${id}/payments`, data),
+  deleteReceivablePayment: (id, paymentId) => api.delete(`/accounting/receivables/${id}/payments/${paymentId}`),
+  completeReceivable: (id) => api.post(`/accounting/receivables/${id}/complete`),
 }

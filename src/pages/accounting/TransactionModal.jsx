@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, ArrowLeftRight, Pencil } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
 import { contractorsApi } from '../../api/contractors'
@@ -130,7 +130,8 @@ export default function TransactionModal({ editing, defaultType, onClose, onSave
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            {editing ? <Pencil size={16} className="text-amber-500 shrink-0" /> : <ArrowLeftRight size={16} className="text-amber-500 shrink-0" />}
             {editing ? 'Əməliyyatı Redaktə et' : 'Yeni Əməliyyat'}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">

@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
-import { X, Plus, Trash2, Search, MapPin, ChevronRight, ChevronLeft, Check, Building2, FolderKanban, Settings2 } from 'lucide-react'
+import { X, Plus, Trash2, Search, MapPin, ChevronRight, ChevronLeft, Check, Building2, FolderKanban, Settings2, ClipboardList, Pencil } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { customersApi } from '../../api/customers'
 import { inputCls, labelCls, PROJECT_TYPES } from '../../constants/requests'
@@ -283,7 +283,8 @@ export default function RequestModal({ editing, onClose, onSaved }) {
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <ClipboardList size={18} className="text-amber-500 shrink-0" />}
               {editing ? `Sorğu #${editing.requestCode || editing.id}` : 'Yeni sorğu yarat'}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">

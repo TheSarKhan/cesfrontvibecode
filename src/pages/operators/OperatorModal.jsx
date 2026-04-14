@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, UserCog, Pencil } from 'lucide-react'
 import { operatorsApi } from '../../api/operators'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -87,7 +87,8 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            {editing ? <Pencil size={16} className="text-amber-500 shrink-0" /> : <UserCog size={16} className="text-amber-500 shrink-0" />}
             {editing ? 'Operatoru redaktə et' : 'Yeni operator'}
           </h2>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center">

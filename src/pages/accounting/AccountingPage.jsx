@@ -24,8 +24,8 @@ const CARDS = [
     description: 'Debitor və kreditor borclarının izlənməsi',
     icon: Users,
     color: 'emerald',
-    path: null,
-    disabled: true,
+    path: '/accounting/debit-credit',
+    disabled: false,
   },
 ]
 

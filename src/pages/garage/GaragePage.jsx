@@ -32,7 +32,9 @@ const STAT_CARDS = [
   { id: 'AVAILABLE',      label: 'Mövcud',            icon: CheckCircle,   color: 'text-emerald-600 dark:text-emerald-400' },
   { id: 'RENTED',         label: 'İcarədə',           icon: Wrench,        color: 'text-blue-600 dark:text-blue-400' },
   { id: 'IN_TRANSIT',     label: 'Yolda',             icon: Truck,         color: 'text-orange-600 dark:text-orange-400' },
-  { id: 'IN_INSPECTION',  label: 'Baxışdadır',        icon: Search,        color: 'text-purple-600 dark:text-purple-400' },
+  { id: 'IN_INSPECTION',  label: 'Servisdədir',        icon: Search,        color: 'text-purple-600 dark:text-purple-400' },
+  { id: 'UNDER_CHECK',    label: 'Baxışda',           icon: Eye,           color: 'text-indigo-600 dark:text-indigo-400' },
+  { id: 'IN_REPAIR',      label: 'Təmirdə',           icon: Wrench,        color: 'text-orange-600 dark:text-orange-400' },
   { id: 'DEFECTIVE',      label: 'Nasaz',             icon: AlertTriangle, color: 'text-red-500 dark:text-red-400' },
   { id: 'OUT_OF_SERVICE', label: 'Xidmətdən kənarda', icon: XCircle,       color: 'text-gray-500 dark:text-gray-400' },
 ]

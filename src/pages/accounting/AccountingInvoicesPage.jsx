@@ -4,16 +4,20 @@ import {
   Plus, Search, Pencil, Trash2,
   ArrowUpRight, ArrowDownRight, CreditCard,
   Receipt, Download, PenLine, X, CheckCircle, Undo2,
-  ChevronDown, ArrowLeft,
+  ChevronDown, ArrowLeft, ChevronRight, Banknote,
+  Wrench, Eye, AlertTriangle, Printer
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
+import { serviceApi } from '../../api/service'
+import ServiceInvoicePrintModal from '../service/ServiceInvoicePrintModal'
 import InvoiceModal from './InvoiceModal'
 import InvoicePrintModal from './InvoicePrintModal'
 import TransactionModal from './TransactionModal'
 import PaymentModal from './PaymentModal'
+import ProjectPaymentTab from '../projects/ProjectPaymentTab'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -32,8 +36,6 @@ const dash = (v) => (v != null && v !== '') ? v : '—'
 
 const MAIN_TABS = [
   { id: 'invoices',     label: 'Qaimələr',        icon: Receipt },
-  { id: 'transactions', label: 'Əməliyyatlar',    icon: ArrowUpRight },
-  { id: 'payments',     label: 'Ödənişlər',       icon: CreditCard },
 ]
 
 const TYPE_CONFIG = {
@@ -86,6 +88,7 @@ export default function AccountingInvoicesPage() {
   const [summary, setSummary] = useState(null)
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedPayProject, setExpandedPayProject] = useState(null)
 
   // Modals
   const [invoiceModal, setInvoiceModal] = useState({ open: false, editing: null, defaultType: null, preProject: null })
@@ -96,6 +99,10 @@ export default function AccountingInvoicesPage() {
   const [transactionModal, setTransactionModal] = useState({ open: false, editing: null, defaultType: null })
   const [paymentModal, setPaymentModal] = useState({ open: false, editing: null })
   const [printInv, setPrintInv] = useState(null)
+  const [serviceRecords, setServiceRecords] = useState([])
+  const [printSrvModal, setPrintSrvModal] = useState(null)
+  const [srvSearch, setSrvSearch] = useState('')
+  const [srvTypeFilter, setSrvTypeFilter] = useState('')
 
   // Filters
   const [search, setSearch] = useState('')
@@ -110,9 +117,10 @@ export default function AccountingInvoicesPage() {
   })
 
   const handleNewAction = () => {
-    if (activeTab === 'invoices') setInvoiceModal({ open: true, editing: null, defaultType: 'INCOME', preProject: null })
+    if (activeTab === 'invoices') setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null })
     else if (activeTab === 'transactions') setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
     else if (activeTab === 'payments') setPaymentModal({ open: true, editing: null })
+    else if (activeTab === 'expenses') setInvoiceModal({ open: true, editing: null, defaultType: 'COMPANY_EXPENSE', preProject: null })
     else setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
   }
 
@@ -124,15 +132,14 @@ export default function AccountingInvoicesPage() {
         accountingApi.getAll(),
         accountingApi.getSummary(),
         projectsApi.getAll(),
-        // TODO: API endpoints hazır olmadığında dəstəklənəcək
-        // accountingApi.getTransactions(),
-        // accountingApi.getPayments(),
-        // accountingApi.getBudgets(),
+        serviceApi.getAll(),
       ])
       const extract = (r) => r.status === 'fulfilled' ? (r.value?.data?.data || r.value?.data || []) : []
       setInvoices(extract(results[0]))
       setSummary(results[1].status === 'fulfilled' ? (results[1].value?.data?.data || results[1].value?.data) : null)
       setProjects(extract(results[2]))
+      const allSrv = extract(results[3])
+      setServiceRecords(allSrv.filter(r => r.completed && r.cost != null && parseFloat(r.cost) > 0))
       // Hələlik boş
       setTransactions([])
       setPayments([])
@@ -199,12 +206,27 @@ const filteredTransactions = useMemo(() => {
     })
   }, [payments, paymentFilter, search])
 
-  const toggleExpand = (inv) => {
-    if (expandedId === inv.id) {
+  // Merged items for the Invoices table
+  const tableItems = useMemo(() => {
+    const invs = invoiceData.content.map(inv => ({ ...inv, _rowType: 'invoice' }))
+    if (activeTab === 'invoices' && invoiceTab === 'CONTRACTOR_EXPENSE') {
+      const pjs = projects
+        .filter(p => p.status === 'ACTIVE' && (p.ownershipType === 'CONTRACTOR' || p.ownershipType === 'INVESTOR'))
+        .map(p => ({ ...p, _rowType: 'project', id: `PRJ-${p.id}` })) // pseudo-id to avoid collision
+      return [...pjs, ...invs]
+    }
+    return invs
+  }, [invoiceData.content, projects, activeTab, invoiceTab])
+
+  const toggleExpand = (item) => {
+    const id = item._rowType === 'project' ? item.id : item.id
+    if (expandedId === id) {
       setExpandedId(null)
     } else {
-      setExpandedId(inv.id)
-      setInlineForm({ invoiceNumber: inv.invoiceNumber || '', invoiceDate: inv.invoiceDate || '', notes: inv.notes || '' })
+      setExpandedId(id)
+      if (item._rowType === 'invoice') {
+        setInlineForm({ invoiceNumber: item.invoiceNumber || '', invoiceDate: item.invoiceDate || '', notes: item.notes || '' })
+      }
     }
   }
 
@@ -253,6 +275,17 @@ const filteredTransactions = useMemo(() => {
   const handleReturnToProject = async (inv) => {
     if (!(await confirm({ title: 'Layihəyə geri göndər', message: `"${inv.invoiceNumber || `#${inv.id}`}" layihəyə geri qaytarılsın? Bu əməliyyat geri qaytarıla bilməz.` }))) return
     try { await accountingApi.returnToProject(inv.id); toast.success('Qaimə geri qaytarıldı'); loadAll(); loadInvoices() }
+    catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+  }
+
+  const handleReturnToDraft = async (inv) => {
+    try {
+      const res = await accountingApi.returnToDraft(inv.id)
+      toast.success('Qaimə DRAFT-a çevrildi')
+      loadAll()
+      loadInvoices()
+      setInvoiceModal({ open: true, editing: res.data.data, defaultType: null, preProject: null })
+    }
     catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
   }
 
@@ -313,27 +346,29 @@ const filteredTransactions = useMemo(() => {
         )}
       </div>
 
-      {/* Main Tabs */}
-      <div className="flex gap-1 mb-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
-        {MAIN_TABS.map(tab => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setSearch('') }}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-medium rounded-lg transition-colors',
-                activeTab === tab.id
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              )}
-            >
-              <Icon size={13} />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
+      {/* Main Tabs (Hidden as there is only one left) */}
+      {MAIN_TABS.length > 1 && (
+        <div className="flex gap-1 mb-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
+          {MAIN_TABS.map(tab => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); setSearch('') }}
+                className={clsx(
+                  'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-medium rounded-lg transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-amber-600 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                )}
+              >
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
 
       {/* ═══════════════ INVOICES TAB ═══════════════ */}
@@ -346,26 +381,142 @@ const filteredTransactions = useMemo(() => {
               { id: 'INCOME', label: 'Gəlirlər' },
               { id: 'CONTRACTOR_EXPENSE', label: 'Ödəmələr' },
               { id: 'COMPANY_EXPENSE', label: 'Xərclər' },
+              { id: 'service', label: 'Servis Qaimələri', icon: Wrench },
             ].map(tab => (
               <button key={tab.id} onClick={() => setInvoiceTab(tab.id)}
-                className={clsx('flex-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-colors',
-                  invoiceTab === tab.id ? 'bg-white dark:bg-gray-800 shadow-sm text-amber-600' : 'text-gray-500 hover:text-gray-700'
+                className={clsx('flex-1 flex items-center justify-center gap-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-colors',
+                  invoiceTab === tab.id
+                    ? tab.id === 'service'
+                      ? 'bg-white dark:bg-gray-800 shadow-sm text-orange-600'
+                      : 'bg-white dark:bg-gray-800 shadow-sm text-amber-600'
+                    : 'text-gray-500 hover:text-gray-700'
                 )}>
+                {tab.icon && <tab.icon size={11} />}
                 {tab.label}
-                {tab.id && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === tab.id).length})</span>}
+                {tab.id && tab.id !== 'service' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === tab.id).length})</span>}
+                {tab.id === 'service' && serviceRecords.length > 0 && <span className="ml-1 opacity-60">({serviceRecords.length})</span>}
               </button>
             ))}
           </div>
 
           {/* Search */}
-          <div className="relative mb-4">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Qaimə nömrəsi, şirkət, layihə..."
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-          </div>
+          {invoiceTab !== 'service' && (
+            <div className="relative mb-4">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Qaimə nömrəsi, şirkət, layihə..."
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+          )}
+
+          {/* ── Servis Qaimələri cədvəli ── */}
+          {invoiceTab === 'service' && (() => {
+            const filteredSrv = serviceRecords.filter(r => {
+              const q = srvSearch.toLowerCase()
+              if (q && !r.equipmentName?.toLowerCase().includes(q) && !r.serviceType?.toLowerCase().includes(q)) return false
+              if (srvTypeFilter && r.recordType !== srvTypeFilter) return false
+              return true
+            })
+            const totalSrv = filteredSrv.reduce((s, r) => s + parseFloat(r.cost || 0), 0)
+            return (
+              <div>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input value={srvSearch} onChange={e => setSrvSearch(e.target.value)}
+                      placeholder="Texnika, servis növü..."
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                  </div>
+                  <select value={srvTypeFilter} onChange={e => setSrvTypeFilter(e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">Bütün növlər</option>
+                    <option value="INSPECTION">Texniki Baxış</option>
+                    <option value="REPAIR">Texniki Servis</option>
+                  </select>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px]">
+                      <thead>
+                        <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">№</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Servis növü</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nəticə</th>
+                          <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Xərc</th>
+                          <th className="py-3 px-4 w-12" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loading ? <TableSkeleton cols={8} rows={5} /> :
+                          filteredSrv.length === 0 ? (
+                            <EmptyState icon={Wrench} title="Servis qaiməsi yoxdur" description="Xərci olan tamamlanmış servis qeydi tapılmadı" />
+                          ) : filteredSrv.map(rec => {
+                            const isInsp = rec.recordType === 'INSPECTION'
+                            const isAvail = rec.statusAfter === 'AVAILABLE'
+                            return (
+                              <tr key={rec.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                                <td className="py-3 px-4 text-xs text-gray-400 font-mono">SRV-{String(rec.id).padStart(5, '0')}</td>
+                                <td className="py-3 px-4">
+                                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{rec.equipmentName || '—'}</p>
+                                  {rec.plateNumber && <p className="text-[10px] text-gray-400">{rec.plateNumber}</p>}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className={clsx('px-2 py-0.5 rounded-md text-[10px] font-bold border',
+                                    isInsp
+                                      ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                                      : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
+                                  )}>{rec.serviceType}</span>
+                                </td>
+                                <td className="py-3 px-4 text-[11px] text-gray-600 dark:text-gray-300">{fmt(rec.serviceDate)}</td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-1.5">
+                                    {isInsp ? <Eye size={12} className="text-amber-500 shrink-0" /> : <Wrench size={12} className="text-orange-500 shrink-0" />}
+                                    <span className="text-xs text-gray-600 dark:text-gray-300">{isInsp ? 'Texniki Baxış' : 'Texniki Servis'}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  {rec.statusAfter && (
+                                    <div className="flex items-center gap-1">
+                                      {isAvail
+                                        ? <CheckCircle size={11} className="text-green-500 shrink-0" />
+                                        : <AlertTriangle size={11} className="text-red-500 shrink-0" />}
+                                      <span className={clsx('text-[10px] font-bold', isAvail ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+                                        {isAvail ? 'Hazırdır' : 'Nasaz'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <span className="text-sm font-bold text-red-500">−{fmtMoney(rec.cost)}</span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <button onClick={() => setPrintSrvModal(rec)}
+                                    className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-400 hover:text-amber-600 transition-colors" title="Qaiməni çap et">
+                                    <Printer size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {filteredSrv.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                      <span className="text-xs text-gray-500">{filteredSrv.length} qaimə</span>
+                      <span className="text-sm font-bold text-red-500">Cəmi: −{fmtMoney(totalSrv)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Table */}
+          {invoiceTab !== 'service' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px]">
@@ -373,23 +524,89 @@ const filteredTransactions = useMemo(() => {
                   <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
                     <th className="w-8 py-3 px-2"></th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi / Açıqlama</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dövr</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Layihə</th>
+                    {invoiceTab !== 'COMPANY_EXPENSE' && (
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dövr</th>
+                    )}
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət / Təchizatçı</th>
+                    {invoiceTab !== 'COMPANY_EXPENSE' && (
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Layihə</th>
+                    )}
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? <TableSkeleton cols={9} rows={5} /> : invoiceData.content.length === 0 ? (
-                    <EmptyState icon={Receipt} title="Qaimə tapılmadı" description="Yeni qaimə əlavə edin"
+                  {loading ? <TableSkeleton cols={9} rows={5} /> : tableItems.length === 0 ? (
+                    <EmptyState icon={Receipt} title="Məlumat tapılmadı" description="Hələlik heç bir qaimə və ya aktiv layihə yoxdur"
                       action={canCreate ? () => setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null }) : undefined}
                       actionLabel="Yeni Qaimə" />
-                  ) : invoiceData.content.map(inv => {
+                  ) : tableItems.map(item => {
+                    const isProject = item._rowType === 'project'
+                    const isExpanded = expandedId === item.id
+
+                    if (isProject) {
+                      const p = item
+                      const ownerLabel = p.ownershipType === 'CONTRACTOR' ? (p.contractorName || 'Podratçı') : (p.investorName || 'İnvestor')
+                      return (
+                        <Fragment key={p.id}>
+                          <tr
+                            onClick={() => toggleExpand(p)}
+                            className={clsx(
+                              'border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors bg-orange-50/20 dark:bg-orange-900/5',
+                              isExpanded ? 'bg-orange-100/40 dark:bg-orange-900/20' : 'hover:bg-orange-50 dark:hover:bg-orange-900/10'
+                            )}
+                          >
+                            <td className="py-2.5 px-2 text-center">
+                              <ChevronDown size={14} className={clsx('text-orange-400 transition-transform mx-auto', isExpanded && 'rotate-180')} />
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-orange-500 text-white border-orange-600">Ödəniş Tarixçəsi</span>
+                            </td>
+                            <td className="py-2.5 px-4 font-mono text-xs font-bold text-orange-700">
+                              {p.projectCode || p.id}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold text-orange-600">Plan: {fmtMoney(p.contractorPayment)}</span>
+                                <span className="text-[9px] text-gray-400">Layihə ödəniş dövrü</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(p.startDate || p.planStartDate)}</td>
+                            <td className="py-2.5 px-4 text-xs text-gray-400">—</td>
+                            <td className="py-2.5 px-4">
+                              <div className="flex flex-col">
+                                <p className="text-xs text-gray-700 dark:text-gray-300 font-semibold truncate max-w-[150px]">{p.companyName}</p>
+                                <p className="text-[10px] text-gray-400 italic truncate max-w-[150px]">{ownerLabel}</p>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="text-xs font-mono text-green-600 truncate">{p.projectName || '—'}</span>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200">Aktiv</span>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={9} className="p-0 border-b border-orange-100 dark:border-orange-900/30">
+                                <div className="bg-white dark:bg-gray-800 px-6 py-6 border-x-4 border-orange-400">
+                                  <ProjectPaymentTab
+                                    project={{ ...p, id: parseInt(p.id.replace('PRJ-', '')) }}
+                                    planAmount={p.contractorPayment}
+                                    readOnly={false}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    }
+
+                    const inv = item
                     const typeCfg = TYPE_CONFIG[inv.type] || TYPE_CONFIG.INCOME
-                    const isExpanded = expandedId === inv.id
                     return (
                       <Fragment key={inv.id}>
                         <tr
@@ -406,7 +623,14 @@ const filteredTransactions = useMemo(() => {
                             <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border', typeCfg.cls)}>{typeCfg.short}</span>
                           </td>
                           <td className="py-2.5 px-4">
-                            <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">{inv.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}</p>
+                            <div className="flex flex-col">
+                              <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">
+                                {inv.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}
+                              </p>
+                              {inv.type === 'COMPANY_EXPENSE' && (
+                                <span className="text-[10px] text-gray-400 italic truncate max-w-[180px]">{inv.serviceDescription}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-2.5 px-4">
                             <span className={clsx('text-sm font-bold', inv.type === 'INCOME' ? 'text-green-600' : 'text-red-500')}>
@@ -414,21 +638,25 @@ const filteredTransactions = useMemo(() => {
                             </span>
                           </td>
                           <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(inv.invoiceDate)}</td>
+                          {invoiceTab !== 'COMPANY_EXPENSE' && (
+                            <td className="py-2.5 px-4">
+                              {inv.periodMonth && inv.periodYear ? (
+                                <span className="text-xs text-indigo-600 font-medium whitespace-nowrap">
+                                  {new Date(inv.periodYear, inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'short', year: 'numeric' })}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                          )}
                           <td className="py-2.5 px-4">
-                            {inv.periodMonth && inv.periodYear ? (
-                              <span className="text-xs text-indigo-600 font-medium whitespace-nowrap">
-                                {new Date(inv.periodYear, inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'short', year: 'numeric' })}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">—</span>
-                            )}
+                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{inv.companyName || inv.contractorName || inv.investorName || '—'}</p>
                           </td>
-                          <td className="py-2.5 px-4">
-                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{inv.companyName || inv.contractorName || '—'}</p>
-                          </td>
-                          <td className="py-2.5 px-4">
-                            {inv.projectCode ? <span className="text-xs font-mono text-green-600">{inv.projectCode}</span> : <span className="text-xs text-gray-400">—</span>}
-                          </td>
+                          {invoiceTab !== 'COMPANY_EXPENSE' && (
+                            <td className="py-2.5 px-4">
+                              {inv.projectCode ? <span className="text-xs font-mono text-green-600">{inv.projectCode}</span> : <span className="text-xs text-gray-400">—</span>}
+                            </td>
+                          )}
                           <td className="py-2.5 px-4">
                             {inv.status === 'APPROVED'
                               ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-green-600 border border-green-200"><CheckCircle size={11} /> Təsdiqlənib</span>
@@ -519,6 +747,22 @@ const filteredTransactions = useMemo(() => {
                                       </div>
                                     </div>
                                   </div>
+                                ) : inv.status === 'RETURNED' ? (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <Undo2 size={14} className="text-orange-500" />
+                                      <span className="text-xs font-semibold text-orange-700">Geri qaytarılmış qaimə</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500">Bu qaiməni düzəldib yenidən göndərmək üçün DRAFT-a çevirin.</p>
+                                    {canEdit && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleReturnToDraft(inv) }}
+                                        className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors flex items-center gap-1.5"
+                                      >
+                                        <PenLine size={12} /> Düzəliş et
+                                      </button>
+                                    )}
+                                  </div>
                                 ) : null}
                               </div>
                             </td>
@@ -544,8 +788,10 @@ const filteredTransactions = useMemo(() => {
               onPageSize={(s) => { setInvoicePageSize(s); setInvoicePage(0) }}
             />
           </div>
+          )}
         </div>
       )}
+
 
       {/* ═══════════════ TRANSACTIONS TAB ═══════════════ */}
       {activeTab === 'transactions' && (
@@ -736,7 +982,13 @@ const filteredTransactions = useMemo(() => {
           defaultType={invoiceModal.defaultType}
           preProject={invoiceModal.preProject}
           onClose={() => setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null })}
-          onSaved={() => { setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null }); loadAll(); loadInvoices() }}
+          onSaved={() => { 
+            setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null }); 
+            setSearch('');
+            setInvoicePage(0);
+            loadAll(); 
+            loadInvoices(); 
+          }}
         />
       )}
 
@@ -846,7 +1098,9 @@ const filteredTransactions = useMemo(() => {
       )}
 
       {printInv && <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />}
+      {printSrvModal && <ServiceInvoicePrintModal record={printSrvModal} onClose={() => setPrintSrvModal(null)} />}
       <ConfirmDialog />
     </div>
   )
 }
+

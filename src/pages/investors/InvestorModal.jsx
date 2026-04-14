@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, TrendingUp, Pencil } from 'lucide-react'
 import { investorsApi } from '../../api/investors'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -113,7 +113,8 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <TrendingUp size={18} className="text-amber-500 shrink-0" />}
               {editing ? 'İnvestoru redaktə et' : 'Yeni investor əlavə et'}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">

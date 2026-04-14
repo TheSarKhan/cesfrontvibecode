@@ -53,7 +53,7 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <div>
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Layihəni Bitir</h2>
+            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><CheckCircle size={16} className="text-green-500 shrink-0" />Layihəni Bitir</h2>
             <p className="text-xs text-gray-400 mt-0.5">{project.projectCode || project.requestCode} · {project.companyName}</p>
           </div>
           <button

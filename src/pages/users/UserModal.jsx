@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { X, Eye, EyeOff } from 'lucide-react'
+import { X, Eye, EyeOff, UserPlus, Pencil } from 'lucide-react'
 import { usersApi } from '../../api/users'
 import { rolesApi } from '../../api/roles'
 import toast from 'react-hot-toast'
@@ -112,7 +112,8 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
           <X size={14} className="text-white" />
         </button>
 
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
+          {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <UserPlus size={18} className="text-amber-500 shrink-0" />}
           {editing ? 'İstifadəçini redaktə et' : 'Yeni istifadəçi'}
         </h2>
         <p className="text-sm text-gray-400 mb-6">
