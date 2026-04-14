@@ -80,11 +80,12 @@ export default function OperatorsPage() {
     if (!window.confirm(`${selectedIds.size} operator silinsin?`)) return
     setBulkLoading(true)
     try {
-      await Promise.all([...selectedIds].map(id => operatorsApi.delete(id)))
+      await operatorsApi.deleteAll([...selectedIds])
       toast.success(`${selectedIds.size} operator silindi`)
       setSelectedIds(new Set())
       load()
-    } catch {
+    } catch (err) {
+      if (err?.isPending) return
       toast.error('Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)

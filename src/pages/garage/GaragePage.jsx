@@ -854,15 +854,29 @@ export default function GaragePage() {
               <div>
                 <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">İstehsal ili</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <select value={yearMin} onChange={(e) => setYearMin(e.target.value)}
+                  <select value={yearMin}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setYearMin(val)
+                      if (yearMax && val && Number(val) > Number(yearMax)) setYearMax('')
+                    }}
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <option value="">Min</option>
-                    {uniqueYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    {uniqueYears
+                      .filter(y => !yearMax || y <= Number(yearMax))
+                      .map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
-                  <select value={yearMax} onChange={(e) => setYearMax(e.target.value)}
+                  <select value={yearMax}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setYearMax(val)
+                      if (yearMin && val && Number(val) < Number(yearMin)) setYearMin('')
+                    }}
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
                     <option value="">Max</option>
-                    {uniqueYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    {uniqueYears
+                      .filter(y => !yearMin || y >= Number(yearMin))
+                      .map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
               </div>
@@ -1259,6 +1273,7 @@ export default function GaragePage() {
           onClose={() => setSlideOver(null)}
           onEdit={() => openEdit(slideOver)}
           onClone={canCreate ? () => openClone(slideOver) : undefined}
+          onDelete={canDelete ? () => handleDelete(slideOver) : undefined}
           onSaved={load}
         />
       )}

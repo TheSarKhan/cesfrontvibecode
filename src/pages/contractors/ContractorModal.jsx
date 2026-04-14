@@ -25,6 +25,7 @@ const EMPTY = {
   companyName: '',
   voen: '',
   contactPerson: '',
+  phone: '',
   address: '',
   paymentType: [],
   status: 'ACTIVE',
@@ -45,6 +46,7 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
         companyName: editing.companyName || '',
         voen: editing.voen || '',
         contactPerson: editing.contactPerson || '',
+        phone: editing.phone || '',
         address: editing.address || '',
         paymentType: editing.paymentType ? editing.paymentType.split(',').filter(Boolean) : [],
         status: editing.status || 'ACTIVE',
@@ -98,6 +100,8 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
+      const msg = err?.response?.data?.message || 'Xəta baş verdi'
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -162,6 +166,18 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
                 value={form.contactPerson}
                 onChange={(e) => set('contactPerson', e.target.value)}
                 placeholder="Ad Soyad"
+                className={inputCls('')}
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Telefon</label>
+              <input
+                type="text"
+                value={form.phone}
+                onChange={(e) => set('phone', e.target.value)}
+                placeholder="0501234567"
                 className={inputCls('')}
               />
             </div>
