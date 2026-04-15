@@ -103,6 +103,9 @@ export default function AccountingInvoicesPage() {
   const [printSrvModal, setPrintSrvModal] = useState(null)
   const [srvSearch, setSrvSearch] = useState('')
   const [srvTypeFilter, setSrvTypeFilter] = useState('')
+  const [expandedSrvId, setExpandedSrvId] = useState(null)
+  const [srvInlineForm, setSrvInlineForm] = useState({ invoiceNumber: '', invoiceDate: '' })
+  const [srvInlineSaving, setSrvInlineSaving] = useState(false)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -160,7 +163,7 @@ export default function AccountingInvoicesPage() {
     if (activeTab !== 'invoices') return
     try {
       const params = { page: invoicePage, size: invoicePageSize }
-      if (invoiceTab) params.type = invoiceTab
+      if (invoiceTab && invoiceTab !== 'service') params.type = invoiceTab
       if (search) params.q = search
       const res = await accountingApi.getAllPaged(params)
       setInvoiceData(res.data.data || res.data)
@@ -436,17 +439,17 @@ const filteredTransactions = useMemo(() => {
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[700px]">
+                    <table className="w-full min-w-[800px]">
                       <thead>
                         <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">№</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Servis növü</th>
+                          <th className="w-8 py-3 px-2"></th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi / Texnika</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nəticə</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Xərc</th>
-                          <th className="py-3 px-4 w-12" />
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -456,28 +459,47 @@ const filteredTransactions = useMemo(() => {
                           ) : filteredSrv.map(rec => {
                             const isInsp = rec.recordType === 'INSPECTION'
                             const isAvail = rec.statusAfter === 'AVAILABLE'
+                            const isSrvExpanded = expandedSrvId === rec.id
                             return (
-                              <tr key={rec.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                                <td className="py-3 px-4 text-xs text-gray-400 font-mono">SRV-{String(rec.id).padStart(5, '0')}</td>
-                                <td className="py-3 px-4">
-                                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{rec.equipmentName || '—'}</p>
-                                  {rec.plateNumber && <p className="text-[10px] text-gray-400">{rec.plateNumber}</p>}
+                              <Fragment key={rec.id}>
+                              <tr
+                                onClick={() => {
+                                  if (isSrvExpanded) { setExpandedSrvId(null) }
+                                  else { setExpandedSrvId(rec.id); setSrvInlineForm({ invoiceNumber: rec.invoiceNumber || '', invoiceDate: rec.invoiceDate || '' }) }
+                                }}
+                                className={clsx('border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
+                                  isSrvExpanded ? 'bg-orange-50/40 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
+                                )}
+                              >
+                                <td className="py-2.5 px-2 text-center">
+                                  <ChevronDown size={14} className={clsx('text-gray-400 transition-transform mx-auto', isSrvExpanded && 'rotate-180')} />
                                 </td>
-                                <td className="py-3 px-4">
-                                  <span className={clsx('px-2 py-0.5 rounded-md text-[10px] font-bold border',
+                                <td className="py-2.5 px-4">
+                                  <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border',
                                     isInsp
                                       ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
                                       : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
-                                  )}>{rec.serviceType}</span>
+                                  )}>{isInsp ? 'Baxış' : 'Servis'}</span>
                                 </td>
-                                <td className="py-3 px-4 text-[11px] text-gray-600 dark:text-gray-300">{fmt(rec.serviceDate)}</td>
-                                <td className="py-3 px-4">
+                                <td className="py-2.5 px-4">
+                                  <div className="flex flex-col">
+                                    <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">
+                                      {rec.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}
+                                    </p>
+                                    <span className="text-[10px] text-gray-400 truncate max-w-[180px]">{rec.equipmentName}{rec.plateNumber ? ` • ${rec.plateNumber}` : ''}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  <span className="text-sm font-bold text-red-500">−{fmtMoney(rec.cost)}</span>
+                                </td>
+                                <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(rec.serviceDate)}</td>
+                                <td className="py-2.5 px-4">
                                   <div className="flex items-center gap-1.5">
                                     {isInsp ? <Eye size={12} className="text-amber-500 shrink-0" /> : <Wrench size={12} className="text-orange-500 shrink-0" />}
                                     <span className="text-xs text-gray-600 dark:text-gray-300">{isInsp ? 'Texniki Baxış' : 'Texniki Servis'}</span>
                                   </div>
                                 </td>
-                                <td className="py-3 px-4">
+                                <td className="py-2.5 px-4">
                                   {rec.statusAfter && (
                                     <div className="flex items-center gap-1">
                                       {isAvail
@@ -489,16 +511,79 @@ const filteredTransactions = useMemo(() => {
                                     </div>
                                   )}
                                 </td>
-                                <td className="py-3 px-4 text-right">
-                                  <span className="text-sm font-bold text-red-500">−{fmtMoney(rec.cost)}</span>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <button onClick={() => setPrintSrvModal(rec)}
-                                    className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-400 hover:text-amber-600 transition-colors" title="Qaiməni çap et">
-                                    <Printer size={14} />
-                                  </button>
+                                <td className="py-2.5 px-4">
+                                  {rec.invoiceNumber
+                                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-green-600 border border-green-200"><CheckCircle size={11} /> Doldurulub</span>
+                                    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">Gözləyir</span>
+                                  }
                                 </td>
                               </tr>
+                              {isSrvExpanded && (
+                                <tr>
+                                  <td colSpan={8} className="p-0">
+                                    <div className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                                      <div className="space-y-4">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sahələri doldur</p>
+                                        <div className="grid grid-cols-3 gap-3">
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                                            <input
+                                              value={srvInlineForm.invoiceNumber}
+                                              onChange={e => setSrvInlineForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                                              onClick={e => e.stopPropagation()}
+                                              placeholder="MT251010637360"
+                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
+                                            <DateInput
+                                              value={srvInlineForm.invoiceDate}
+                                              onChange={e => setSrvInlineForm(f => ({ ...f, invoiceDate: e.target.value }))}
+                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Qeydlər</label>
+                                            <input
+                                              value={rec.notes || ''}
+                                              disabled
+                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation()
+                                              setSrvInlineSaving(true)
+                                              try {
+                                                await serviceApi.patchInvoiceFields(rec.id, {
+                                                  invoiceNumber: srvInlineForm.invoiceNumber || null,
+                                                  invoiceDate: srvInlineForm.invoiceDate || null,
+                                                })
+                                                toast.success('Qaimə məlumatları saxlanıldı')
+                                                setServiceRecords(prev => prev.map(r => r.id === rec.id ? { ...r, invoiceNumber: srvInlineForm.invoiceNumber, invoiceDate: srvInlineForm.invoiceDate } : r))
+                                              } catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+                                              finally { setSrvInlineSaving(false) }
+                                            }}
+                                            disabled={srvInlineSaving}
+                                            className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white transition-colors flex items-center gap-1.5"
+                                          >
+                                            <PenLine size={12} /> {srvInlineSaving ? 'Saxlanılır...' : 'Saxla'}
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); setPrintSrvModal(rec) }}
+                                            className="px-4 py-2 text-xs font-semibold rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1.5"
+                                          >
+                                            <Printer size={12} /> Çap et
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                              </Fragment>
                             )
                           })}
                       </tbody>
@@ -669,7 +754,7 @@ const filteredTransactions = useMemo(() => {
                           <tr>
                             <td colSpan={9} className="p-0">
                               <div className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                                {inv.status === 'SENT' && canEdit ? (
+                                {inv.status !== 'APPROVED' && inv.status !== 'RETURNED' ? (
                                   <div className="space-y-4">
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sahələri doldur</p>
                                     <div className="grid grid-cols-3 gap-3">
