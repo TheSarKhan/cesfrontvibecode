@@ -10,14 +10,12 @@ import {
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { accountingApi } from '../../api/accounting'
-import { projectsApi } from '../../api/projects'
 import { serviceApi } from '../../api/service'
 import ServiceInvoicePrintModal from '../service/ServiceInvoicePrintModal'
 import InvoiceModal from './InvoiceModal'
 import InvoicePrintModal from './InvoicePrintModal'
 import TransactionModal from './TransactionModal'
 import PaymentModal from './PaymentModal'
-import ProjectPaymentTab from '../projects/ProjectPaymentTab'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -40,8 +38,9 @@ const MAIN_TABS = [
 
 const TYPE_CONFIG = {
   INCOME:             { label: 'Gəlir',  short: 'Gəlir',  cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  CONTRACTOR_EXPENSE: { label: 'Ödəmə',  short: 'Ödəmə',  cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  COMPANY_EXPENSE:    { label: 'Xərc',   short: 'Xərc',   cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  CONTRACTOR_EXPENSE: { label: 'Ödəmə',           short: 'Ödəmə',    cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  COMPANY_EXPENSE:    { label: 'Xərc',            short: 'Xərc',     cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  INVESTOR_EXPENSE:   { label: 'İnvestor Ödəməsi', short: 'İnvestor', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
 }
 
 const PAYMENT_STATUS_CFG = {
@@ -86,9 +85,7 @@ export default function AccountingInvoicesPage() {
   const [payments, setPayments] = useState([])
   const [budgets, setBudgets] = useState([])
   const [summary, setSummary] = useState(null)
-  const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
-  const [expandedPayProject, setExpandedPayProject] = useState(null)
 
   // Modals
   const [invoiceModal, setInvoiceModal] = useState({ open: false, editing: null, defaultType: null, preProject: null })
@@ -131,14 +128,12 @@ export default function AccountingInvoicesPage() {
       const results = await Promise.allSettled([
         accountingApi.getAll(),
         accountingApi.getSummary(),
-        projectsApi.getAll(),
         serviceApi.getAll(),
       ])
       const extract = (r) => r.status === 'fulfilled' ? (r.value?.data?.data || r.value?.data || []) : []
       setInvoices(extract(results[0]))
       setSummary(results[1].status === 'fulfilled' ? (results[1].value?.data?.data || results[1].value?.data) : null)
-      setProjects(extract(results[2]))
-      const allSrv = extract(results[3])
+      const allSrv = extract(results[2])
       setServiceRecords(allSrv.filter(r => r.completed && r.cost != null && parseFloat(r.cost) > 0))
       // Hələlik boş
       setTransactions([])
@@ -208,25 +203,15 @@ const filteredTransactions = useMemo(() => {
 
   // Merged items for the Invoices table
   const tableItems = useMemo(() => {
-    const invs = invoiceData.content.map(inv => ({ ...inv, _rowType: 'invoice' }))
-    if (activeTab === 'invoices' && invoiceTab === 'CONTRACTOR_EXPENSE') {
-      const pjs = projects
-        .filter(p => p.status === 'ACTIVE' && (p.ownershipType === 'CONTRACTOR' || p.ownershipType === 'INVESTOR'))
-        .map(p => ({ ...p, _rowType: 'project', id: `PRJ-${p.id}` })) // pseudo-id to avoid collision
-      return [...pjs, ...invs]
-    }
-    return invs
-  }, [invoiceData.content, projects, activeTab, invoiceTab])
+    return invoiceData.content.map(inv => ({ ...inv, _rowType: 'invoice' }))
+  }, [invoiceData.content])
 
   const toggleExpand = (item) => {
-    const id = item._rowType === 'project' ? item.id : item.id
-    if (expandedId === id) {
+    if (expandedId === item.id) {
       setExpandedId(null)
     } else {
-      setExpandedId(id)
-      if (item._rowType === 'invoice') {
-        setInlineForm({ invoiceNumber: item.invoiceNumber || '', invoiceDate: item.invoiceDate || '', notes: item.notes || '' })
-      }
+      setExpandedId(item.id)
+      setInlineForm({ invoiceNumber: item.invoiceNumber || '', invoiceDate: item.invoiceDate || '', notes: item.notes || '' })
     }
   }
 
@@ -379,7 +364,7 @@ const filteredTransactions = useMemo(() => {
             {[
               { id: '', label: 'Hamısı' },
               { id: 'INCOME', label: 'Gəlirlər' },
-              { id: 'CONTRACTOR_EXPENSE', label: 'Ödəmələr' },
+              { id: 'PAYMENT', label: 'Ödəmələr' },
               { id: 'COMPANY_EXPENSE', label: 'Xərclər' },
               { id: 'service', label: 'Servis Qaimələri', icon: Wrench },
             ].map(tab => (
@@ -393,7 +378,8 @@ const filteredTransactions = useMemo(() => {
                 )}>
                 {tab.icon && <tab.icon size={11} />}
                 {tab.label}
-                {tab.id && tab.id !== 'service' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === tab.id).length})</span>}
+                {tab.id && tab.id !== 'service' && tab.id !== 'PAYMENT' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === tab.id).length})</span>}
+                {tab.id === 'PAYMENT' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === 'CONTRACTOR_EXPENSE' || i.type === 'INVESTOR_EXPENSE').length})</span>}
                 {tab.id === 'service' && serviceRecords.length > 0 && <span className="ml-1 opacity-60">({serviceRecords.length})</span>}
               </button>
             ))}
@@ -539,71 +525,11 @@ const filteredTransactions = useMemo(() => {
                 </thead>
                 <tbody>
                   {loading ? <TableSkeleton cols={9} rows={5} /> : tableItems.length === 0 ? (
-                    <EmptyState icon={Receipt} title="Məlumat tapılmadı" description="Hələlik heç bir qaimə və ya aktiv layihə yoxdur"
+                    <EmptyState icon={Receipt} title="Məlumat tapılmadı" description="Hələlik heç bir qaimə yoxdur"
                       action={canCreate ? () => setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null }) : undefined}
                       actionLabel="Yeni Qaimə" />
                   ) : tableItems.map(item => {
-                    const isProject = item._rowType === 'project'
                     const isExpanded = expandedId === item.id
-
-                    if (isProject) {
-                      const p = item
-                      const ownerLabel = p.ownershipType === 'CONTRACTOR' ? (p.contractorName || 'Podratçı') : (p.investorName || 'İnvestor')
-                      return (
-                        <Fragment key={p.id}>
-                          <tr
-                            onClick={() => toggleExpand(p)}
-                            className={clsx(
-                              'border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors bg-orange-50/20 dark:bg-orange-900/5',
-                              isExpanded ? 'bg-orange-100/40 dark:bg-orange-900/20' : 'hover:bg-orange-50 dark:hover:bg-orange-900/10'
-                            )}
-                          >
-                            <td className="py-2.5 px-2 text-center">
-                              <ChevronDown size={14} className={clsx('text-orange-400 transition-transform mx-auto', isExpanded && 'rotate-180')} />
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-orange-500 text-white border-orange-600">Ödəniş Tarixçəsi</span>
-                            </td>
-                            <td className="py-2.5 px-4 font-mono text-xs font-bold text-orange-700">
-                              {p.projectCode || p.id}
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <div className="flex flex-col">
-                                <span className="text-sm font-bold text-orange-600">Plan: {fmtMoney(p.contractorPayment)}</span>
-                                <span className="text-[9px] text-gray-400">Layihə ödəniş dövrü</span>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(p.startDate || p.planStartDate)}</td>
-                            <td className="py-2.5 px-4 text-xs text-gray-400">—</td>
-                            <td className="py-2.5 px-4">
-                              <div className="flex flex-col">
-                                <p className="text-xs text-gray-700 dark:text-gray-300 font-semibold truncate max-w-[150px]">{p.companyName}</p>
-                                <p className="text-[10px] text-gray-400 italic truncate max-w-[150px]">{ownerLabel}</p>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <span className="text-xs font-mono text-green-600 truncate">{p.projectName || '—'}</span>
-                            </td>
-                            <td className="py-2.5 px-4">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200">Aktiv</span>
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={9} className="p-0 border-b border-orange-100 dark:border-orange-900/30">
-                                <div className="bg-white dark:bg-gray-800 px-6 py-6 border-x-4 border-orange-400">
-                                  <ProjectPaymentTab
-                                    project={{ ...p, id: parseInt(p.id.replace('PRJ-', '')) }}
-                                    planAmount={p.contractorPayment}
-                                    readOnly={false}
-                                  />
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      )
-                    }
 
                     const inv = item
                     const typeCfg = TYPE_CONFIG[inv.type] || TYPE_CONFIG.INCOME

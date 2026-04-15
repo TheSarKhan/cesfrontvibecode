@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
-  ArrowLeft, Search, Filter, AlertCircle, Clock,
+  ArrowLeft, Search, AlertCircle, Clock,
   CheckCircle, Plus, ChevronDown, ChevronUp, FileText, Lock
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -12,20 +12,20 @@ import { clsx } from 'clsx'
 const fmtMoney = (v) => v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : '0.00 ₼'
 const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
 
-export default function DebitCreditPage() {
+export default function KreditorPage() {
   const navigate = useNavigate()
-  
+
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
-  
+
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   const [expandedId, setExpandedId] = useState(null)
-  
+
   // KPI stats
   const [stats, setStats] = useState({
-    totalDebt: 0,
+    totalPayable: 0,
     totalPaid: 0,
     overdueCount: 0,
     pendingCount: 0
@@ -40,43 +40,40 @@ export default function DebitCreditPage() {
   })
   const [payLoading, setPayLoading] = useState(false)
 
-  const loadReceivables = async () => {
+  const loadPayables = async () => {
     setLoading(true)
     try {
       const params = {}
       if (statusFilter !== 'ALL') params.status = statusFilter
       if (searchQuery) params.search = searchQuery
 
-      const res = await accountingApi.getReceivables(params)
-      // Since it's paged
+      const res = await accountingApi.getPayables(params)
       const items = res.data?.data?.content || []
       setData(items)
-      
-      // Calculate KPIs from ALL loaded items
-      let td = 0, tp = 0, oc = 0, pc = 0
+
+      let tp = 0, tpaid = 0, oc = 0, pc = 0
       items.forEach(item => {
-        td += item.totalAmount || 0
-        tp += item.paidAmount || 0
+        tp += item.totalAmount || 0
+        tpaid += item.paidAmount || 0
         if (item.status === 'OVERDUE') oc++
         if (item.status === 'PENDING' || item.status === 'PARTIAL') pc++
       })
-      setStats({ totalDebt: td, totalPaid: tp, overdueCount: oc, pendingCount: pc })
+      setStats({ totalPayable: tp, totalPaid: tpaid, overdueCount: oc, pendingCount: pc })
 
     } catch (err) {
-      toast.error('Debitor gətirilərkən xəta baş verdi')
+      toast.error('Kreditor məlumatları gətirilərkən xəta baş verdi')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadReceivables()
-  }, [statusFilter]) // Search is better done with a debounce or on Enter
+    loadPayables()
+  }, [statusFilter])
 
-  // To refresh a single item with its details (payments)
   const loadSingle = async (id) => {
     try {
-      const res = await accountingApi.getReceivable(id)
+      const res = await accountingApi.getPayable(id)
       setData(prev => prev.map(item => item.id === id ? res.data.data : item))
     } catch (err) {
       toast.error('Məlumat yenilənə bilmədi')
@@ -92,14 +89,15 @@ export default function DebitCreditPage() {
     }
   }
 
-  const handleAddPayment = async (e, recId) => {
+  const handleAddPayment = async (e, payableId) => {
     e.preventDefault()
+    if (!payForm.invoiceId) return toast.error('Qaimə seçilməlidir')
     if (!payForm.amount || parseFloat(payForm.amount) <= 0) return toast.error('Məbləğ düzgün deyil')
-    
+
     setPayLoading(true)
     try {
-      await accountingApi.addReceivablePayment(recId, {
-        invoiceId: payForm.invoiceId,
+      await accountingApi.addPayablePayment(payableId, {
+        invoiceId: parseInt(payForm.invoiceId),
         amount: parseFloat(payForm.amount),
         paymentDate: payForm.paymentDate,
         note: payForm.note
@@ -111,7 +109,7 @@ export default function DebitCreditPage() {
         paymentDate: new Date().toISOString().substring(0, 10),
         note: ''
       })
-      await loadSingle(recId)
+      await loadSingle(payableId)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Ödəniş xətası')
     } finally {
@@ -119,24 +117,24 @@ export default function DebitCreditPage() {
     }
   }
 
-  const handleDeletePayment = async (recId, paymentId) => {
+  const handleDeletePayment = async (payableId, paymentId) => {
     if (!window.confirm('Bu ödənişi silmək istədiyinizə əminsiniz?')) return
-    
+
     try {
-      await accountingApi.deleteReceivablePayment(recId, paymentId)
+      await accountingApi.deletePayablePayment(payableId, paymentId)
       toast.success('Ödəniş silindi')
-      await loadSingle(recId)
+      await loadSingle(payableId)
     } catch (err) {
       toast.error('Silmə zamanı xəta')
     }
   }
 
-  const handleComplete = async (recId) => {
+  const handleComplete = async (payableId) => {
     if (!window.confirm('Borcu tam olaraq bağlamaq istəyirsiniz?')) return
     try {
-      await accountingApi.completeReceivable(recId)
-      toast.success('Debitor tam olaraq yekunlaşdırıldı')
-      await loadSingle(recId)
+      await accountingApi.completePayable(payableId)
+      toast.success('Kreditor tam olaraq yekunlaşdırıldı')
+      await loadSingle(payableId)
     } catch (err) {
       toast.error('Xəta baş verdi')
     }
@@ -147,7 +145,7 @@ export default function DebitCreditPage() {
       case 'PENDING':
         return <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-md text-[10px] font-bold border border-blue-200">Gözləyir</span>
       case 'PARTIAL':
-        return <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded-md text-[10px] font-bold border border-amber-200">Qismən Özənilib</span>
+        return <span className="px-2 py-1 bg-amber-50 text-amber-600 rounded-md text-[10px] font-bold border border-amber-200">Qismən Ödənilib</span>
       case 'OVERDUE':
         return <span className="px-2 py-1 bg-red-50 text-red-600 rounded-md text-[10px] font-bold border border-red-200 flex items-center gap-1"><AlertCircle size={10}/> Gecikib</span>
       case 'COMPLETED':
@@ -158,14 +156,10 @@ export default function DebitCreditPage() {
 
   const getDaysDiff = (dueDate) => {
     const today = new Date()
-    today.setHours(0,0,0,0)
+    today.setHours(0, 0, 0, 0)
     const due = new Date(dueDate)
-    due.setHours(0,0,0,0)
-    
-    const diffTime = due - today
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
-    return diffDays
+    due.setHours(0, 0, 0, 0)
+    return Math.ceil((due - today) / (1000 * 60 * 60 * 24))
   }
 
   return (
@@ -179,16 +173,16 @@ export default function DebitCreditPage() {
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Debitor</h1>
-          <p className="text-sm text-gray-400">Müştəri borclarının izlənməsi və ödəniş təqibi</p>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Kreditor</h1>
+          <p className="text-sm text-gray-400">Podratçı və investor ödənişlərinin izlənməsi</p>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <p className="text-xs text-gray-500 uppercase font-bold mb-1">Ümumi Gözlənilən Cəmi</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmtMoney(stats.totalDebt)}</p>
+          <p className="text-xs text-gray-500 uppercase font-bold mb-1">Ümumi Ödənilməli</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmtMoney(stats.totalPayable)}</p>
         </div>
         <div className="p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <p className="text-xs text-gray-500 uppercase font-bold mb-1">İndiyə qədər ödənilib</p>
@@ -213,12 +207,12 @@ export default function DebitCreditPage() {
               onClick={() => setStatusFilter(status)}
               className={clsx(
                 "px-4 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors",
-                statusFilter === status 
-                  ? "bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100" 
+                statusFilter === status
+                  ? "bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-gray-100"
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               )}
             >
-              {status === 'ALL' ? 'Hamısı' : 
+              {status === 'ALL' ? 'Hamısı' :
                status === 'PENDING' ? 'Gözləyir' :
                status === 'PARTIAL' ? 'Qismən' :
                status === 'OVERDUE' ? 'Gecikib' : 'Yekunlaşıb'}
@@ -229,16 +223,16 @@ export default function DebitCreditPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Layihə və ya müştəri axtar..."
+            placeholder="Layihə, podratçı və ya investor axtar..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && loadReceivables()}
-            className="pl-9 pr-4 py-2 w-full sm:w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            onKeyDown={(e) => e.key === 'Enter' && loadPayables()}
+            className="pl-9 pr-4 py-2 w-full sm:w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
       </div>
 
-      {/* Table List */}
+      {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
           <div className="h-64 flex items-center justify-center">
@@ -254,9 +248,9 @@ export default function DebitCreditPage() {
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-gray-50/50 dark:bg-gray-800/50">
                 <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="font-semibold text-gray-500 px-4 py-3">Layihə / Təyinat</th>
-                  <th className="font-semibold text-gray-500 px-4 py-3">Müştəri Detalları</th>
-                  <th className="font-semibold text-gray-500 px-4 py-3">Borc Məbləği</th>
+                  <th className="font-semibold text-gray-500 px-4 py-3">Layihə / Texnika</th>
+                  <th className="font-semibold text-gray-500 px-4 py-3">Podratçı / İnvestor</th>
+                  <th className="font-semibold text-gray-500 px-4 py-3">Ümumi Məbləğ</th>
                   <th className="font-semibold text-gray-500 px-4 py-3">Ödənilib / Qalıq</th>
                   <th className="font-semibold text-gray-500 px-4 py-3">Müddət</th>
                   <th className="font-semibold text-gray-500 px-4 py-3 text-right">Status</th>
@@ -266,10 +260,10 @@ export default function DebitCreditPage() {
                 {data.map(item => {
                   const rem = item.totalAmount - item.paidAmount
                   const diffDays = getDaysDiff(item.dueDate)
-                  
+
                   return (
                     <React.Fragment key={item.id}>
-                      <tr 
+                      <tr
                         onClick={() => handleExpand(item.id)}
                         className={clsx(
                           "group transition-colors cursor-pointer",
@@ -281,18 +275,16 @@ export default function DebitCreditPage() {
                             <span className="text-xs font-mono font-bold text-gray-500 dark:text-gray-400">{item.projectCode}</span>
                             <div>
                               <p className="font-semibold text-gray-900 dark:text-gray-100">{item.projectName || '—'}</p>
-                              <p className="text-xs text-gray-500 flex items-center gap-1">
-                                {item.region} • {item.equipmentName}
-                              </p>
+                              <p className="text-xs text-gray-500">{item.equipmentName || '—'}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900 dark:text-gray-200">{item.customerName || '—'}</p>
-                          <p className="text-xs text-gray-500">{item.customerPhone || '—'}</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-200">{item.payeeName || '—'}</p>
+                          <p className="text-xs text-gray-500">{item.payeeVoen || '—'}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-bold text-red-500">{fmtMoney(item.totalAmount)}</span>
+                          <span className="font-bold text-orange-500">{fmtMoney(item.totalAmount)}</span>
                         </td>
                         <td className="px-4 py-3">
                           <p className="font-bold text-green-500">{fmtMoney(item.paidAmount)}</p>
@@ -313,6 +305,7 @@ export default function DebitCreditPage() {
                           </div>
                         </td>
                       </tr>
+
                       {/* Expanded Section */}
                       {expandedId === item.id && (
                         <tr className="bg-gray-50/80 dark:bg-gray-800/80 border-t border-gray-100 dark:border-gray-700">
@@ -322,12 +315,12 @@ export default function DebitCreditPage() {
                               <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
                                 <div className="flex justify-between text-xs text-gray-500 font-medium mb-2">
                                   <span>Ödənilmiş %</span>
-                                  <span>{item.totalAmount > 0 ? ((item.paidAmount / item.totalAmount)*100).toFixed(1) : 0}%</span>
+                                  <span>{item.totalAmount > 0 ? ((item.paidAmount / item.totalAmount) * 100).toFixed(1) : 0}%</span>
                                 </div>
                                 <div className="h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                  <div 
-                                    className={clsx("h-full transition-all duration-500", rem <= 0 ? "bg-green-500" : "bg-indigo-500")} 
-                                    style={{ width: `${item.totalAmount > 0 ? Math.min((item.paidAmount / item.totalAmount) * 100, 100) : 0}%` }} 
+                                  <div
+                                    className={clsx("h-full transition-all duration-500", rem <= 0 ? "bg-green-500" : "bg-orange-500")}
+                                    style={{ width: `${item.totalAmount > 0 ? Math.min((item.paidAmount / item.totalAmount) * 100, 100) : 0}%` }}
                                   />
                                 </div>
                               </div>
@@ -364,11 +357,9 @@ export default function DebitCreditPage() {
                                                 <td className="px-3 py-2 text-right text-green-600">{fmtMoney(inv.paidAmount)}</td>
                                                 <td className="px-3 py-2 text-right text-red-500 font-bold">{fmtMoney(inv.remainingAmount)}</td>
                                                 <td className="px-3 py-2 text-center">
-                                                  {inv.status === 'RETURNED' ?
-                                                    <span className="text-red-500 font-bold">Geri qaytarılıb</span> :
-                                                    inv.remainingAmount <= 0 ?
-                                                    <span className="text-green-500 font-bold">Ödənilib</span> :
-                                                    <span className="text-amber-500 font-bold">Gözləyir</span>
+                                                  {inv.remainingAmount <= 0
+                                                    ? <span className="text-green-500 font-bold">Ödənilib</span>
+                                                    : <span className="text-amber-500 font-bold">Gözləyir</span>
                                                   }
                                                 </td>
                                               </tr>
@@ -379,7 +370,7 @@ export default function DebitCreditPage() {
                                     )}
                                   </div>
 
-                                  {/* Odenisler Tarixcesi */}
+                                  {/* Ödəniş Tarixçəsi */}
                                   <div className="mt-6 space-y-3">
                                     <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Ödəniş Tarixçəsi</h3>
                                     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -391,8 +382,8 @@ export default function DebitCreditPage() {
                                             <div key={p.id} className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-xs">
                                               <div className="flex flex-col">
                                                 <div className="flex items-center gap-2">
-                                                   <span className="font-bold text-gray-900 dark:text-gray-100">{fmtMoney(p.amount)}</span>
-                                                   {p.invoiceId && <span className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[9px] text-gray-500 italic">Qaimə üzrə</span>}
+                                                  <span className="font-bold text-gray-900 dark:text-gray-100">{fmtMoney(p.amount)}</span>
+                                                  {p.invoiceId && <span className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-[9px] text-gray-500 italic">Qaimə üzrə</span>}
                                                 </div>
                                                 <span className="text-[10px] text-gray-400">{fmt(p.paymentDate)} {p.note && `• ${p.note}`}</span>
                                               </div>
@@ -407,7 +398,7 @@ export default function DebitCreditPage() {
                                   </div>
                                 </div>
 
-                                {/* Yeni ödeniş formu */}
+                                {/* Yeni Ödəniş Formu */}
                                 <div className="space-y-3">
                                   <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Yeni Ödəniş Əlavə Et</h3>
                                   {item.status === 'COMPLETED' ? (
@@ -419,11 +410,11 @@ export default function DebitCreditPage() {
                                     <form onSubmit={(e) => handleAddPayment(e, item.id)} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 space-y-3">
                                       <div>
                                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Qaimə Seçin *</label>
-                                        <select 
+                                        <select
                                           required
                                           value={payForm.invoiceId}
-                                          onChange={e => setPayForm({...payForm, invoiceId: e.target.value})}
-                                          className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                          onChange={e => setPayForm({ ...payForm, invoiceId: e.target.value })}
+                                          className="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500"
                                         >
                                           <option value="">-- Qaimə seçin --</option>
                                           {item.invoices?.filter(inv => inv.remainingAmount > 0).map(inv => (
@@ -432,15 +423,15 @@ export default function DebitCreditPage() {
                                             </option>
                                           ))}
                                           {item.invoices?.filter(inv => inv.remainingAmount <= 0).length > 0 && (
-                                              <optgroup label="Ödənilmişlər">
-                                                  {item.invoices?.filter(inv => inv.remainingAmount <= 0).map(inv => (
-                                                      <option key={inv.id} value={inv.id}>{inv.invoiceNumber} (Ödənilib)</option>
-                                                  ))}
-                                              </optgroup>
+                                            <optgroup label="Ödənilmişlər">
+                                              {item.invoices?.filter(inv => inv.remainingAmount <= 0).map(inv => (
+                                                <option key={inv.id} value={inv.id}>{inv.invoiceNumber} (Ödənilib)</option>
+                                              ))}
+                                            </optgroup>
                                           )}
                                         </select>
                                       </div>
-                                      
+
                                       <div>
                                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Ödəniş Məbləği</label>
                                         <input
@@ -450,46 +441,46 @@ export default function DebitCreditPage() {
                                           step="0.01"
                                           disabled={!payForm.invoiceId}
                                           value={payForm.amount}
-                                          onChange={e => setPayForm({...payForm, amount: e.target.value})}
-                                          className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                          onChange={e => setPayForm({ ...payForm, amount: e.target.value })}
+                                          className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500"
                                         />
                                       </div>
 
                                       <DateInput
                                         value={payForm.paymentDate}
-                                        onChange={e => setPayForm({...payForm, paymentDate: e.target.value})}
+                                        onChange={e => setPayForm({ ...payForm, paymentDate: e.target.value })}
                                         className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg"
                                       />
-                                      
+
                                       <textarea
                                         placeholder="Qeyd..."
                                         rows={2}
                                         value={payForm.note}
-                                        onChange={e => setPayForm({...payForm, note: e.target.value})}
+                                        onChange={e => setPayForm({ ...payForm, note: e.target.value })}
                                         className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg resize-none"
                                       />
-                                      
+
                                       <button
                                         type="submit"
                                         disabled={payLoading || !payForm.invoiceId}
-                                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                                        className="w-full py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
                                       >
-                                        <Plus size={16}/> Əlavə Et
+                                        <Plus size={16} /> Əlavə Et
                                       </button>
                                     </form>
                                   )}
-                                </div>
 
                                   {item.status !== 'COMPLETED' && rem <= 0 && (
-                                    <button 
+                                    <button
                                       onClick={() => handleComplete(item.id)}
                                       className="w-full py-2 border-2 border-green-500 text-green-600 font-bold rounded-xl text-sm hover:bg-green-50 transition-colors flex items-center justify-center gap-2 mt-4"
                                     >
-                                      <Lock size={16}/> Debitoru Yekunlaşdır (Bağla)
+                                      <Lock size={16} /> Kreditoru Yekunlaşdır (Bağla)
                                     </button>
                                   )}
                                 </div>
                               </div>
+                            </div>
                           </td>
                         </tr>
                       )}

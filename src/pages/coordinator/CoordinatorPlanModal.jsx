@@ -835,14 +835,20 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                     {(plan?.ownershipType === 'CONTRACTOR' || plan?.ownershipType === 'INVESTOR') && (
                       <div>
                         <label className={labelCls}>
-                          {plan?.ownershipType === 'INVESTOR' ? 'İnvestor' : 'Podratçı'} günlük ödənişi
+                          {plan?.ownershipType === 'INVESTOR' ? 'İnvestor' : 'Podratçı'}{' '}
+                          {projectType === 'MONTHLY' ? 'aylıq' : 'günlük'} ödənişi
                         </label>
                         <input type="number" min="0" step="0.01" value={form.contractorDailyRate}
                           onChange={(e) => set('contractorDailyRate', e.target.value)}
                           placeholder="0.00" className={inputCls} disabled={isReadonly} />
-                        {contrDailyRate > 0 && autoDayCount > 0 && projectType !== 'MONTHLY' && (
+                        {contrDailyRate > 0 && autoDayCount > 0 && projectType === 'DAILY' && (
                           <p className="text-[10px] text-orange-500 mt-1">
                             {autoDayCount} gün × {contrDailyRate} = <span className="font-bold">{contrPaymentTotal.toFixed(2)} AZN</span>
+                          </p>
+                        )}
+                        {contrDailyRate > 0 && projectType === 'MONTHLY' && (
+                          <p className="text-[10px] text-orange-500 mt-1">
+                            Sabit aylıq: <span className="font-bold">{contrDailyRate.toFixed(2)} AZN</span>
                           </p>
                         )}
                       </div>

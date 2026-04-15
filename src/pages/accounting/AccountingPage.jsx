@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Receipt, BarChart3, Users } from 'lucide-react'
+import { Receipt, BarChart3, TrendingDown, TrendingUp } from 'lucide-react'
 
 const CARDS = [
   {
@@ -19,13 +19,20 @@ const CARDS = [
     path: '/accounting/reports',
   },
   {
-    id: 'debit-credit',
-    title: 'Debitor / Kreditor',
-    description: 'Debitor və kreditor borclarının izlənməsi',
-    icon: Users,
+    id: 'debitor',
+    title: 'Debitor',
+    description: 'Müştəri borclarının izlənməsi və ödəniş təqibi',
+    icon: TrendingDown,
     color: 'emerald',
-    path: '/accounting/debit-credit',
-    disabled: false,
+    path: '/accounting/debitor',
+  },
+  {
+    id: 'kreditor',
+    title: 'Kreditor',
+    description: 'Podratçı və investor ödənişlərinin izlənməsi',
+    icon: TrendingUp,
+    color: 'rose',
+    path: '/accounting/kreditor',
   },
 ]
 
@@ -51,6 +58,13 @@ const COLOR_MAP = {
     icon: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
     title: 'text-emerald-900 dark:text-emerald-200',
   },
+  rose: {
+    bg: 'bg-rose-50 dark:bg-rose-900/20',
+    border: 'border-rose-200 dark:border-rose-800',
+    hover: 'hover:border-rose-400 hover:shadow-lg hover:shadow-rose-100/50',
+    icon: 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400',
+    title: 'text-rose-900 dark:text-rose-200',
+  },
 }
 
 export default function AccountingPage() {
@@ -63,7 +77,7 @@ export default function AccountingPage() {
         <p className="text-sm text-gray-400 mt-1">Maliyyə əməliyyatlarının idarə edilməsi</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {CARDS.map(card => {
           const c = COLOR_MAP[card.color]
           const Icon = card.icon

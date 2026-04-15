@@ -99,7 +99,6 @@ export default function ProjectsPage() {
         const exp = parseFloat(p.totalExpense || 0)
                   + parseFloat(p.planTransportationPrice || 0)
                   + parseFloat(p.planOperatorPayment || 0)
-                  + parseFloat(p.contractorPayment || 0)
         return s + (rev - exp)
       }, 0)
     return { pending, active, completed, totalNet }
@@ -188,7 +187,6 @@ export default function ProjectsPage() {
                   const totalExpAll = parseFloat(p.totalExpense || 0)
                                     + parseFloat(p.planTransportationPrice || 0)
                                     + parseFloat(p.planOperatorPayment || 0)
-                                    + parseFloat(p.contractorPayment || 0)
                   const net         = totalRevAll - totalExpAll
                   const isSelected = selected?.id === p.id
 
@@ -301,11 +299,6 @@ export default function ProjectsPage() {
                         <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', status.cls)}>
                           {status.label}
                         </span>
-                        {p.ownershipType === 'CONTRACTOR' && p.contractorPayment > 0 && (
-                          <p className="text-[10px] text-orange-500 mt-1">
-                            Podratçı: {fmtMoney(p.contractorPayment)} ₼
-                          </p>
-                        )}
                       </td>
 
                       {/* Arrow */}

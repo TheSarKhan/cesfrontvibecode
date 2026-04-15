@@ -54,4 +54,11 @@ export const accountingApi = {
   addReceivablePayment: (id, data) => api.post(`/accounting/receivables/${id}/payments`, data),
   deleteReceivablePayment: (id, paymentId) => api.delete(`/accounting/receivables/${id}/payments/${paymentId}`),
   completeReceivable: (id) => api.post(`/accounting/receivables/${id}/complete`),
+
+  // ── Payables (Kreditorlar) ──
+  getPayables: (params) => api.get('/accounting/payables', { params }),
+  getPayable: (id) => api.get(`/accounting/payables/${id}`),
+  addPayablePayment: (id, data) => api.post(`/accounting/payables/${id}/payments`, data),
+  deletePayablePayment: (id, paymentId) => api.delete(`/accounting/payables/${id}/payments/${paymentId}`),
+  completePayable: (id) => api.post(`/accounting/payables/${id}/complete`),
 }

@@ -296,11 +296,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
               </span>
             </InfoRow>
           )}
-          {project.contractorPayment != null && (
-            <InfoRow label="Podratçı ödənişi">
-              <span className="text-orange-600 font-semibold">{fmtMoney(project.contractorPayment)}</span>
-            </InfoRow>
-          )}
         </Section>
       )}
 
@@ -529,7 +524,6 @@ function FinanceTab({ project }) {
   const manualRev = (finances.revenues || []).reduce((s, r) => s + parseFloat(r.value || 0), 0)
   const planExpenses = parseFloat(project.planTransportationPrice || 0)
                      + parseFloat(project.planOperatorPayment    || 0)
-                     + parseFloat(project.contractorPayment      || 0)
   const totalExp = manualExp + planExpenses
   const totalRev = manualRev
   const net = manualRev - (manualExp + planExpenses)
@@ -597,14 +591,6 @@ function FinanceTab({ project }) {
                 <p className="text-xs font-medium text-gray-600">Operator haqqı <span className="text-[10px] text-amber-500">(plan)</span></p>
               </div>
               <span className="text-xs font-semibold text-red-500 whitespace-nowrap">{fmtMoney(project.planOperatorPayment)} ₼</span>
-            </div>
-          )}
-          {project.contractorPayment > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/50">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600">Podratçı ödənişi <span className="text-[10px] text-amber-500">(plan)</span></p>
-              </div>
-              <span className="text-xs font-semibold text-red-500 whitespace-nowrap">{fmtMoney(project.contractorPayment)} ₼</span>
             </div>
           )}
           {finances.expenses?.length === 0 && planExpenses === 0 && (
@@ -752,7 +738,6 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const planRevenue  = parseFloat(project.planEquipmentTotal || project.planEquipmentPrice || 0)
   const planExpenses = parseFloat(project.planTransportationPrice || 0)
                      + parseFloat(project.planOperatorPayment || 0)
-                     + parseFloat(project.contractorPayment || 0)
   const actualRevenue = parseFloat(project.totalRevenue || 0)
   const actualExpense = parseFloat(project.totalExpense || 0) + planExpenses
   const evacCost      = isCompleted ? parseFloat(project.evacuationCost || 0) : parseFloat(form.evacuationCost || 0)
@@ -902,9 +887,6 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
           )}
           {parseFloat(project.planOperatorPayment || 0) > 0 && (
             <SummaryRow label="Operator haqqı" value={`−${fmtMoney(project.planOperatorPayment)}`} valueClass="text-red-500" />
-          )}
-          {parseFloat(project.contractorPayment || 0) > 0 && (
-            <SummaryRow label="Podratçı ödənişi" value={`−${fmtMoney(project.contractorPayment)}`} valueClass="text-red-500" />
           )}
           {evacCost > 0 && (
             <SummaryRow label="Evakuator xərci" value={`−${fmtMoney(evacCost)}`} valueClass="text-red-500" />
