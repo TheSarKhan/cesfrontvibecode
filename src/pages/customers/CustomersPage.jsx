@@ -101,7 +101,7 @@ export default function CustomersPage() {
     if (!window.confirm(`${selectedIds.size} element silinsin?`)) return
     setBulkLoading(true)
     try {
-      await Promise.all([...selectedIds].map(id => customersApi.delete(id)))
+      await customersApi.deleteAll([...selectedIds])
       toast.success(`${selectedIds.size} element silindi`)
       setSelectedIds(new Set())
       load()

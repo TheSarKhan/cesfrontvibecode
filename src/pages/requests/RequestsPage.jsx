@@ -188,6 +188,9 @@ export default function RequestsPage() {
   const doSendCoordinator = async (request) => {
     if (!(await confirm({ title: 'Kordinatora göndər', message: `"${request.requestCode || request.companyName}" sorğusunu kordinatora göndərmək istəyirsiniz?` }))) return
     try {
+      if (request.status === 'DRAFT') {
+        await requestsApi.submit(request.id)
+      }
       await requestsApi.sendToCoordinator(request.id)
       toast.success('Kordinatora göndərildi')
       load()
@@ -449,7 +452,7 @@ export default function RequestsPage() {
                               <Pencil size={15} />
                             </button>
                           )}
-                          {r.status === 'PENDING' && canSendToCoordinator && (
+                          {['DRAFT', 'PENDING'].includes(r.status) && canSendToCoordinator && (
                             <button
                               onClick={() => doSendCoordinator(r)}
                               className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-500 transition-colors"

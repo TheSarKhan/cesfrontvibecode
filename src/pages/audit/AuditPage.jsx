@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { auditApi } from '../../api/audit'
 import { useSearchParams } from 'react-router-dom'
@@ -114,7 +115,7 @@ export default function AuditPage() {
         <div>
           <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <History size={20} className="text-amber-500" />
-            Audit Jurnal
+            Audit
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
             {totalElements > 0 ? `${totalElements} qeyd tapıldı` : 'Bütün sistem əməliyyatlarının tarixçəsi'}
@@ -165,16 +166,14 @@ export default function AuditPage() {
           </select>
 
           {/* Date from */}
-          <input
-            type="date"
+          <DateInput
             value={from}
             onChange={e => setParam('from', e.target.value)}
             className="px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-1 focus:ring-amber-400 text-gray-700 dark:text-gray-200"
           />
 
           {/* Date to */}
-          <input
-            type="date"
+          <DateInput
             value={to}
             onChange={e => setParam('to', e.target.value)}
             className="px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg outline-none focus:ring-1 focus:ring-amber-400 text-gray-700 dark:text-gray-200"

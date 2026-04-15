@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useRef } from 'react'
 import {
   X, Pencil, Trash2, Building2, Phone, MapPin,
@@ -218,8 +219,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
                     placeholder="Sənəd adı (ixtiyari)"
                     className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   />
-                  <input
-                    type="date"
+                  <DateInput
                     value={docDate}
                     onChange={e => setDocDate(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"

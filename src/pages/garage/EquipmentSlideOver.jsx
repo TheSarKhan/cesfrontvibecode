@@ -1,3 +1,4 @@
+import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock, CheckCircle, ShieldCheck, Save } from 'lucide-react'
 import { garageApi } from '../../api/garage'
@@ -205,8 +206,7 @@ function InspectionsTab({ equipmentId }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Baxış tarixi *</label>
-              <input
-                type="date"
+              <DateInput
                 value={form.inspectionDate}
                 onChange={(e) => setForm((f) => ({ ...f, inspectionDate: e.target.value }))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -214,8 +214,7 @@ function InspectionsTab({ equipmentId }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Növbəti baxış</label>
-              <input
-                type="date"
+              <DateInput
                 value={form.nextDate}
                 onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -848,7 +847,7 @@ const STATUS_LABELS = {
   AVAILABLE: { label: 'Mövcud', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' },
   RENTED: { label: 'İcarədə', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' },
   IN_TRANSIT: { label: 'Yolda', cls: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400' },
-  IN_INSPECTION: { label: 'Baxışdadır', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' },
+  IN_INSPECTION: { label: 'Servisdədir', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' },
   DEFECTIVE: { label: 'Nasaz', cls: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' },
   OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' },
 }
