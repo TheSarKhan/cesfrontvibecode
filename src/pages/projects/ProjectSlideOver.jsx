@@ -335,8 +335,14 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
             </InfoRow>
           )}
           {project.planEquipmentPrice != null && (
-            <InfoRow label="Texnika qiyməti">
-              <span className="text-amber-600 font-semibold">{fmtMoney(project.planEquipmentPrice)}</span>
+            <InfoRow label={project.projectType === 'DAILY' ? 'Texnika qiyməti (gündəlik)' : 'Texnika qiyməti'}>
+              {project.projectType === 'DAILY' && project.planDayCount > 0 ? (
+                <span className="text-amber-600 font-semibold text-right">
+                  {fmtMoney(project.planEquipmentPrice)} × {project.planDayCount} gün = {fmtMoney(project.planEquipmentTotal)}
+                </span>
+              ) : (
+                <span className="text-amber-600 font-semibold">{fmtMoney(project.planEquipmentTotal ?? project.planEquipmentPrice)}</span>
+              )}
             </InfoRow>
           )}
           {project.planTransportationPrice != null && (
@@ -742,8 +748,8 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
     : (project.planDayCount || project.dayCount || 0)
   const scheduledHours = effectiveDays * 9
 
-  // Maliyyə xülasəsi
-  const planRevenue  = parseFloat(project.planEquipmentPrice || 0)
+  // Maliyyə xülasəsi — DAILY: unitPrice × dayCount, MONTHLY: sabit unitPrice
+  const planRevenue  = parseFloat(project.planEquipmentTotal || project.planEquipmentPrice || 0)
   const planExpenses = parseFloat(project.planTransportationPrice || 0)
                      + parseFloat(project.planOperatorPayment || 0)
                      + parseFloat(project.contractorPayment || 0)
