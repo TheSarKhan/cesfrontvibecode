@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, ArrowRight } from 'lucide-react'
+import { X, ArrowRight, RefreshCw } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { STATUS_CFG, ALLOWED_TRANSITIONS } from '../../constants/garage'
@@ -37,7 +37,8 @@ export default function StatusChangeModal({ item, onClose, onConfirm, bulkMode }
           <X size={14} className="text-white" />
         </button>
 
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
+          <RefreshCw size={18} className="text-amber-500 shrink-0" />
           {bulkMode ? 'Toplu status dəyişdir' : 'Status dəyişdir'}
         </h2>
         <p className="text-xs text-gray-400 mb-5 truncate">

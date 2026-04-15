@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Building2, Pencil } from 'lucide-react'
 import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -148,7 +148,8 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Building2 size={18} className="text-amber-500 shrink-0" />}
               {editing ? 'Müştərini redaktə et' : 'Yeni müştəri əlavə et'}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">

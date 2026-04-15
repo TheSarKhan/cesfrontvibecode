@@ -18,6 +18,7 @@ const CATEGORY_LABELS = {
   REGION:            'Bölgələr',
   TECH_PARAM:        'Texniki parametrlər',
   SAFETY_EQUIPMENT:  'Təhlükəsizlik avadanlıqları',
+  SERVICE_CHECKLIST: 'Servis Checklist Şablonları',
 }
 
 const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat

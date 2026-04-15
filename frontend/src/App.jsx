@@ -17,6 +17,11 @@ import RequestsPage from './pages/requests/RequestsPage'
 import CoordinatorPage from './pages/coordinator/CoordinatorPage'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import AccountingPage from './pages/accounting/AccountingPage'
+import AccountingInvoicesPage from './pages/accounting/AccountingInvoicesPage'
+import AccountingReportsPage from './pages/accounting/AccountingReportsPage'
+import DebitCreditPage from './pages/accounting/DebitCreditPage'
+import KreditorPage from './pages/accounting/KreditorPage'
+import ServiceInvoicesPage from './pages/accounting/ServiceInvoicesPage'
 import ServicePage from './pages/service/ServicePage'
 import OperatorsPage from './pages/operators/OperatorsPage'
 import ApprovalPage from './pages/approval/ApprovalPage'
@@ -56,6 +61,12 @@ export default function App() {
             <Route path="coordinator" element={<CoordinatorPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="accounting" element={<AccountingPage />} />
+            <Route path="accounting/invoices" element={<AccountingInvoicesPage />} />
+            <Route path="accounting/reports" element={<AccountingReportsPage />} />
+            <Route path="accounting/debitor" element={<DebitCreditPage />} />
+            <Route path="accounting/kreditor" element={<KreditorPage />} />
+            <Route path="accounting/debit-credit" element={<Navigate to="/accounting/debitor" replace />} />
+            <Route path="accounting/service-invoices" element={<ServiceInvoicesPage />} />
             <Route path="service" element={<ServicePage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="approval" element={<ApprovalPage />} />

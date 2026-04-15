@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import DateInput from '../../components/common/DateInput'
+import { useState, useEffect, useRef } from 'react'
 import {
   X, Info, DollarSign, CheckCircle,
   Upload, FileText, Plus, Trash2, Download,
   TrendingUp, TrendingDown, Calendar,
   AlertCircle, Phone, User, MapPin, Wrench, Building2,
-  Shield, Clock, Send, ChevronDown, ChevronUp
+  Clock
 } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import { accountingApi } from '../../api/accounting'
@@ -74,8 +75,7 @@ function StartDateDialog({ onConfirm, onCancel }) {
       <div className="relative z-10 bg-white rounded-2xl p-6 w-80 shadow-2xl">
         <h3 className="text-sm font-bold text-gray-800 mb-1">Başlanğıc tarixini seçin</h3>
         <p className="text-xs text-gray-400 mb-4">Layihənin başlanğıc tarixi. Boş buraxsanız bu gün istifadə ediləcək.</p>
-        <input
-          type="date"
+        <DateInput
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
@@ -296,11 +296,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
               </span>
             </InfoRow>
           )}
-          {project.contractorPayment != null && (
-            <InfoRow label="Podratçı ödənişi">
-              <span className="text-orange-600 font-semibold">{fmtMoney(project.contractorPayment)}</span>
-            </InfoRow>
-          )}
         </Section>
       )}
 
@@ -335,8 +330,14 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
             </InfoRow>
           )}
           {project.planEquipmentPrice != null && (
-            <InfoRow label="Texnika qiyməti">
-              <span className="text-amber-600 font-semibold">{fmtMoney(project.planEquipmentPrice)}</span>
+            <InfoRow label={project.projectType === 'DAILY' ? 'Texnika qiyməti (gündəlik)' : 'Texnika qiyməti'}>
+              {project.projectType === 'DAILY' && project.planDayCount > 0 ? (
+                <span className="text-amber-600 font-semibold text-right">
+                  {fmtMoney(project.planEquipmentPrice)} × {project.planDayCount} gün = {fmtMoney(project.planEquipmentTotal)}
+                </span>
+              ) : (
+                <span className="text-amber-600 font-semibold">{fmtMoney(project.planEquipmentTotal ?? project.planEquipmentPrice)}</span>
+              )}
             </InfoRow>
           )}
           {project.planTransportationPrice != null && (
@@ -360,8 +361,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
           {project.status !== 'COMPLETED' ? (
             editingStartDate ? (
               <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
+                <DateInput
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -389,8 +389,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
           {project.status !== 'COMPLETED' ? (
             editingDate ? (
               <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
+                <DateInput
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -523,13 +522,11 @@ function FinanceTab({ project }) {
 
   const manualExp = (finances.expenses || []).reduce((s, e) => s + parseFloat(e.value || 0), 0)
   const manualRev = (finances.revenues || []).reduce((s, r) => s + parseFloat(r.value || 0), 0)
-  const planRevenue  = parseFloat(project.planEquipmentPrice    || 0)
   const planExpenses = parseFloat(project.planTransportationPrice || 0)
                      + parseFloat(project.planOperatorPayment    || 0)
-                     + parseFloat(project.contractorPayment      || 0)
-  const totalExp = manualExp
+  const totalExp = manualExp + planExpenses
   const totalRev = manualRev
-  const net = (manualRev + planRevenue) - (manualExp + planExpenses)
+  const net = manualRev - (manualExp + planExpenses)
 
   const addExpense = async () => {
     if (!expKey.trim() || !expVal || parseFloat(expVal) <= 0) return toast.error('Növ və məbləğ daxil edin')
@@ -569,37 +566,6 @@ function FinanceTab({ project }) {
 
   return (
     <div className="space-y-4">
-      {/* Koordinator plan qiymət xülasəsi */}
-      {project.planEquipmentPrice != null && (
-        <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 space-y-1.5">
-          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-2">Koordinator planı</p>
-          {project.planEquipmentPrice != null && (
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Texnika qiyməti</span>
-              <span className="font-semibold text-gray-700">{fmtMoney(project.planEquipmentPrice)} ₼</span>
-            </div>
-          )}
-          {project.planTransportationPrice != null && (
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Nəqliyyat</span>
-              <span className="font-semibold text-gray-700">{fmtMoney(project.planTransportationPrice)} ₼</span>
-            </div>
-          )}
-          {project.planOperatorPayment != null && (
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Operator haqqı</span>
-              <span className="font-semibold text-gray-700">{fmtMoney(project.planOperatorPayment)} ₼</span>
-            </div>
-          )}
-          {project.contractorPayment > 0 && (
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Podratçı ödənişi</span>
-              <span className="font-semibold text-orange-600">{fmtMoney(project.contractorPayment)} ₼</span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Xərclər */}
       <div className="rounded-xl border border-red-100 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-2.5 bg-red-50">
@@ -610,7 +576,24 @@ function FinanceTab({ project }) {
           <span className="text-xs font-bold text-red-600">{fmtMoney(totalExp)} ₼</span>
         </div>
         <div className="divide-y divide-gray-100">
-          {finances.expenses?.length === 0 && (
+          {/* Plan xərcləri */}
+          {project.planTransportationPrice > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/50">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-600">Daşınma <span className="text-[10px] text-amber-500">(plan)</span></p>
+              </div>
+              <span className="text-xs font-semibold text-red-500 whitespace-nowrap">{fmtMoney(project.planTransportationPrice)} ₼</span>
+            </div>
+          )}
+          {project.planOperatorPayment > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/50">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-600">Operator haqqı <span className="text-[10px] text-amber-500">(plan)</span></p>
+              </div>
+              <span className="text-xs font-semibold text-red-500 whitespace-nowrap">{fmtMoney(project.planOperatorPayment)} ₼</span>
+            </div>
+          )}
+          {finances.expenses?.length === 0 && planExpenses === 0 && (
             <p className="text-xs text-gray-400 py-3 text-center">Hələ xərc yoxdur</p>
           )}
           {finances.expenses?.map((e) => (
@@ -669,7 +652,7 @@ function FinanceTab({ project }) {
                 </p>
               </div>
               <span className="text-xs font-semibold text-green-600 whitespace-nowrap">{fmtMoney(r.value)} ₼</span>
-              {!readOnly && (
+              {!readOnly && !r.key?.startsWith('Qaimə:') && (
                 <button onClick={() => delRevenue(r.id)}
                   className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                   <Trash2 size={12} />
@@ -702,13 +685,13 @@ function FinanceTab({ project }) {
         <div className="flex justify-between text-xs text-gray-500">
           <span>Ümumi gəlir</span>
           <span className="font-semibold text-green-600">
-            +{fmtMoney(manualRev + planRevenue)} ₼
+            +{fmtMoney(totalRev)} ₼
           </span>
         </div>
         <div className="flex justify-between text-xs text-gray-500">
           <span>Ümumi xərc</span>
           <span className="font-semibold text-red-500">
-            −{fmtMoney(manualExp + planExpenses)} ₼
+            −{fmtMoney(totalExp)} ₼
           </span>
         </div>
         <div className={clsx('flex items-center justify-between border-t pt-1.5',
@@ -726,120 +709,79 @@ function FinanceTab({ project }) {
 
 // ─── Bağlanış Tab ─────────────────────────────────────────────────────────────
 
-const MONTHS_AZ = ['Yanvar','Fevral','Mart','Aprel','May','İyun','İyul','Avqust','Sentyabr','Oktyabr','Noyabr','Dekabr']
+function SummaryRow({ label, value, valueClass = '' }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+      <span className="text-[11px] text-gray-500">{label}</span>
+      <span className={clsx('text-[11px] font-semibold text-gray-800', valueClass)}>{value}</span>
+    </div>
+  )
+}
 
-function CompleteTab({ project, onCompleted }) {
+function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const { confirm, ConfirmDialog } = useConfirm()
-  const [form, setForm] = useState({
-    evacuationCost: project.evacuationCost ?? '',
-  })
+  const [form, setForm] = useState({ evacuationCost: project.evacuationCost ?? '' })
   const [saving, setSaving] = useState(false)
+  const [invoiceCounts, setInvoiceCounts] = useState(null)
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }))
 
-  // ── Yekun Qaime state ──────────────────────────────────────────────────────
-  const [sentInvoices, setSentInvoices] = useState([])
-  const [showFinalForm, setShowFinalForm] = useState(false)
-  const [sendingFinal, setSendingFinal] = useState(false)
-  const [finalForm, setFinalForm] = useState({
-    periodMonth:        '',
-    periodYear:         new Date().getFullYear(),
-    standardDays:       '',
-    extraDays:          '',
-    extraHours:         '',
-    overtimeRate:       '1.0',
-    monthlyRate:        project.planEquipmentPrice || 14000,
-    workingDaysInMonth: 26,
-    workingHoursPerDay: 9,
-    invoiceDate:        new Date().toISOString().slice(0, 10),
-    invoiceNumber:      '',
-    notes:              '',
-  })
-  const setF = (field, val) => setFinalForm(f => ({ ...f, [field]: val }))
-
-  useEffect(() => {
-    accountingApi.getByProject(project.id)
-      .then(r => setSentInvoices((r.data?.data || []).filter(i => i.type === 'INCOME')))
-      .catch(() => {})
-  }, [project.id])
-
-  const finalCalc = useMemo(() => {
-    const monthly   = parseFloat(finalForm.monthlyRate)        || 0
-    const workDays  = parseFloat(finalForm.workingDaysInMonth) || 26
-    const workHours = parseFloat(finalForm.workingHoursPerDay) || 9
-    if (!monthly || !workDays || !workHours) return null
-    const rate     = parseFloat(finalForm.overtimeRate) || 1
-    const daily    = monthly / workDays
-    const stdAmt   = daily * (parseFloat(finalForm.standardDays) || 0)
-    const extDAmt  = daily * (parseFloat(finalForm.extraDays)    || 0)
-    const extHAmt  = (daily / workHours) * (parseFloat(finalForm.extraHours) || 0) * rate
-    const total = stdAmt + extDAmt + extHAmt
-    return total > 0 ? { daily, stdAmt, extDAmt, extHAmt, total } : null
-  }, [finalForm.monthlyRate, finalForm.workingDaysInMonth, finalForm.workingHoursPerDay,
-      finalForm.standardDays, finalForm.extraDays, finalForm.extraHours, finalForm.overtimeRate])
-
-  const handleSendFinalInvoice = async () => {
-    if (!finalForm.periodMonth) return toast.error('Dövr (ay) seçilməlidir')
-    if (!finalCalc || finalCalc.total <= 0) return toast.error('Məbləğ 0-dan böyük olmalıdır')
-    setSendingFinal(true)
-    try {
-      await accountingApi.create({
-        type:               'INCOME',
-        projectId:          project.id,
-        companyName:        project.companyName  || '',
-        equipmentName:      project.equipmentName || '',
-        invoiceDate:        finalForm.invoiceDate,
-        invoiceNumber:      finalForm.invoiceNumber || null,
-        notes:              finalForm.notes || null,
-        amount:             parseFloat(finalCalc.total.toFixed(2)),
-        periodMonth:        parseInt(finalForm.periodMonth),
-        periodYear:         parseInt(finalForm.periodYear),
-        standardDays:       finalForm.standardDays !== '' ? parseInt(finalForm.standardDays) : null,
-        extraDays:          finalForm.extraDays    !== '' ? parseInt(finalForm.extraDays)    : null,
-        extraHours:         finalForm.extraHours   !== '' ? parseFloat(finalForm.extraHours) : null,
-        monthlyRate:        parseFloat(finalForm.monthlyRate),
-        workingDaysInMonth: parseInt(finalForm.workingDaysInMonth),
-        workingHoursPerDay: parseInt(finalForm.workingHoursPerDay),
-        overtimeRate:       parseFloat(finalForm.overtimeRate) || 1,
-      })
-      toast.success('Yekun qaime mühasibatlığa göndərildi')
-      setShowFinalForm(false)
-      setFinalForm(f => ({ ...f, periodMonth: '', standardDays: '', extraDays: '', extraHours: '', overtimeRate: '1.0', invoiceNumber: '', notes: '' }))
-      const r = await accountingApi.getByProject(project.id)
-      setSentInvoices((r.data?.data || []).filter(i => i.type === 'INCOME'))
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
-    } finally {
-      setSendingFinal(false)
-    }
-  }
-  // ──────────────────────────────────────────────────────────────────────────
   const isCompleted = project.status === 'COMPLETED'
-  const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+  const fmtMoney = (v) => v != null && v !== '' ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
 
-  // Gap 1: Faktiki tarixlər varsa, onlardan gün sayını hesabla; yoxdursa planDayCount istifadə et
-  const scheduledHours = (() => {
-    if (project.startDate && project.endDate) {
-      const days = Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
-      return days > 0 ? days * 9 : (project.planDayCount || project.dayCount || 0) * 9
-    }
-    return (project.planDayCount || project.dayCount || 0) * 9
-  })()
-
-  // Gap 1: Effektiv gün sayı (display üçün)
   const effectiveDays = project.startDate && project.endDate
     ? Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
     : (project.planDayCount || project.dayCount || 0)
+  const scheduledHours = effectiveDays * 9
+
+  // Maliyyə xülasəsi — DAILY: unitPrice × dayCount, MONTHLY: sabit unitPrice
+  const planRevenue  = parseFloat(project.planEquipmentTotal || project.planEquipmentPrice || 0)
+  const planExpenses = parseFloat(project.planTransportationPrice || 0)
+                     + parseFloat(project.planOperatorPayment || 0)
+  const actualRevenue = parseFloat(project.totalRevenue || 0)
+  const actualExpense = parseFloat(project.totalExpense || 0) + planExpenses
+  const evacCost      = isCompleted ? parseFloat(project.evacuationCost || 0) : parseFloat(form.evacuationCost || 0)
+  const netProfit     = actualRevenue - actualExpense - (isCompleted ? evacCost : 0)
+
+  // Qaimə sayları
+  useEffect(() => {
+    accountingApi.getByProject(project.id)
+      .then(res => {
+        const invs = (res.data?.data || []).filter(i => i.type === 'INCOME')
+        setInvoiceCounts({
+          total:    invs.length,
+          draft:    invs.filter(i => i.status === 'DRAFT').length,
+          sent:     invs.filter(i => i.status === 'SENT').length,
+          approved: invs.filter(i => i.status === 'APPROVED').length,
+          returned: invs.filter(i => i.status === 'RETURNED').length,
+          totalAmt: invs.reduce((s, i) => s + parseFloat(i.amount || 0), 0),
+        })
+      }).catch(() => {})
+  }, [project.id])
 
   const handleComplete = async () => {
-    if (form.evacuationCost === '' || parseFloat(form.evacuationCost) < 0) return toast.error('Evakuator xərcini daxil edin')
-    if (!(await confirm({ title: 'Layihəni bağla', message: 'Layihəni bağlamaq istəyirsiniz? Bu əməliyyat geri alına bilməz.', confirmText: 'Bağla' }))) return
+    if (form.evacuationCost === '' || parseFloat(form.evacuationCost) < 0)
+      return toast.error('Evakuator xərcini daxil edin')
+
+    const invoicesReady = await confirm({
+      title: 'Qaimələr əlavə edilib?',
+      message: 'Bütün qaimələr əlavə edilib və göndərilib?',
+      confirmText: 'Bəli, davam et',
+      cancelText: 'Xeyr, qaimə əlavə et',
+    })
+    if (!invoicesReady) { onSwitchToQaime?.(); return }
+
+    const ok = await confirm({
+      title: 'Layihəni bağla',
+      message: 'Layihəni bağlamaq istəyirsiniz? Bu əməliyyat geri alına bilməz.',
+      confirmText: 'Bağla',
+    })
+    if (!ok) return
 
     setSaving(true)
     try {
-      await projectsApi.complete(project.id, {
-        evacuationCost: parseFloat(form.evacuationCost),
-      })
-      toast.success('Layihə bağlandı. Mühasibatlığa yönləndirildi.')
+      await projectsApi.complete(project.id, { evacuationCost: parseFloat(form.evacuationCost) })
+      toast.success('Layihə bağlandı')
       onCompleted()
     } catch {
     } finally {
@@ -858,271 +800,124 @@ function CompleteTab({ project, onCompleted }) {
   }
 
   return (
-    <div className="space-y-5">
-      {isCompleted && (
+    <div className="space-y-4">
+
+      {/* Status banner */}
+      {isCompleted ? (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
           <CheckCircle size={15} className="text-green-600 shrink-0" />
-          <p className="text-xs text-green-700 font-medium">
-            Layihə bağlanmışdır. Mühasibatlıq moduluna yönləndirilmişdir.
-          </p>
+          <p className="text-xs text-green-700 font-medium">Layihə bağlanmışdır. Mühasibatlıq moduluna yönləndirilmişdir.</p>
         </div>
-      )}
-
-      {!isCompleted && (
+      ) : (
         <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">
-            Bağlandıqdan sonra layihə <strong>Mühasibatlıq</strong> moduluna avtomatik yönləndiriləcək.
+            Bağlamadan əvvəl bütün qaimələrin <strong>Qaimələr</strong> tabında əlavə edildiyinə əmin olun.
           </p>
         </div>
       )}
 
-      {/* ── Yekun Qaime bölməsi ─────────────────────────────────────── */}
-      <div className="rounded-xl border border-indigo-200 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 bg-indigo-50">
-          <div className="flex items-center gap-1.5">
-            <Send size={13} className="text-indigo-600" />
-            <span className="text-xs font-semibold text-indigo-700">Yekun Qaime</span>
-            {sentInvoices.length > 0 && (
-              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-bold rounded-full">
-                {sentInvoices.length}
-              </span>
-            )}
-          </div>
-          {!isCompleted && (
-            <button
-              onClick={() => setShowFinalForm(v => !v)}
-              className="flex items-center gap-1 px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg transition-colors"
-            >
-              {showFinalForm ? <ChevronUp size={11} /> : <Plus size={11} />}
-              {showFinalForm ? 'Bağla' : 'Göndər'}
-            </button>
-          )}
-        </div>
-
-        {/* Sent invoices list */}
-        {sentInvoices.length > 0 && (
-          <div className="divide-y divide-gray-100">
-            {sentInvoices.map(inv => (
-              <div key={inv.id} className="flex items-center gap-3 px-3 py-2 bg-white">
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs font-semibold text-gray-800">
-                    {inv.periodMonth && inv.periodYear
-                      ? `${MONTHS_AZ[inv.periodMonth - 1]} ${inv.periodYear}`
-                      : inv.invoiceDate}
-                  </span>
-                  {inv.invoiceNumber && (
-                    <span className="ml-2 text-[10px] text-gray-400">№{inv.invoiceNumber}</span>
-                  )}
-                </div>
-                <span className="text-xs font-bold text-green-600 whitespace-nowrap">
-                  {parseFloat(inv.amount).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-                </span>
-                <CheckCircle size={12} className="text-green-500 shrink-0" />
-              </div>
-            ))}
-            <div className="flex justify-between items-center px-3 py-2 bg-green-50">
-              <span className="text-[10px] font-semibold text-green-700">Ümumi</span>
-              <span className="text-xs font-bold text-green-700">
-                {sentInvoices.reduce((s, i) => s + parseFloat(i.amount || 0), 0)
-                  .toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-              </span>
-            </div>
-          </div>
+      {/* ── Layihə xülasəsi ── */}
+      <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-0.5">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Layihə xülasəsi</p>
+        <SummaryRow label="Şirkət" value={project.companyName || '—'} />
+        {project.projectName && <SummaryRow label="Layihə" value={project.projectName} />}
+        {project.region && <SummaryRow label="Bölgə" value={project.region} />}
+        {project.equipmentName && (
+          <SummaryRow label="Texnika" value={`${project.equipmentName}${project.equipmentCode ? ` (${project.equipmentCode})` : ''}`} />
         )}
-
-        {sentInvoices.length === 0 && !showFinalForm && (
-          <p className="text-xs text-gray-400 text-center py-3">Hələ qaime göndərilməyib</p>
-        )}
-
-        {/* Final invoice form */}
-        {showFinalForm && (
-          <div className="p-3 space-y-3 bg-white border-t border-indigo-100">
-            {/* Period */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Ay *</label>
-                <select value={finalForm.periodMonth} onChange={e => setF('periodMonth', e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                  <option value="">Seçin...</option>
-                  {MONTHS_AZ.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">İl</label>
-                <input type="number" value={finalForm.periodYear} onChange={e => setF('periodYear', e.target.value)}
-                  min="2020" max="2040"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-            </div>
-
-            {/* Days & Hours */}
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Std. gün</label>
-                <input type="number" value={finalForm.standardDays} onChange={e => setF('standardDays', e.target.value)}
-                  min="0" max="31" placeholder="0"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Əl. gün</label>
-                <input type="number" value={finalForm.extraDays} onChange={e => setF('extraDays', e.target.value)}
-                  min="0" max="31" placeholder="0"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Əl. saat</label>
-                <input type="number" value={finalForm.extraHours} onChange={e => setF('extraHours', e.target.value)}
-                  min="0" step="0.5" placeholder="0"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-            </div>
-
-            {/* Overtime rate */}
-            <div>
-              <label className="block text-[10px] font-medium text-gray-500 mb-1">Əlavə saat dərəcəsi</label>
-              <div className="flex gap-2">
-                {[['1.0', 'Adi (1×)'], ['1.5', 'Əlavə (1.5×)']].map(([val, lbl]) => (
-                  <button type="button" key={val} onClick={() => setF('overtimeRate', val)}
-                    className={`flex-1 py-1.5 text-[10px] font-semibold rounded-lg border transition-colors ${
-                      finalForm.overtimeRate === val
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
-                    }`}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Rate fields */}
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Aylıq tarif ₼</label>
-                <input type="number" value={finalForm.monthlyRate} onChange={e => setF('monthlyRate', e.target.value)}
-                  min="1" step="0.01"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Norma gün</label>
-                <input type="number" value={finalForm.workingDaysInMonth} onChange={e => setF('workingDaysInMonth', e.target.value)}
-                  min="1" max="31"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Norma saat</label>
-                <input type="number" value={finalForm.workingHoursPerDay} onChange={e => setF('workingHoursPerDay', e.target.value)}
-                  min="1" max="24"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-            </div>
-
-            {/* Live preview */}
-            {finalCalc && (
-              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 space-y-0.5">
-                {finalCalc.stdAmt > 0 && (
-                  <div className="flex justify-between text-[11px] text-gray-600">
-                    <span>Std. gün ({finalForm.standardDays} × {finalCalc.daily.toFixed(2)})</span>
-                    <span>{finalCalc.stdAmt.toFixed(2)} ₼</span>
-                  </div>
-                )}
-                {finalCalc.extDAmt > 0 && (
-                  <div className="flex justify-between text-[11px] text-gray-600">
-                    <span>Əl. gün ({finalForm.extraDays} × {finalCalc.daily.toFixed(2)})</span>
-                    <span>{finalCalc.extDAmt.toFixed(2)} ₼</span>
-                  </div>
-                )}
-                {finalCalc.extHAmt > 0 && (
-                  <div className="flex justify-between text-[11px] text-gray-600">
-                    <span>Əl. saat ({finalForm.extraHours} saat × {finalForm.overtimeRate})</span>
-                    <span>{finalCalc.extHAmt.toFixed(2)} ₼</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xs font-bold text-green-700 border-t border-green-200 pt-1 mt-1">
-                  <span>Cəmi</span>
-                  <span>{finalCalc.total.toFixed(2)} ₼</span>
-                </div>
-              </div>
-            )}
-
-            {/* Date + invoice number */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
-                <input type="date" value={finalForm.invoiceDate} onChange={e => setF('invoiceDate', e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə №</label>
-                <input value={finalForm.invoiceNumber} onChange={e => setF('invoiceNumber', e.target.value)}
-                  placeholder="İstəyə bağlı"
-                  className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-              </div>
-            </div>
-
-            <button
-              onClick={handleSendFinalInvoice}
-              disabled={sendingFinal || !finalCalc}
-              className="w-full flex items-center justify-center gap-1.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              <Send size={12} />
-              {sendingFinal ? 'Göndərilir...' : 'Mühasibatlığa Göndər'}
-            </button>
-          </div>
-        )}
+        <SummaryRow label="Tip"
+          value={project.projectType === 'MONTHLY' ? 'Aylıq' : project.projectType === 'DAILY' ? 'Günlük' : '—'} />
+        <SummaryRow label="Başlanğıc" value={fmt(project.startDate ?? project.planStartDate)} />
+        <SummaryRow label="Bitmə"     value={fmt(project.endDate ?? project.planEndDate)} />
+        <SummaryRow label="Müddət"
+          value={effectiveDays > 0
+            ? (project.projectType === 'MONTHLY' ? `${Math.round(effectiveDays / 30)} ay` : `${effectiveDays} gün`)
+            : '—'} />
       </div>
-      {/* ──────────────────────────────────────────────────────────────── */}
 
-      <div className="space-y-4">
-        {/* Planlaşdırılan saatlar — avtomatik (read-only) */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Clock size={12} className="text-blue-500" />
-            <span className="text-xs font-semibold text-blue-700">Planlaşdırılan iş saatı</span>
+      {/* ── Qaimə statusu ── */}
+      {invoiceCounts !== null && (
+        <div className="bg-white rounded-xl border border-gray-100 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Qaimələr</p>
+            <span className="text-xs font-bold text-gray-700">{invoiceCounts.total} ədəd · {fmtMoney(invoiceCounts.totalAmt)}</span>
           </div>
-          <p className="text-lg font-bold text-blue-700">
-            {scheduledHours > 0 ? `${scheduledHours} saat` : '—'}
-          </p>
-          <p className="text-[10px] text-blue-400 mt-0.5">
-            {effectiveDays} gün × 9 saat/gün
-            {project.startDate && project.endDate && project.planDayCount && effectiveDays !== (project.planDayCount || project.dayCount || 0) && (
-              <span className="ml-1 text-amber-500">(plan: {project.planDayCount} gün)</span>
-            )}
-          </p>
-        </div>
-
-        {/* Evakuator xərci */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-            Evakuator Xərci (AZN) {!isCompleted && <span className="text-red-500">*</span>}
-          </label>
-          {isCompleted ? (
-            <p className="text-sm font-bold text-red-500">{fmtMoney(project.evacuationCost)}</p>
+          {invoiceCounts.total === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-2">Hələ qaimə yoxdur</p>
           ) : (
-            <input type="number" value={form.evacuationCost} onChange={(e) => set('evacuationCost', e.target.value)}
-              placeholder="0.00" min="0" step="0.01"
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            <div className="flex gap-2 flex-wrap">
+              {invoiceCounts.approved > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[11px] font-semibold">
+                  <CheckCircle size={10} /> Təsdiq: {invoiceCounts.approved}
+                </span>
+              )}
+              {invoiceCounts.sent > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[11px] font-semibold">
+                  <Clock size={10} /> Göndərilib: {invoiceCounts.sent}
+                </span>
+              )}
+              {invoiceCounts.draft > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-[11px] font-semibold">
+                  <AlertCircle size={10} /> Qaralama: {invoiceCounts.draft}
+                </span>
+              )}
+              {invoiceCounts.returned > 0 && (
+                <span className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-600 rounded-lg text-[11px] font-semibold">
+                  <AlertCircle size={10} /> Qaytarılıb: {invoiceCounts.returned}
+                </span>
+              )}
+            </div>
+          )}
+          {!isCompleted && invoiceCounts.total > 0 && invoiceCounts.approved === 0 && (
+            <p className="text-[10px] text-red-500 mt-2">⚠ Heç bir qaimə hələ təsdiqlənməyib</p>
           )}
         </div>
+      )}
 
-        {/* Completed summary */}
-        {isCompleted && project.overtimeHours > 0 && (
-          <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 space-y-1.5">
-            <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1.5">Əlavə vaxt</p>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Saatlar</span>
-              <span className="font-semibold text-orange-600">{project.overtimeHours} saat</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Dərəcə</span>
-              <span className="font-semibold text-orange-600">{project.overtimeRate}×</span>
-            </div>
-            <div className="flex justify-between text-xs border-t border-orange-200 pt-1.5">
-              <span className="text-gray-500">Əlavə haqqı</span>
-              <span className="font-bold text-orange-600">{fmtMoney(project.overtimePay)}</span>
-            </div>
+      {/* ── Maliyyə xülasəsi ── */}
+      <div className="rounded-xl border border-gray-100 overflow-hidden">
+        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Maliyyə xülasəsi</p>
+        </div>
+        <div className="px-4 py-2 divide-y divide-gray-50">
+          <SummaryRow label="Plan gəlir (texnika)" value={fmtMoney(planRevenue)} valueClass="text-green-600" />
+          {parseFloat(project.planTransportationPrice || 0) > 0 && (
+            <SummaryRow label="Daşınma xərci" value={`−${fmtMoney(project.planTransportationPrice)}`} valueClass="text-red-500" />
+          )}
+          {parseFloat(project.planOperatorPayment || 0) > 0 && (
+            <SummaryRow label="Operator haqqı" value={`−${fmtMoney(project.planOperatorPayment)}`} valueClass="text-red-500" />
+          )}
+          {evacCost > 0 && (
+            <SummaryRow label="Evakuator xərci" value={`−${fmtMoney(evacCost)}`} valueClass="text-red-500" />
+          )}
+          {actualRevenue > 0 && (
+            <SummaryRow label="Faktiki gəlir (qaimə)" value={fmtMoney(actualRevenue)} valueClass="text-green-600" />
+          )}
+        </div>
+        <div className={clsx('flex items-center justify-between px-4 py-2.5 border-t',
+          netProfit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100')}>
+          <span className="text-xs font-bold text-gray-700">Xalis gəlir</span>
+          <span className={clsx('text-sm font-bold', netProfit >= 0 ? 'text-green-600' : 'text-red-600')}>
+            {netProfit >= 0 ? '+' : ''}{fmtMoney(netProfit)}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Evakuator xərci input ── */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+          Evakuator Xərci (AZN) {!isCompleted && <span className="text-red-500">*</span>}
+        </label>
+        {isCompleted ? (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
+            <span className="text-sm font-bold text-red-600">{fmtMoney(project.evacuationCost)}</span>
+            <span className="text-[10px] text-red-400 ml-auto">Bağlanış xərci</span>
           </div>
+        ) : (
+          <input type="number" value={form.evacuationCost} onChange={(e) => set('evacuationCost', e.target.value)}
+            placeholder="0.00" min="0" step="0.01"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
         )}
       </div>
 
@@ -1207,7 +1002,7 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
           {activeTab === 'finance' && <FinanceTab project={project} />}
           {activeTab === 'qaime' && <ProjectQaimeTab project={project} />}
           {activeTab === 'complete' && (
-            <CompleteTab project={project} onCompleted={onSaved} />
+            <CompleteTab project={project} onCompleted={onSaved} onSwitchToQaime={() => setActiveTab('qaime')} />
           )}
         </div>
       </div>

@@ -7,6 +7,7 @@ export const operatorsApi = {
   create: (data) => api.post('/operators', data),
   update: (id, data) => api.put(`/operators/${id}`, data),
   delete: (id) => api.delete(`/operators/${id}`),
+  deleteAll: (ids) => api.delete('/operators/bulk', { data: { ids } }),
 
   uploadDocument: (id, type, file) => {
     const form = new FormData()

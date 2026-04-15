@@ -37,7 +37,7 @@ const FIELD_LABELS = {
   safetyEquipment: 'Təhlükəsizlik avadanlığı',
   // Koordinator planı
   equipmentPrice: 'Texnika qiyməti', transportationPrice: 'Nəqliyyat qiyməti',
-  operatorPayment: 'Operator haqqı', contractorPayment: 'Podratçı ödənişi',
+  operatorPayment: 'Operator haqqı', contractorDailyRate: 'Podratçı/İnvestor günlük', contractorPayment: 'Podratçı/İnvestor cəmi',
   dayCount: 'Gün sayı', startDate: 'Başlanğıc tarixi', endDate: 'Bitmə tarixi',
   operatorName: 'Operator', selectedEquipmentCode: 'Seçilmiş texnika',
   // Faktura

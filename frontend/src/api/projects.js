@@ -23,4 +23,10 @@ export const projectsApi = {
   complete: (id, data) => api.post(`/projects/${id}/complete`, data),
   updateEndDate:   (id, data) => api.patch(`/projects/${id}/end-date`, data),
   updateStartDate: (id, data) => api.patch(`/projects/${id}/start-date`, data),
+
+  // ── Ödəniş girişləri (CONTRACTOR / INVESTOR texnikası üçün) ──
+  getPaymentEntries:  (id)        => api.get(`/projects/${id}/payment-entries`),
+  addPaymentEntry:    (id, data)  => api.post(`/projects/${id}/payment-entries`, data),
+  deletePaymentEntry: (id, entId) => api.delete(`/projects/${id}/payment-entries/${entId}`),
+  closePayment:       (id)        => api.post(`/projects/${id}/payment-entries/close`),
 }

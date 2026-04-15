@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle } from 'lucide-react'
+import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import { useAuthStore } from '../../store/authStore'
 import CoordinatorPlanModal from './CoordinatorPlanModal'
@@ -29,6 +29,23 @@ const STAT_CARDS = [
 
 const OWN_LABELS = { COMPANY: 'Şirkət', CONTRACTOR: 'Podratçı', INVESTOR: 'İnvestor' }
 
+function SortHeader({ label, field, sortBy, sortDir, onSort, className = '' }) {
+  const active = sortBy === field
+  return (
+    <th
+      className={clsx('text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors', className)}
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {active
+          ? sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+          : <ArrowUpDown size={11} className="text-gray-300" />}
+      </div>
+    </th>
+  )
+}
+
 export default function CoordinatorPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canGet = hasPermission('COORDINATOR', 'canGet')
@@ -52,6 +69,22 @@ export default function CoordinatorPage() {
 
   const page = parseInt(searchParams.get('page') || '0')
   const pageSize = parseInt(searchParams.get('size') || '15')
+  const sortBy = searchParams.get('sortBy') || 'createdAt'
+  const sortDir = searchParams.get('sortDir') || 'desc'
+
+  const handleSort = (field) => {
+    setSearchParams(prev => {
+      const n = new URLSearchParams(prev)
+      if (sortBy === field) {
+        n.set('sortDir', sortDir === 'asc' ? 'desc' : 'asc')
+      } else {
+        n.set('sortBy', field)
+        n.set('sortDir', 'asc')
+      }
+      n.delete('page')
+      return n
+    }, { replace: true })
+  }
 
   usePageShortcuts({ searchRef })
 
@@ -95,7 +128,7 @@ export default function CoordinatorPage() {
     setLoading(true)
     try {
       const effectiveStatus = quickFilter !== 'ALL' ? quickFilter : (statusFilter || undefined)
-      const params = { page, size: pageSize }
+      const params = { page, size: pageSize, sortBy, sortDir }
       if (search) params.q = search
       if (effectiveStatus) params.status = effectiveStatus
       const res = await coordinatorApi.getRequestsPaged(params)
@@ -104,7 +137,7 @@ export default function CoordinatorPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, search, statusFilter, quickFilter])
+  }, [page, pageSize, search, statusFilter, quickFilter, sortBy, sortDir])
 
   useEffect(() => { load() }, [load])
 
@@ -254,13 +287,13 @@ export default function CoordinatorPage() {
           <table className="w-full min-w-[860px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">ID</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət / Layihə</th>
+                <SortHeader label="ID" field="requestCode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Şirkət / Layihə" field="companyName" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Mənbə</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Müddət</th>
+                <SortHeader label="Müddət" field="dayCount" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ümumi / Xeyir</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <SortHeader label="Status" field="status" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
               </tr>
             </thead>

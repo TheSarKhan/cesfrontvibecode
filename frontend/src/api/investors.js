@@ -7,4 +7,5 @@ export const investorsApi = {
   create: (data) => api.post('/investors', data),
   update: (id, data) => api.put(`/investors/${id}`, data),
   delete: (id) => api.delete(`/investors/${id}`),
+  deleteAll: (ids) => api.delete('/investors/bulk', { data: { ids } }),
 }

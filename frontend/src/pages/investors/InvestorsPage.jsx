@@ -96,7 +96,7 @@ export default function InvestorsPage() {
     if (!window.confirm(`${selectedIds.size} investor silinsin?`)) return
     setBulkLoading(true)
     try {
-      await Promise.all([...selectedIds].map(id => investorsApi.delete(id)))
+      await investorsApi.deleteAll([...selectedIds])
       toast.success(`${selectedIds.size} investor silindi`)
       setSelectedIds(new Set())
       load()

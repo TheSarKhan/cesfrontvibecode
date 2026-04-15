@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, ChevronLeft, ChevronDown, ChevronRight } from 'lucide-react'
+import { X, ChevronLeft, ChevronDown, ChevronRight, Shield, Pencil } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { modulesApi } from '../../api/modules'
 import toast from 'react-hot-toast'
@@ -160,7 +160,8 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         {/* ── STEP 1 ─────────────────────────────────────────── */}
         {step === 1 && (
           <div className="p-7">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
+              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Shield size={18} className="text-amber-500 shrink-0" />}
               {editing ? 'Rolu redaktə et' : 'Yeni rol əlavə et'}
             </h2>
             <p className="text-sm text-gray-400 mb-6">
