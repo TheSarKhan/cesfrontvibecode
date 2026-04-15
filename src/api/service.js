@@ -8,4 +8,5 @@ export const serviceApi = {
   delete:              (id)               => api.delete(`/service/records/${id}`),
   complete:            (id, data)         => api.put(`/service/records/${id}/complete`, data),
   updateChecklistItem: (id, itemId, data) => api.patch(`/service/records/${id}/checklist/${itemId}`, data),
+  patchInvoiceFields:  (id, data)         => api.patch(`/service/records/${id}/invoice-fields`, data),
 }
