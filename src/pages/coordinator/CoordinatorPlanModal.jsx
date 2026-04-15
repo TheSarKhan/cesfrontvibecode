@@ -222,7 +222,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
     operatorId: '',
     equipmentPrice: '',
     dayCount: '',
-    contractorPayment: '',
+    contractorDailyRate: '',
     operatorPayment: '',
     transportationPrice: '',
     startDate: '',
@@ -242,7 +242,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
             operatorId: p.operatorId ? String(p.operatorId) : '',
             equipmentPrice: p.equipmentPrice ?? '',
             dayCount: p.dayCount ?? '',
-            contractorPayment: p.contractorPayment ?? '',
+            contractorDailyRate: p.contractorDailyRate ?? '',
             operatorPayment: p.operatorPayment ?? '',
             transportationPrice: p.transportationPrice ?? '',
             startDate: p.startDate || '',
@@ -261,7 +261,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
 
   const unitPrice = parseFloat(form.equipmentPrice) || 0
   const transPrice = parseFloat(form.transportationPrice) || 0
-  const contrPayment = parseFloat(form.contractorPayment) || 0
+  const contrDailyRate = parseFloat(form.contractorDailyRate) || 0
   const opPayment = parseFloat(form.operatorPayment) || 0
   const projectType = request.projectType
 
@@ -281,7 +281,11 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
   }
   const equipmentTotal = calcEquipmentTotal()
   const totalAmount = equipmentTotal + transPrice
-  const companyProfit = totalAmount - contrPayment - opPayment
+  // Podratçı/İnvestor: günlük dərəcə × gün sayı (operator kimi fix deyil)
+  const contrPaymentTotal = projectType === 'MONTHLY'
+    ? contrDailyRate
+    : contrDailyRate * (autoDayCount || 0)
+  const companyProfit = totalAmount - contrPaymentTotal - opPayment
 
   const isReadonly = request.requestStatus !== 'SENT_TO_COORDINATOR'
 
@@ -291,7 +295,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       equipmentPrice: parseFloat(form.equipmentPrice) || null,
       dayCount: autoDayCount || null,
       totalAmount: equipmentTotal + transPrice || null,
-      contractorPayment: parseFloat(form.contractorPayment) || null,
+      contractorDailyRate: contrDailyRate || null,
       operatorPayment: parseFloat(form.operatorPayment) || null,
       transportationPrice: parseFloat(form.transportationPrice) || null,
       companyProfit: companyProfit || null,
@@ -828,12 +832,19 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
 
                   {/* Expenses row */}
                   <div className="grid grid-cols-3 gap-3 mb-4">
-                    {plan?.ownershipType === 'CONTRACTOR' && (
+                    {(plan?.ownershipType === 'CONTRACTOR' || plan?.ownershipType === 'INVESTOR') && (
                       <div>
-                        <label className={labelCls}>Podratçı ödənişi</label>
-                        <input type="number" min="0" step="0.01" value={form.contractorPayment}
-                          onChange={(e) => set('contractorPayment', e.target.value)}
+                        <label className={labelCls}>
+                          {plan?.ownershipType === 'INVESTOR' ? 'İnvestor' : 'Podratçı'} günlük ödənişi
+                        </label>
+                        <input type="number" min="0" step="0.01" value={form.contractorDailyRate}
+                          onChange={(e) => set('contractorDailyRate', e.target.value)}
                           placeholder="0.00" className={inputCls} disabled={isReadonly} />
+                        {contrDailyRate > 0 && autoDayCount > 0 && projectType !== 'MONTHLY' && (
+                          <p className="text-[10px] text-orange-500 mt-1">
+                            {autoDayCount} gün × {contrDailyRate} = <span className="font-bold">{contrPaymentTotal.toFixed(2)} AZN</span>
+                          </p>
+                        )}
                       </div>
                     )}
                     <div>
@@ -874,9 +885,9 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                       <p className={clsx('text-xl font-bold', companyProfit >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-600 dark:text-red-400')}>
                         {fmt(companyProfit)} <span className="text-sm font-medium">AZN</span>
                       </p>
-                      {(contrPayment > 0 || opPayment > 0) && (
+                      {(contrPaymentTotal > 0 || opPayment > 0) && (
                         <p className={clsx('text-[10px] mt-1', companyProfit >= 0 ? 'text-green-400' : 'text-red-400')}>
-                          {fmt(totalAmount)} − {[contrPayment > 0 && `${fmt(contrPayment)}`, opPayment > 0 && `${fmt(opPayment)}`].filter(Boolean).join(' − ')}
+                          {fmt(totalAmount)} − {[contrPaymentTotal > 0 && `${fmt(contrPaymentTotal)}`, opPayment > 0 && `${fmt(opPayment)}`].filter(Boolean).join(' − ')}
                         </p>
                       )}
                     </div>
