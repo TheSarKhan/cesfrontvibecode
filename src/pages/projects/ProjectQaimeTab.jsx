@@ -271,7 +271,8 @@ export default function ProjectQaimeTab({ project }) {
         perDay = contractorDailyRate / workDays
       }
       const daysAmt = perDay * totalDays
-      const extHAmt = workHours > 0 ? (perDay / workHours) * extH * rate : 0
+      // Podratçı/investora yalnız 1x tarif — overtime artımı şirkətin qazancıdır
+      const extHAmt = workHours > 0 ? (perDay / workHours) * extH : 0
       contractorAmt = daysAmt + extHAmt
     }
     return { daily, stdAmt, extDAmt, extHAmt, total: stdAmt + extDAmt + extHAmt, contractorAmt }
