@@ -14,9 +14,13 @@ import { useState, useCallback } from 'react'
 export function useConfirm() {
   const [state, setState] = useState(null) // { title, message, resolve }
 
-  const confirm = useCallback(({ title = 'Təsdiq', message, confirmText = 'Təsdiq et', danger = true } = {}) => {
+  const confirm = useCallback(({ title = 'Təsdiq', message, confirmText = 'Təsdiq et', danger } = {}) => {
+    // Auto-detect danger from title when not explicitly provided
+    const isDanger = danger !== undefined
+      ? danger
+      : title.toLowerCase().includes('sil')
     return new Promise((resolve) => {
-      setState({ title, message, confirmText, danger, resolve })
+      setState({ title, message, confirmText, danger: isDanger, resolve })
     })
   }, [])
 

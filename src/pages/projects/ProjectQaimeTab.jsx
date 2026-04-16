@@ -213,6 +213,7 @@ export default function ProjectQaimeTab({ project }) {
   const canSend = canCreate
   const canDelete = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canDelete'))
   const isDaily = project?.projectType === 'DAILY'
+  const isLocked = project?.status !== 'ACTIVE'
 
   useEffect(() => {
     load()
@@ -423,6 +424,28 @@ export default function ProjectQaimeTab({ project }) {
 
   return (
     <div className="space-y-4">
+      {/* Locked banner — shown when project is not ACTIVE */}
+      {isLocked && (
+        <div className={clsx(
+          'flex items-start gap-3 px-4 py-3 rounded-xl border text-xs',
+          project?.status === 'PENDING'
+            ? 'bg-blue-50 border-blue-200 text-blue-700'
+            : 'bg-gray-100 border-gray-300 text-gray-600'
+        )}>
+          <Lock size={14} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">
+              {project?.status === 'PENDING' ? 'Layihə hələ aktiv deyil' : 'Layihə bağlanmışdır'}
+            </p>
+            <p className="opacity-70 mt-0.5">
+              {project?.status === 'PENDING'
+                ? 'Müqavilə yüklənib layihə aktiv edildikdən sonra qaimə yaratmaq mümkün olacaq.'
+                : 'Bu layihə üzrə yeni qaimə yaratmaq mümkün deyil.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -434,7 +457,7 @@ export default function ProjectQaimeTab({ project }) {
             </span>
           )}
         </div>
-        {!editingInvoice && (
+        {!editingInvoice && !isLocked && (
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors"
@@ -445,8 +468,8 @@ export default function ProjectQaimeTab({ project }) {
         )}
       </div>
 
-      {/* Form */}
-      {showForm && (
+      {/* Form — only when not locked */}
+      {showForm && !isLocked && (
         <form onSubmit={editingInvoice ? handleResubmit : handleSubmit}
           className={`rounded-xl border p-4 space-y-3 ${editingInvoice ? 'border-red-200 bg-red-50/40' : 'border-amber-200 bg-amber-50/60'}`}>
           <div className="flex items-center justify-between">
@@ -690,7 +713,7 @@ export default function ProjectQaimeTab({ project }) {
                   >
                     <Eye size={12} />
                   </button>
-                  {inv.status === 'RETURNED' && canSend && (
+                  {!isLocked && inv.status === 'RETURNED' && canSend && (
                     <button
                       onClick={() => handleEdit(inv)}
                       className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -699,7 +722,7 @@ export default function ProjectQaimeTab({ project }) {
                       <Pencil size={12} />
                     </button>
                   )}
-                  {inv.status === 'DRAFT' && canSend && (
+                  {!isLocked && inv.status === 'DRAFT' && canSend && (
                     <button
                       onClick={() => handleSend(inv.id, periodLbl)}
                       disabled={sendingId === inv.id}
@@ -709,7 +732,7 @@ export default function ProjectQaimeTab({ project }) {
                       <Send size={12} />
                     </button>
                   )}
-                  {(inv.status === 'DRAFT' || inv.status === 'RETURNED') && canDelete && (
+                  {!isLocked && (inv.status === 'DRAFT' || inv.status === 'RETURNED') && canDelete && (
                     <button
                       onClick={() => handleDelete(inv.id)}
                       className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"

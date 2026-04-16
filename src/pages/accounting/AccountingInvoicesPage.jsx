@@ -5,7 +5,7 @@ import {
   ArrowUpRight, ArrowDownRight, CreditCard,
   Receipt, Download, PenLine, X, CheckCircle, Undo2,
   ChevronDown, ArrowLeft, ChevronRight, Banknote,
-  Wrench, Eye, AlertTriangle, Printer
+  Wrench, Eye, AlertTriangle, Printer, FileText
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -16,6 +16,8 @@ import InvoiceModal from './InvoiceModal'
 import InvoicePrintModal from './InvoicePrintModal'
 import TransactionModal from './TransactionModal'
 import PaymentModal from './PaymentModal'
+import DocumentsTab from './DocumentsTab'
+import DocumentCreateModal from './DocumentCreateModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -34,6 +36,7 @@ const dash = (v) => (v != null && v !== '') ? v : '—'
 
 const MAIN_TABS = [
   { id: 'invoices',     label: 'Qaimələr',        icon: Receipt },
+  { id: 'documents',    label: 'Sənədlər',        icon: FileText },
 ]
 
 const TYPE_CONFIG = {
@@ -103,6 +106,7 @@ export default function AccountingInvoicesPage() {
   const [expandedSrvId, setExpandedSrvId] = useState(null)
   const [srvInlineForm, setSrvInlineForm] = useState({ invoiceNumber: '', invoiceDate: '' })
   const [srvInlineSaving, setSrvInlineSaving] = useState(false)
+  const [docCreateModal, setDocCreateModal] = useState(false)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -120,6 +124,7 @@ export default function AccountingInvoicesPage() {
 
   const handleNewAction = () => {
     if (activeTab === 'invoices') setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null })
+    else if (activeTab === 'documents') setDocCreateModal(true)
     else if (activeTab === 'transactions') setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
     else if (activeTab === 'payments') setPaymentModal({ open: true, editing: null })
     else if (activeTab === 'expenses') setInvoiceModal({ open: true, editing: null, defaultType: 'COMPANY_EXPENSE', preProject: null })
@@ -445,6 +450,7 @@ const filteredTransactions = useMemo(() => {
           >
             <Plus size={15} />
             {activeTab === 'invoices' ? 'Yeni Qaimə' :
+             activeTab === 'documents' ? 'Yeni Sənəd' :
              activeTab === 'transactions' ? 'Yeni Əməliyyat' :
              activeTab === 'payments' ? 'Yeni Ödəniş' : 'Yeni Əməliyyat'}
           </button>
@@ -475,6 +481,9 @@ const filteredTransactions = useMemo(() => {
         </div>
       )}
 
+
+      {/* ═══════════════ DOCUMENTS TAB ═══════════════ */}
+      {activeTab === 'documents' && <DocumentsTab onCreateNew={() => setDocCreateModal(true)} />}
 
       {/* ═══════════════ INVOICES TAB ═══════════════ */}
       {activeTab === 'invoices' && (
@@ -1422,7 +1431,7 @@ const filteredTransactions = useMemo(() => {
       {printInv && <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />}
       {printSrvModal && <ServiceInvoicePrintModal record={printSrvModal} onClose={() => setPrintSrvModal(null)} />}
       <ConfirmDialog />
+      {docCreateModal && <DocumentCreateModal onClose={() => setDocCreateModal(false)} onCreated={loadAll} />}
     </div>
   )
 }
-
