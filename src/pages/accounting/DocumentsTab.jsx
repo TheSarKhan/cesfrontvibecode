@@ -32,7 +32,7 @@ const DOC_TYPE_CONFIG = {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-export default function DocumentsTab({ onCreateNew }) {
+export default function DocumentsTab({ onCreateNew, refreshKey }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const canDelete = useAuthStore(s => s.hasPermission)('ACCOUNTING', 'canDelete')
 
@@ -61,6 +61,7 @@ export default function DocumentsTab({ onCreateNew }) {
   }, [page, size, search, typeFilter])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { if (refreshKey) load() }, [refreshKey])
   useEffect(() => { setPage(0) }, [search, typeFilter])
 
   const handleDelete = async (doc) => {
@@ -84,7 +85,9 @@ export default function DocumentsTab({ onCreateNew }) {
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = doc.documentNumber + '.pdf'
+      const typeLabel = DOC_TYPE_CONFIG[doc.documentType]?.label || 'Sened'
+      const safeName = typeLabel.replace(/\s+/g, '-')
+      a.download = `${safeName}-${doc.documentNumber}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch {

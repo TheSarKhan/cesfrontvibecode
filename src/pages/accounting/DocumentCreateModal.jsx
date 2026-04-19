@@ -38,7 +38,7 @@ const fmtMoney = (v) => v != null
   : '—'
 const fmt = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('az-AZ') : '—'
 
-const emptyLine = () => ({ description: '', unit: 'gün', quantity: '1', unitPrice: '', sourceInvoiceId: null })
+const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət' : 'gün', quantity: '1', unitPrice: '', sourceInvoiceId: null })
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 export default function DocumentCreateModal({ onClose, onCreated }) {
@@ -62,6 +62,10 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
   const [customers, setCustomers]     = useState([])
   const [vatRate, setVatRate]         = useState(18)
   const [saving, setSaving]           = useState(false)
+  const [addendums, setAddendums] = useState([])
+  const [addendumInput, setAddendumInput] = useState('')
+  const [banks, setBanks]             = useState([])
+  const [selectedBankIdx, setSelectedBankIdx] = useState(0)
 
   // ─── Qaimələri yüklə ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -85,10 +89,10 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
     }).catch(() => {})
   }, [])
 
-  // ─── ƏDV rate yüklə ────────────────────────────────────────────────────────
+  // ─── ƏDV rate və bankları yüklə ───────────────────────────────────────────
   useEffect(() => {
-    // Config-dən götür (isteğe bağlı — fallback 18%)
     import('../../api/config').then(m => {
+      // ƏDV
       m.configApi?.getByCategory?.('DOCUMENT_VAT_RATE')
         .then(res => {
           const items = res.data.data || res.data || []
@@ -97,6 +101,15 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
             if (!isNaN(v)) setVatRate(v)
           }
         }).catch(() => {})
+
+      // Banklar
+      import('../../api/banks').then(b => {
+        b.banksApi.getAll().then(res => {
+          const list = res.data?.data || res.data || []
+          setBanks(list)
+          if (list.length > 0) setSelectedBankIdx(0)
+        }).catch(() => {})
+      }).catch(() => {})
     }).catch(() => {})
   }, [])
 
@@ -150,8 +163,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
         setPreviewLoading(false)
       }
     } else {
-      // Manual — boş sətir
-      setLines([emptyLine()])
+      setLines([emptyLine(docType === 'TEHVIL_TESLIM_AKTI')])
     }
     setStep(2)
   }
@@ -173,7 +185,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
     setLines(prev => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l))
   }
 
-  const addLine = () => setLines(prev => [...prev, emptyLine()])
+  const addLine = () => setLines(prev => [...prev, emptyLine(docType === 'TEHVIL_TESLIM_AKTI')])
 
   const removeLine = (idx) => {
     if (lines.length <= 1) return
@@ -191,13 +203,21 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
 
     setSaving(true)
     try {
+      const selectedBank = banks[selectedBankIdx] || null
       const payload = {
         documentType: docType,
         customerId: finalCustomerId,
         contractNumber: contractNumber || null,
         contractDate: contractDate || null,
+        addendumNumbers: addendums.length > 0 ? addendums : null,
         notes: notes || null,
         sourceInvoiceIds: selectedInvIds.length > 0 ? selectedInvIds : null,
+        bankName:  selectedBank?.bankName             || null,
+        bankCode:  selectedBank?.bankCode             || null,
+        bankSwift: selectedBank?.swift                || null,
+        bankIban:  selectedBank?.iban                 || null,
+        bankMh:    selectedBank?.correspondentAccount || null,
+        bankHh:    selectedBank?.settlementAccount    || null,
         lines: validLines.map((l, i) => ({
           description: l.description.trim(),
           unit: l.unit || 'ədəd',
@@ -316,7 +336,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
               {source === 'invoices' && (
                 <div>
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
-                    Qaiməlr seçin
+                    Qaimələr seçin
                     {lockedCustomerId && (
                       <span className="ml-2 text-amber-600 normal-case font-normal">
                         — müştəri kilidlənib
@@ -329,7 +349,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                     <div className="text-center py-8 text-gray-400 text-sm">Təsdiqlənmiş gəlir qaiməsi tapılmadı</div>
                   ) : (
                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                      {allInvoices.map(inv => {
+                      {availableInvoices.map(inv => {
                         const selected = selectedInvIds.includes(inv.id)
                         const custId = inv.project?.customer?.id ?? inv.customerId ?? null
                         const disabled = lockedCustomerId !== null && custId !== lockedCustomerId && !selected
@@ -399,13 +419,56 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                 </div>
               )}
 
-              {/* Müqavilə sahələri (Hesab-Faktura üçün) */}
+              {/* Bank seçimi */}
+              {banks.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                    Bank *
+                  </label>
+                  {banks.length === 1 ? (
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{banks[0].bankName}</p>
+                        <p className="text-xs text-gray-500 font-mono">{banks[0].iban || banks[0].bankCode}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {banks.map((bank, idx) => (
+                        <button
+                          key={bank.id}
+                          type="button"
+                          onClick={() => setSelectedBankIdx(idx)}
+                          className={clsx(
+                            'w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all',
+                            selectedBankIdx === idx
+                              ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-amber-300 bg-white dark:bg-gray-800'
+                          )}
+                        >
+                          <div className={clsx(
+                            'w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0',
+                            selectedBankIdx === idx ? 'border-amber-500 bg-amber-500' : 'border-gray-300'
+                          )}>
+                            {selectedBankIdx === idx && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{bank.bankName}</p>
+                            <p className="text-xs text-gray-500 font-mono">{bank.iban || bank.bankCode}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Müqavilə sahələri */}
               {(docType === 'HESAB_FAKTURA' || docType === 'ENGLISH_INVOICE') && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
-                      Müqavilə №
-                    </label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Müqavilə №</label>
                     <input
                       value={contractNumber}
                       onChange={e => setContractNumber(e.target.value)}
@@ -414,15 +477,76 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
-                      Müqavilə tarixi
-                    </label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Müqavilə tarixi</label>
                     <input
                       type="date"
                       value={contractDate}
                       onChange={e => setContractDate(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* Təhvil-Təslim Aktı üçün müqavilə tarixi + əlavə № */}
+              {docType === 'TEHVIL_TESLIM_AKTI' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Müqavilə tarixi</label>
+                    <input
+                      type="date"
+                      value={contractDate}
+                      onChange={e => setContractDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Əlavə №</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={addendumInput}
+                        onChange={e => setAddendumInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const n = parseInt(addendumInput)
+                            if (n > 0 && !addendums.includes(n)) {
+                              setAddendums(prev => [...prev, n].sort((a, b) => a - b))
+                              setAddendumInput('')
+                            }
+                          }
+                        }}
+                        placeholder="2"
+                        className="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const n = parseInt(addendumInput)
+                          if (n > 0 && !addendums.includes(n)) {
+                            setAddendums(prev => [...prev, n].sort((a, b) => a - b))
+                            setAddendumInput('')
+                          }
+                        }}
+                        className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                    {addendums.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {addendums.map(n => (
+                          <span key={n} className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs rounded-full font-medium">
+                            {n} saylı
+                            <button type="button" onClick={() => setAddendums(prev => prev.filter(x => x !== n))} className="hover:text-red-500 transition-colors">
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -451,6 +575,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                   </div>
 
                   {lines.map((line, idx) => {
+                    const isAkt = docType === 'TEHVIL_TESLIM_AKTI'
                     const total = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0)
                     return (
                       <div
@@ -463,19 +588,27 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                           placeholder="Xidmətin adı..."
                           className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
-                        <input
-                          value={line.unit}
-                          onChange={e => updateLine(idx, 'unit', e.target.value)}
-                          placeholder="gün"
-                          className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        />
-                        <input
-                          type="number"
-                          value={line.quantity}
-                          onChange={e => updateLine(idx, 'quantity', e.target.value)}
-                          min="0"
-                          className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        />
+                        {isAkt ? (
+                          <span className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">xidmət</span>
+                        ) : (
+                          <input
+                            value={line.unit}
+                            onChange={e => updateLine(idx, 'unit', e.target.value)}
+                            placeholder="gün"
+                            className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        )}
+                        {isAkt ? (
+                          <span className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">1</span>
+                        ) : (
+                          <input
+                            type="number"
+                            value={line.quantity}
+                            onChange={e => updateLine(idx, 'quantity', e.target.value)}
+                            min="0"
+                            className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        )}
                         <input
                           type="number"
                           value={line.unitPrice}

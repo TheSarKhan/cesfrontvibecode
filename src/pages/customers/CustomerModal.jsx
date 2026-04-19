@@ -26,6 +26,7 @@ const EMPTY = {
   companyName: '',
   voen: '',
   address: '',
+  directorName: '',
   supplierPerson: '',
   supplierPhone: '',
   officeContactPerson: '',
@@ -50,6 +51,7 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
         companyName: editing.companyName || '',
         voen: editing.voen || '',
         address: editing.address || '',
+        directorName: editing.directorName || '',
         supplierPerson: editing.supplierPerson || '',
         supplierPhone: editing.supplierPhone || '',
         officeContactPerson: editing.officeContactPerson || '',
@@ -184,10 +186,16 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
               </div>
             </div>
 
-            <div>
-              <label className={labelCls}>Ünvan</label>
-              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('address')} />
-              {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Ünvan</label>
+                <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('address')} />
+                {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
+              </div>
+              <div>
+                <label className={labelCls}>Direktor adı</label>
+                <input type="text" value={form.directorName} onChange={(e) => set('directorName', e.target.value)} placeholder="Ad Soyad" className={inputCls('directorName')} />
+              </div>
             </div>
 
             {/* Təchizatçı */}

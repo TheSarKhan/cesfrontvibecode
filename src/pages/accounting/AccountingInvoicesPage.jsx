@@ -107,6 +107,7 @@ export default function AccountingInvoicesPage() {
   const [srvInlineForm, setSrvInlineForm] = useState({ invoiceNumber: '', invoiceDate: '' })
   const [srvInlineSaving, setSrvInlineSaving] = useState(false)
   const [docCreateModal, setDocCreateModal] = useState(false)
+  const [docRefreshKey, setDocRefreshKey]   = useState(0)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -483,7 +484,7 @@ const filteredTransactions = useMemo(() => {
 
 
       {/* ═══════════════ DOCUMENTS TAB ═══════════════ */}
-      {activeTab === 'documents' && <DocumentsTab onCreateNew={() => setDocCreateModal(true)} />}
+      {activeTab === 'documents' && <DocumentsTab onCreateNew={() => setDocCreateModal(true)} refreshKey={docRefreshKey} />}
 
       {/* ═══════════════ INVOICES TAB ═══════════════ */}
       {activeTab === 'invoices' && (
@@ -1431,7 +1432,7 @@ const filteredTransactions = useMemo(() => {
       {printInv && <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />}
       {printSrvModal && <ServiceInvoicePrintModal record={printSrvModal} onClose={() => setPrintSrvModal(null)} />}
       <ConfirmDialog />
-      {docCreateModal && <DocumentCreateModal onClose={() => setDocCreateModal(false)} onCreated={loadAll} />}
+      {docCreateModal && <DocumentCreateModal onClose={() => setDocCreateModal(false)} onCreated={() => { setDocCreateModal(false); setDocRefreshKey(k => k + 1) }} />}
     </div>
   )
 }

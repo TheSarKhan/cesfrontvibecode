@@ -44,7 +44,9 @@ export default function DocumentDetailModal({ docId, onClose, onDeleted }) {
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = (doc?.documentNumber || 'sened') + '.pdf'
+      const typeLabel = DOC_TYPE_LABELS[doc?.documentType]?.label || 'Sənəd'
+      const safeName = typeLabel.replace(/\s+/g, '-')
+      a.download = `${safeName}-${doc?.documentNumber || ''}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -132,6 +134,14 @@ export default function DocumentDetailModal({ docId, onClose, onDeleted }) {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Tarix: <span className="font-semibold text-gray-800 dark:text-gray-200">{fmt(doc.documentDate)}</span></p>
                   {doc.contractNumber && <p className="text-sm text-gray-600 dark:text-gray-400">Müqavilə №: <span className="font-semibold text-gray-800 dark:text-gray-200">{doc.contractNumber}</span></p>}
                   {doc.contractDate && <p className="text-sm text-gray-600 dark:text-gray-400">Müqavilə tarixi: <span className="font-semibold text-gray-800 dark:text-gray-200">{fmt(doc.contractDate)}</span></p>}
+                  {doc.addendumNumbers?.length > 0 && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Əlavələr:{' '}
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">
+                        {doc.addendumNumbers.map(n => `${n} saylı`).join(', ')}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
 
