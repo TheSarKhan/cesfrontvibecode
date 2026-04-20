@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to server via SSH
+      - name: Deploy to Server 1
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -19,4 +19,16 @@ jobs:
             cd /opt/cesapp
             git -C frontend pull
             docker compose up -d --build frontend
-            echo "Frontend deploy tamamlandı!"
+            echo "Server 1 - Frontend deploy tamamlandı!"
+
+      - name: Deploy to Server 2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER2_SSH_HOST }}
+          username: ${{ secrets.SERVER2_SSH_USER }}
+          key: ${{ secrets.SERVER2_FRONTEND_KEY }}
+          script: |
+            cd /opt/cesapp
+            git -C frontend pull
+            docker compose up -d --build frontend
+            echo "Server 2 - Frontend deploy tamamlandı!"
