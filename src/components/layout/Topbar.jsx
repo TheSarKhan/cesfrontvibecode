@@ -48,7 +48,7 @@ export default function Topbar({ pageTitle, onSearchOpen }) {
   }
 
   return (
-    <header className="h-14 bg-red-600 dark:bg-red-700 border-b border-red-700 flex items-center justify-between px-6 shrink-0 transition-colors print:hidden">
+    <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 transition-colors print:hidden">
       <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{pageTitle}</h1>
 
       <div className="flex items-center gap-3">
