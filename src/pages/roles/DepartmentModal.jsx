@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Layers, Pencil } from 'lucide-react'
 import { departmentsApi } from '../../api/departments'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -40,7 +40,8 @@ export default function DepartmentModal({ editing, onClose, onSaved }) {
           <X size={14} className="text-white" />
         </button>
 
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
+          {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Layers size={18} className="text-amber-500 shrink-0" />}
           {editing ? 'Şöbəni redaktə et' : 'Yeni şöbə əlavə et'}
         </h2>
         <p className="text-sm text-gray-400 mb-6">Şöbənin adını və təsvirini daxil edin</p>

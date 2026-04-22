@@ -115,7 +115,7 @@ export default function AuditPage() {
         <div>
           <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
             <History size={20} className="text-amber-500" />
-            Audit Jurnal
+            Audit
           </h1>
           <p className="text-xs text-gray-400 mt-0.5">
             {totalElements > 0 ? `${totalElements} qeyd tapıldı` : 'Bütün sistem əməliyyatlarının tarixçəsi'}

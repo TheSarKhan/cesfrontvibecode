@@ -9,12 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to server via SSH
+      - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.SERVER2_SSH_HOST }}
+          username: ${{ secrets.SERVER2_SSH_USER }}
+          key: ${{ secrets.SERVER2_FRONTEND_KEY }}
           script: |
             cd /opt/cesapp
             git -C frontend pull

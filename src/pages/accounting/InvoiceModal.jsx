@@ -1,9 +1,10 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
-import { X, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Receipt, Pencil } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
 import { contractorsApi } from '../../api/contractors'
+import { investorsApi } from '../../api/investors'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -42,6 +43,7 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
     serviceDescription: editing?.serviceDescription ?? '',
     projectId:          editing?.projectId    ?? (preProject?.id ? String(preProject.id) : ''),
     contractorId:       editing?.contractorId ?? '',
+    investorId:         editing?.investorId   ?? '',
     notes:              editing?.notes        ?? '',
     periodMonth:        editing?.periodMonth  ?? '',
     periodYear:         editing?.periodYear   ?? new Date().getFullYear(),
@@ -56,10 +58,12 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
   const [showTimesheet, setShowTimesheet] = useState(!!(editing?.periodMonth))
   const [projects, setProjects] = useState([])
   const [contractors, setContractors] = useState([])
+  const [investors, setInvestors] = useState([])
 
   useEffect(() => {
     projectsApi.getAll().then(r => setProjects(r.data.data || r.data || [])).catch(() => {})
     contractorsApi.getAll().then(r => setContractors(r.data.data || r.data || [])).catch(() => {})
+    investorsApi.getAll().then(r => setInvestors(r.data.data || r.data || [])).catch(() => {})
   }, [])
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
@@ -87,19 +91,27 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
     if (!timesheetCalc && (!form.amount || parseFloat(form.amount) <= 0)) return toast.error('Məbləğ daxil edin')
     if (!form.invoiceDate) return toast.error('Tarix seçin')
     if (isA && !form.projectId) return toast.error('Gəlir qaiməsi üçün layihə seçilməlidir')
+    if (isB2 && !form.invoiceNumber) return toast.error('Xərclər üçün qaimə nömrəsi mütləqdir')
 
     setSaving(true)
+    const parseNum = (val) => {
+      if (val === null || val === undefined || val === '') return null
+      const p = parseFloat(val)
+      return isNaN(p) ? null : p
+    }
+
     const payload = {
       type:               form.type,
       invoiceNumber:      form.invoiceNumber || null,
-      amount:             timesheetCalc ? parseFloat(timesheetCalc.total.toFixed(2)) : parseFloat(form.amount),
+      amount:             timesheetCalc ? parseFloat(timesheetCalc.total.toFixed(2)) : parseNum(form.amount),
       invoiceDate:        form.invoiceDate,
       etaxesId:           isA  ? (form.etaxesId || null) : null,
       equipmentName:      form.equipmentName || null,
       companyName:        form.companyName || null,
       serviceDescription: (isB1 || isB2) ? (form.serviceDescription || null) : null,
-      projectId:          form.projectId    ? parseInt(form.projectId)    : null,
-      contractorId:       form.contractorId ? parseInt(form.contractorId) : null,
+      projectId:          parseNum(form.projectId),
+      contractorId:       parseNum(form.contractorId),
+      investorId:         parseNum(form.investorId),
       notes:              form.notes || null,
       periodMonth:        (isA && showTimesheet && form.periodMonth) ? parseInt(form.periodMonth) : null,
       periodYear:         (isA && showTimesheet && form.periodYear)  ? parseInt(form.periodYear)  : null,
@@ -122,6 +134,8 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
+      const msg = err?.response?.data?.message || err?.message || 'Xəta baş verdi'
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -135,7 +149,8 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            {editing ? <Pencil size={16} className="text-amber-500 shrink-0" /> : <Receipt size={16} className="text-amber-500 shrink-0" />}
             {editing ? 'Qaiməni Redaktə et' : 'Yeni Qaimə'}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
@@ -172,46 +187,72 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
             ))}
           </div>
 
-          {/* Layihə */}
-          <Field label="Layihə" required={isA} hint={!isA ? 'İstəyə bağlı — əlaqəli layihə varsa seçin' : undefined}>
-            {isPreProject ? (
-              <div className="flex items-center gap-2 px-3 py-2.5 border border-amber-300 dark:border-amber-700 rounded-lg bg-amber-50 dark:bg-amber-900/20">
-                <span className="text-xs font-mono font-bold text-green-600 dark:text-green-400">
-                  {preProject.projectCode || `PRJ-${String(preProject.id).padStart(4,'0')}`}
-                </span>
-                <span className="text-xs text-gray-600 dark:text-gray-400">{preProject.companyName}</span>
-                <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-400">Bağlanmış</span>
-              </div>
-            ) : (
-              <select value={form.projectId} onChange={e => set('projectId', e.target.value)} className={selectCls}>
-                <option value="">— Layihə seçin —</option>
-                {activeProjects.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.projectCode || `PRJ-${String(p.id).padStart(4,'0')}`} · {p.companyName}
-                    {p.status === 'COMPLETED' ? ' ✓ bağlanmış' : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
+          {/* Layihə (Gəlir və Podratçı xərcləri üçün) */}
+          {!isB2 && (
+            <Field label="Layihə" required={isA} hint={!isA ? 'İstəyə bağlı — əlaqəli layihə varsa seçin' : undefined}>
+              {isPreProject ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 border border-amber-300 dark:border-amber-700 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                  <span className="text-xs font-mono font-bold text-green-600 dark:text-green-400">
+                    {preProject.projectCode || `PRJ-${String(preProject.id).padStart(4,'0')}`}
+                  </span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">{preProject.companyName}</span>
+                  <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-400">Bağlanmış</span>
+                </div>
+              ) : (
+                <select value={form.projectId} onChange={e => set('projectId', e.target.value)} className={selectCls}>
+                  <option value="">— Layihə seçin —</option>
+                  {activeProjects.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.projectCode || `PRJ-${String(p.id).padStart(4,'0')}`} · {p.companyName}
+                      {p.status === 'COMPLETED' ? ' ✓ bağlanmış' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          )}
 
-          {/* Ödəmə — Podratçı (optional) */}
+          {/* Ödəmə — Tərəfdaş (optional) */}
           {isB1 && (
-            <Field label="Podratçı" hint="İnvestora ödənişdə boş qoya bilərsiniz">
-              <select value={form.contractorId} onChange={e => set('contractorId', e.target.value)} className={selectCls}>
+            <Field label="Tərəfdaş (Podratçı / İnvestor)" hint="Siyahıdan podratçı və ya investor seçə bilərsiniz">
+              <select 
+                value={form.contractorId ? `C_${form.contractorId}` : form.investorId ? `I_${form.investorId}` : ''} 
+                onChange={e => {
+                  const val = e.target.value;
+                  if (!val) {
+                    setForm(f => ({ ...f, contractorId: '', investorId: '' }))
+                  } else if (val.startsWith('C_')) {
+                    setForm(f => ({ ...f, contractorId: val.replace('C_', ''), investorId: '' }))
+                  } else if (val.startsWith('I_')) {
+                    setForm(f => ({ ...f, investorId: val.replace('I_', ''), contractorId: '' }))
+                  }
+                }} 
+                className={selectCls}
+              >
                 <option value="">— Seçin (istəyə bağlı) —</option>
-                {contractors.map(c => (
-                  <option key={c.id} value={c.id}>{c.companyName} ({c.voen})</option>
-                ))}
+                {contractors.length > 0 && (
+                  <optgroup label="Podratçılar">
+                    {contractors.map(c => (
+                      <option key={`C_${c.id}`} value={`C_${c.id}`}>{c.companyName} ({c.voen || 'VÖEN-siz'})</option>
+                    ))}
+                  </optgroup>
+                )}
+                {investors.length > 0 && (
+                  <optgroup label="İnvestorlar">
+                    {investors.map(inv => (
+                      <option key={`I_${inv.id}`} value={`I_${inv.id}`}>{inv.companyName} ({inv.voen || 'VÖEN-siz'})</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </Field>
           )}
 
-          {/* Ödəmə — Alıcı adı (investor və ya podratçı adı) */}
+          {/* Ödəmə — Alıcı adı (qeydiyyatsız subyektlər) */}
           {isB1 && (
-            <Field label="Alıcı / Şirkət adı" hint="Podratçı siyahısında olmayan investoru burada yazın">
+            <Field label="Alıcı / Şirkət adı" hint="Siyahıda olmayan tərəfdaşı bura yazın">
               <input type="text" value={form.companyName} onChange={e => set('companyName', e.target.value)}
-                placeholder="İnvestor MMC" className={inputCls} />
+                placeholder="Fərdi Şəxs və s." className={inputCls} />
             </Field>
           )}
 
@@ -251,7 +292,7 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
           </div>
 
           {/* Qaimə nömrəsi */}
-          <Field label="Qaimə nömrəsi" hint="Seriya + nömrə (məs. MT251010637360)">
+          <Field label="Qaimə nömrəsi" required={isB2} hint="Seriya + nömrə (məs. MT251010637360)">
             <input type="text" value={form.invoiceNumber} onChange={e => set('invoiceNumber', e.target.value)}
               placeholder="MT251010637360" className={inputCls + ' font-mono'} />
           </Field>

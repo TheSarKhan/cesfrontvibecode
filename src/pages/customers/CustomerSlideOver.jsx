@@ -154,6 +154,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
                 <Field label="Şirkət adı" value={customer.companyName} />
                 <Field label="VÖEN" value={customer.voen} />
                 <Field label="Ünvan" value={customer.address} />
+                <Field label="Direktor" value={customer.directorName} />
                 <div>
                   <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Ödəniş növü</p>
                   <div className="flex flex-wrap gap-1">

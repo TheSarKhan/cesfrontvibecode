@@ -132,7 +132,7 @@ export const NAV_ITEMS = [
   },
   {
     id: 'audit',
-    label: 'Audit Jurnal',
+    label: 'Audit',
     path: '/audit',
     icon: History,
     module: 'AUDIT_LOG',

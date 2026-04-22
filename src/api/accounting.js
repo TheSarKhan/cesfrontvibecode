@@ -14,6 +14,8 @@ export const accountingApi = {
   sendToAccounting: (id) => api.patch(`/accounting/invoices/${id}/fields`, { status: 'SENT' }),
   approve: (id) => api.patch(`/accounting/invoices/${id}/approve`),
   returnToProject: (id) => api.patch(`/accounting/invoices/${id}/return`),
+  resubmit: (id, data) => api.post(`/accounting/invoices/${id}/resubmit`, data),
+  returnToDraft: (id) => api.patch(`/accounting/invoices/${id}/draft`),
 
   // ── Transactions (Əməliyyatlar) ──
   getTransactions: (params) => api.get('/accounting/transactions', { params }),
@@ -37,8 +39,36 @@ export const accountingApi = {
   deleteBudget: (id) => api.delete(`/accounting/budgets/${id}`),
 
   // ── Reports & Analytics ──
-  getCashFlow: (params) => api.get('/accounting/reports/cash-flow', { params }),
-  getProfitLoss: (params) => api.get('/accounting/reports/profit-loss', { params }),
-  getExpenseBreakdown: (params) => api.get('/accounting/reports/expense-breakdown', { params }),
+  getReportSummary: (params) => api.get('/accounting/reports/summary', { params }),
   getMonthlyTrend: (params) => api.get('/accounting/reports/monthly-trend', { params }),
+  getProjectReport: (params) => api.get('/accounting/reports/by-project', { params }),
+  getPartnerReport: (params) => api.get('/accounting/reports/by-partner', { params }),
+  getExpenseBreakdown: (params) => api.get('/accounting/reports/expense-breakdown', { params }),
+  getCashFlowReport: (params) => api.get('/accounting/reports/cash-flow', { params }),
+  getComparison: (params) => api.get('/accounting/reports/comparison', { params }),
+  getReceivableReport: (params) => api.get('/accounting/reports/receivables', { params }),
+
+  // ── Receivables (Debitorlar) ──
+  getReceivables: (params) => api.get('/accounting/receivables', { params }),
+  getReceivable: (id) => api.get(`/accounting/receivables/${id}`),
+  addReceivablePayment: (id, data) => api.post(`/accounting/receivables/${id}/payments`, data),
+  deleteReceivablePayment: (id, paymentId) => api.delete(`/accounting/receivables/${id}/payments/${paymentId}`),
+  completeReceivable: (id) => api.post(`/accounting/receivables/${id}/complete`),
+
+  // ── Payables (Kreditorlar) ──
+  getPayables: (params) => api.get('/accounting/payables', { params }),
+  getPayable: (id) => api.get(`/accounting/payables/${id}`),
+  addPayablePayment: (id, data) => api.post(`/accounting/payables/${id}/payments`, data),
+  deletePayablePayment: (id, paymentId) => api.delete(`/accounting/payables/${id}/payments/${paymentId}`),
+  completePayable: (id) => api.post(`/accounting/payables/${id}/complete`),
+
+  // ── Sənədlər (Generated Documents) ──
+  getDocumentsPaged: (params) => api.get('/accounting/documents/paged', { params }),
+  getDocument: (id) => api.get(`/accounting/documents/${id}`),
+  createDocument: (data) => api.post('/accounting/documents', data),
+  deleteDocument: (id) => api.delete(`/accounting/documents/${id}`),
+  previewDocumentLines: (data) => api.post('/accounting/documents/preview-lines', data),
+  downloadDocumentPdf: (id) => api.get(`/accounting/documents/${id}/download`, { responseType: 'blob' }),
+  regenerateDocumentPdf: (id) => api.post(`/accounting/documents/${id}/regenerate`),
 }
+

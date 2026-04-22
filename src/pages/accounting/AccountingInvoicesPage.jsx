@@ -4,16 +4,20 @@ import {
   Plus, Search, Pencil, Trash2,
   ArrowUpRight, ArrowDownRight, CreditCard,
   Receipt, Download, PenLine, X, CheckCircle, Undo2,
-  ChevronDown, ArrowLeft,
+  ChevronDown, ArrowLeft, ChevronRight, Banknote,
+  Wrench, Eye, AlertTriangle, Printer, FileText
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { accountingApi } from '../../api/accounting'
-import { projectsApi } from '../../api/projects'
+import { serviceApi } from '../../api/service'
+import ServiceInvoicePrintModal from '../service/ServiceInvoicePrintModal'
 import InvoiceModal from './InvoiceModal'
 import InvoicePrintModal from './InvoicePrintModal'
 import TransactionModal from './TransactionModal'
 import PaymentModal from './PaymentModal'
+import DocumentsTab from './DocumentsTab'
+import DocumentCreateModal from './DocumentCreateModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useAuthStore } from '../../store/authStore'
@@ -32,14 +36,14 @@ const dash = (v) => (v != null && v !== '') ? v : '—'
 
 const MAIN_TABS = [
   { id: 'invoices',     label: 'Qaimələr',        icon: Receipt },
-  { id: 'transactions', label: 'Əməliyyatlar',    icon: ArrowUpRight },
-  { id: 'payments',     label: 'Ödənişlər',       icon: CreditCard },
+  { id: 'documents',    label: 'Sənədlər',        icon: FileText },
 ]
 
 const TYPE_CONFIG = {
   INCOME:             { label: 'Gəlir',  short: 'Gəlir',  cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  CONTRACTOR_EXPENSE: { label: 'Ödəmə',  short: 'Ödəmə',  cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  COMPANY_EXPENSE:    { label: 'Xərc',   short: 'Xərc',   cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  CONTRACTOR_EXPENSE: { label: 'Ödəmə',           short: 'Ödəmə',    cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  COMPANY_EXPENSE:    { label: 'Xərc',            short: 'Xərc',     cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  INVESTOR_EXPENSE:   { label: 'İnvestor Ödəməsi', short: 'İnvestor', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
 }
 
 const PAYMENT_STATUS_CFG = {
@@ -84,7 +88,6 @@ export default function AccountingInvoicesPage() {
   const [payments, setPayments] = useState([])
   const [budgets, setBudgets] = useState([])
   const [summary, setSummary] = useState(null)
-  const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Modals
@@ -96,11 +99,22 @@ export default function AccountingInvoicesPage() {
   const [transactionModal, setTransactionModal] = useState({ open: false, editing: null, defaultType: null })
   const [paymentModal, setPaymentModal] = useState({ open: false, editing: null })
   const [printInv, setPrintInv] = useState(null)
+  const [serviceRecords, setServiceRecords] = useState([])
+  const [printSrvModal, setPrintSrvModal] = useState(null)
+  const [srvSearch, setSrvSearch] = useState('')
+  const [srvTypeFilter, setSrvTypeFilter] = useState('')
+  const [expandedSrvId, setExpandedSrvId] = useState(null)
+  const [srvInlineForm, setSrvInlineForm] = useState({ invoiceNumber: '', invoiceDate: '' })
+  const [srvInlineSaving, setSrvInlineSaving] = useState(false)
+  const [docCreateModal, setDocCreateModal] = useState(false)
+  const [docRefreshKey, setDocRefreshKey]   = useState(0)
 
   // Filters
   const [search, setSearch] = useState('')
-  const [invoiceTab, setInvoiceTab] = useState('')
+  const [invoiceTab, setInvoiceTab] = useState('pending')
   const [txnFilter, setTxnFilter] = useState('')
+  const [pendingForms, setPendingForms] = useState({})
+  const [pendingSaving, setPendingSaving] = useState({})
   const [paymentFilter, setPaymentFilter] = useState('')
   const searchRef = useRef(null)
 
@@ -110,9 +124,11 @@ export default function AccountingInvoicesPage() {
   })
 
   const handleNewAction = () => {
-    if (activeTab === 'invoices') setInvoiceModal({ open: true, editing: null, defaultType: 'INCOME', preProject: null })
+    if (activeTab === 'invoices') setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null })
+    else if (activeTab === 'documents') setDocCreateModal(true)
     else if (activeTab === 'transactions') setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
     else if (activeTab === 'payments') setPaymentModal({ open: true, editing: null })
+    else if (activeTab === 'expenses') setInvoiceModal({ open: true, editing: null, defaultType: 'COMPANY_EXPENSE', preProject: null })
     else setTransactionModal({ open: true, editing: null, defaultType: 'INCOME' })
   }
 
@@ -123,16 +139,13 @@ export default function AccountingInvoicesPage() {
       const results = await Promise.allSettled([
         accountingApi.getAll(),
         accountingApi.getSummary(),
-        projectsApi.getAll(),
-        // TODO: API endpoints hazır olmadığında dəstəklənəcək
-        // accountingApi.getTransactions(),
-        // accountingApi.getPayments(),
-        // accountingApi.getBudgets(),
+        serviceApi.getAll(),
       ])
       const extract = (r) => r.status === 'fulfilled' ? (r.value?.data?.data || r.value?.data || []) : []
       setInvoices(extract(results[0]))
       setSummary(results[1].status === 'fulfilled' ? (results[1].value?.data?.data || results[1].value?.data) : null)
-      setProjects(extract(results[2]))
+      const allSrv = extract(results[2])
+      setServiceRecords(allSrv.filter(r => r.completed && r.cost != null && parseFloat(r.cost) > 0))
       // Hələlik boş
       setTransactions([])
       setPayments([])
@@ -145,14 +158,33 @@ export default function AccountingInvoicesPage() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
+  // Initialize form state for newly loaded pending invoices (preserve in-progress edits)
+  useEffect(() => {
+    setPendingForms(prev => {
+      const updates = {}
+      invoices
+        .filter(i => i.status === 'DRAFT' || i.status === 'SENT')
+        .forEach(inv => {
+          if (prev[inv.id] === undefined) {
+            updates[inv.id] = {
+              invoiceNumber: inv.invoiceNumber || '',
+              invoiceDate: inv.invoiceDate || '',
+              notes: inv.notes || '',
+            }
+          }
+        })
+      return Object.keys(updates).length ? { ...prev, ...updates } : prev
+    })
+  }, [invoices])
+
   // Reset invoice page when filters change
   useEffect(() => { setInvoicePage(0) }, [invoiceTab, search])
 
-  // ── Paged invoices for the table ──
+  // ── Paged invoices for the table (only APPROVED) ──
   const loadInvoices = useCallback(async () => {
-    if (activeTab !== 'invoices') return
+    if (activeTab !== 'invoices' || invoiceTab === 'service' || invoiceTab === 'pending') return
     try {
-      const params = { page: invoicePage, size: invoicePageSize }
+      const params = { page: invoicePage, size: invoicePageSize, status: 'APPROVED' }
       if (invoiceTab) params.type = invoiceTab
       if (search) params.q = search
       const res = await accountingApi.getAllPaged(params)
@@ -199,12 +231,59 @@ const filteredTransactions = useMemo(() => {
     })
   }, [payments, paymentFilter, search])
 
-  const toggleExpand = (inv) => {
-    if (expandedId === inv.id) {
+  // Merged items for the Invoices table
+  const tableItems = useMemo(() => {
+    return invoiceData.content.map(inv => ({ ...inv, _rowType: 'invoice' }))
+  }, [invoiceData.content])
+
+  // Grouped display items for "Hamısı" tab
+  const displayItems = useMemo(() => {
+    if (invoiceTab !== '' || tableItems.length === 0) return tableItems
+    const ORDER = ['INCOME', 'CONTRACTOR_EXPENSE', 'INVESTOR_EXPENSE', 'COMPANY_EXPENSE']
+    const groups = {}
+    ORDER.forEach(t => { groups[t] = [] })
+    tableItems.forEach(item => {
+      if (groups[item.type]) groups[item.type].push(item)
+    })
+    const result = []
+    ORDER.forEach(type => {
+      const group = groups[type]
+      if (!group || group.length === 0) return
+      const groupTotal = group.reduce((s, i) => s + parseFloat(i.amount || 0), 0)
+      result.push({ _isGroupHeader: true, type, count: group.length, total: groupTotal })
+      group.forEach(item => result.push(item))
+    })
+    return result
+  }, [tableItems, invoiceTab])
+
+  // Pending invoice groups for "Gözləyənlər" tab
+  const pendingGroups = useMemo(() => {
+    const pending = invoices.filter(i => i.status === 'DRAFT' || i.status === 'SENT')
+    const incomes = pending.filter(i => i.type === 'INCOME')
+    const expenses = pending.filter(i => i.type !== 'INCOME')
+    const groups = []
+    const usedExpenseIds = new Set()
+    incomes.forEach(income => {
+      const linked = expenses.filter(e => e.sourceInvoiceId === income.id)
+      linked.forEach(e => usedExpenseIds.add(e.id))
+      groups.push({ id: `inc-${income.id}`, income, expenses: linked })
+    })
+    expenses.filter(e => !usedExpenseIds.has(e.id)).forEach(exp => {
+      groups.push({ id: `exp-${exp.id}`, income: null, expenses: [exp] })
+    })
+    return groups
+  }, [invoices])
+
+  const pendingCount = useMemo(() =>
+    invoices.filter(i => i.status === 'DRAFT' || i.status === 'SENT').length
+  , [invoices])
+
+  const toggleExpand = (item) => {
+    if (expandedId === item.id) {
       setExpandedId(null)
     } else {
-      setExpandedId(inv.id)
-      setInlineForm({ invoiceNumber: inv.invoiceNumber || '', invoiceDate: inv.invoiceDate || '', notes: inv.notes || '' })
+      setExpandedId(item.id)
+      setInlineForm({ invoiceNumber: item.invoiceNumber || '', invoiceDate: item.invoiceDate || '', notes: item.notes || '' })
     }
   }
 
@@ -234,7 +313,19 @@ const filteredTransactions = useMemo(() => {
 
   const handleApprove = async (inv) => {
     if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${inv.invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Layihənin maliyyə hissəsinə gəlir olaraq əlavə ediləcək.` }))) return
-    try { await accountingApi.approve(inv.id); toast.success('Qaimə təsdiqləndi'); loadAll(); loadInvoices() }
+    try {
+      if (expandedId === inv.id) {
+        await accountingApi.patchFields(inv.id, {
+          invoiceNumber: inlineForm.invoiceNumber || null,
+          invoiceDate:   inlineForm.invoiceDate   || null,
+          notes:         inlineForm.notes         || null,
+        })
+      }
+      await accountingApi.approve(inv.id)
+      toast.success('Qaimə təsdiqləndi')
+      loadAll()
+      loadInvoices()
+    }
     catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
   }
 
@@ -242,6 +333,71 @@ const filteredTransactions = useMemo(() => {
     if (!(await confirm({ title: 'Layihəyə geri göndər', message: `"${inv.invoiceNumber || `#${inv.id}`}" layihəyə geri qaytarılsın? Bu əməliyyat geri qaytarıla bilməz.` }))) return
     try { await accountingApi.returnToProject(inv.id); toast.success('Qaimə geri qaytarıldı'); loadAll(); loadInvoices() }
     catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+  }
+
+  const handleReturnToDraft = async (inv) => {
+    try {
+      const res = await accountingApi.returnToDraft(inv.id)
+      toast.success('Qaimə DRAFT-a çevrildi')
+      loadAll()
+      loadInvoices()
+      setInvoiceModal({ open: true, editing: res.data.data, defaultType: null, preProject: null })
+    }
+    catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+  }
+
+  /* ── Pending invoice helpers ── */
+  const getPendingForm = (invId, inv) => pendingForms[invId] ?? {
+    invoiceNumber: inv?.invoiceNumber || '',
+    invoiceDate: inv?.invoiceDate || '',
+    notes: inv?.notes || '',
+  }
+
+  const setPendingField = (invId, field, value) => {
+    setPendingForms(prev => ({
+      ...prev,
+      [invId]: { ...(prev[invId] || {}), [field]: value },
+    }))
+  }
+
+  const handlePendingSave = async (inv) => {
+    setPendingSaving(prev => ({ ...prev, [inv.id]: true }))
+    try {
+      const form = getPendingForm(inv.id, inv)
+      await accountingApi.patchFields(inv.id, {
+        invoiceNumber: form.invoiceNumber || null,
+        invoiceDate: form.invoiceDate || null,
+        notes: form.notes || null,
+      })
+      toast.success('Sahələr saxlanıldı')
+      loadAll()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+    } finally {
+      setPendingSaving(prev => ({ ...prev, [inv.id]: false }))
+    }
+  }
+
+  const handlePendingApprove = async (inv) => {
+    if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${getPendingForm(inv.id, inv).invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Qaimə əsas cədvələ keçəcək.` }))) return
+    setPendingSaving(prev => ({ ...prev, [inv.id]: true }))
+    try {
+      const form = getPendingForm(inv.id, inv)
+      await accountingApi.patchFields(inv.id, {
+        invoiceNumber: form.invoiceNumber || null,
+        invoiceDate: form.invoiceDate || null,
+        notes: form.notes || null,
+      })
+      await accountingApi.approve(inv.id)
+      toast.success('Qaimə təsdiqləndi — əsas cədvələ keçdi')
+      setPendingForms(prev => { const n = { ...prev }; delete n[inv.id]; return n })
+      loadAll()
+      loadInvoices()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+    } finally {
+      setPendingSaving(prev => ({ ...prev, [inv.id]: false }))
+    }
   }
 
   const handleDeleteTransaction = async (t) => {
@@ -295,34 +451,40 @@ const filteredTransactions = useMemo(() => {
           >
             <Plus size={15} />
             {activeTab === 'invoices' ? 'Yeni Qaimə' :
+             activeTab === 'documents' ? 'Yeni Sənəd' :
              activeTab === 'transactions' ? 'Yeni Əməliyyat' :
              activeTab === 'payments' ? 'Yeni Ödəniş' : 'Yeni Əməliyyat'}
           </button>
         )}
       </div>
 
-      {/* Main Tabs */}
-      <div className="flex gap-1 mb-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
-        {MAIN_TABS.map(tab => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setSearch('') }}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-medium rounded-lg transition-colors',
-                activeTab === tab.id
-                  ? 'bg-amber-600 text-white'
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-              )}
-            >
-              <Icon size={13} />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
+      {/* Main Tabs (Hidden as there is only one left) */}
+      {MAIN_TABS.length > 1 && (
+        <div className="flex gap-1 mb-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
+          {MAIN_TABS.map(tab => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab(tab.id); setSearch('') }}
+                className={clsx(
+                  'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 text-xs font-medium rounded-lg transition-colors',
+                  activeTab === tab.id
+                    ? 'bg-amber-600 text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                )}
+              >
+                <Icon size={13} />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
+
+      {/* ═══════════════ DOCUMENTS TAB ═══════════════ */}
+      {activeTab === 'documents' && <DocumentsTab onCreateNew={() => setDocCreateModal(true)} refreshKey={docRefreshKey} />}
 
       {/* ═══════════════ INVOICES TAB ═══════════════ */}
       {activeTab === 'invoices' && (
@@ -330,30 +492,400 @@ const filteredTransactions = useMemo(() => {
           {/* Sub tabs */}
           <div className="flex gap-1 mb-4 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
             {[
+              { id: 'pending', label: 'Gözləyənlər' },
               { id: '', label: 'Hamısı' },
               { id: 'INCOME', label: 'Gəlirlər' },
-              { id: 'CONTRACTOR_EXPENSE', label: 'Ödəmələr' },
+              { id: 'PAYMENT', label: 'Ödəmələr' },
               { id: 'COMPANY_EXPENSE', label: 'Xərclər' },
+              { id: 'service', label: 'Servis', icon: Wrench },
             ].map(tab => (
-              <button key={tab.id} onClick={() => setInvoiceTab(tab.id)}
-                className={clsx('flex-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-colors',
-                  invoiceTab === tab.id ? 'bg-white dark:bg-gray-800 shadow-sm text-amber-600' : 'text-gray-500 hover:text-gray-700'
+              <button key={tab.id} onClick={() => { setInvoiceTab(tab.id); setSearch('') }}
+                className={clsx('flex-1 flex items-center justify-center gap-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-colors',
+                  invoiceTab === tab.id
+                    ? tab.id === 'service'
+                      ? 'bg-white dark:bg-gray-800 shadow-sm text-orange-600'
+                      : 'bg-white dark:bg-gray-800 shadow-sm text-amber-600'
+                    : 'text-gray-500 hover:text-gray-700'
                 )}>
+                {tab.icon && <tab.icon size={11} />}
                 {tab.label}
-                {tab.id && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === tab.id).length})</span>}
+                {tab.id === 'pending' && pendingCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white">{pendingCount}</span>
+                )}
+                {tab.id === '' && <span className="ml-1 opacity-60">({invoices.filter(i => i.status === 'APPROVED').length})</span>}
+                {tab.id === 'INCOME' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === 'INCOME' && i.status === 'APPROVED').length})</span>}
+                {tab.id === 'PAYMENT' && <span className="ml-1 opacity-60">({invoices.filter(i => (i.type === 'CONTRACTOR_EXPENSE' || i.type === 'INVESTOR_EXPENSE') && i.status === 'APPROVED').length})</span>}
+                {tab.id === 'COMPANY_EXPENSE' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === 'COMPANY_EXPENSE' && i.status === 'APPROVED').length})</span>}
+                {tab.id === 'service' && serviceRecords.length > 0 && <span className="ml-1 opacity-60">({serviceRecords.length})</span>}
               </button>
             ))}
           </div>
 
           {/* Search */}
-          <div className="relative mb-4">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Qaimə nömrəsi, şirkət, layihə..."
-              className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-          </div>
+          {invoiceTab !== 'service' && invoiceTab !== 'pending' && (
+            <div className="relative mb-4">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Qaimə nömrəsi, şirkət, layihə..."
+                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+          )}
 
-          {/* Table */}
+          {/* ── Servis Qaimələri cədvəli ── */}
+          {invoiceTab === 'service' && (() => {
+            const filteredSrv = serviceRecords.filter(r => {
+              const q = srvSearch.toLowerCase()
+              if (q && !r.equipmentName?.toLowerCase().includes(q) && !r.serviceType?.toLowerCase().includes(q)) return false
+              if (srvTypeFilter && r.recordType !== srvTypeFilter) return false
+              return true
+            })
+            const totalSrv = filteredSrv.reduce((s, r) => s + parseFloat(r.cost || 0), 0)
+            return (
+              <div>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input value={srvSearch} onChange={e => setSrvSearch(e.target.value)}
+                      placeholder="Texnika, servis növü..."
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                  </div>
+                  <select value={srvTypeFilter} onChange={e => setSrvTypeFilter(e.target.value)}
+                    className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <option value="">Bütün növlər</option>
+                    <option value="INSPECTION">Texniki Baxış</option>
+                    <option value="REPAIR">Texniki Servis</option>
+                  </select>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[800px]">
+                      <thead>
+                        <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                          <th className="w-8 py-3 px-2"></th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi / Texnika</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nəticə</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loading ? <TableSkeleton cols={8} rows={5} /> :
+                          filteredSrv.length === 0 ? (
+                            <EmptyState icon={Wrench} title="Servis qaiməsi yoxdur" description="Xərci olan tamamlanmış servis qeydi tapılmadı" />
+                          ) : filteredSrv.map(rec => {
+                            const isInsp = rec.recordType === 'INSPECTION'
+                            const isAvail = rec.statusAfter === 'AVAILABLE'
+                            const isSrvExpanded = expandedSrvId === rec.id
+                            return (
+                              <Fragment key={rec.id}>
+                              <tr
+                                onClick={() => {
+                                  if (isSrvExpanded) { setExpandedSrvId(null) }
+                                  else { setExpandedSrvId(rec.id); setSrvInlineForm({ invoiceNumber: rec.invoiceNumber || '', invoiceDate: rec.invoiceDate || '' }) }
+                                }}
+                                className={clsx('border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
+                                  isSrvExpanded ? 'bg-orange-50/40 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
+                                )}
+                              >
+                                <td className="py-2.5 px-2 text-center">
+                                  <ChevronDown size={14} className={clsx('text-gray-400 transition-transform mx-auto', isSrvExpanded && 'rotate-180')} />
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border',
+                                    isInsp
+                                      ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                                      : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
+                                  )}>{isInsp ? 'Baxış' : 'Servis'}</span>
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  <div className="flex flex-col">
+                                    <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">
+                                      {rec.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}
+                                    </p>
+                                    <span className="text-[10px] text-gray-400 truncate max-w-[180px]">{rec.equipmentName}{rec.plateNumber ? ` • ${rec.plateNumber}` : ''}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  <span className="text-sm font-bold text-red-500">−{fmtMoney(rec.cost)}</span>
+                                </td>
+                                <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(rec.serviceDate)}</td>
+                                <td className="py-2.5 px-4">
+                                  <div className="flex items-center gap-1.5">
+                                    {isInsp ? <Eye size={12} className="text-amber-500 shrink-0" /> : <Wrench size={12} className="text-orange-500 shrink-0" />}
+                                    <span className="text-xs text-gray-600 dark:text-gray-300">{isInsp ? 'Texniki Baxış' : 'Texniki Servis'}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  {rec.statusAfter && (
+                                    <div className="flex items-center gap-1">
+                                      {isAvail
+                                        ? <CheckCircle size={11} className="text-green-500 shrink-0" />
+                                        : <AlertTriangle size={11} className="text-red-500 shrink-0" />}
+                                      <span className={clsx('text-[10px] font-bold', isAvail ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+                                        {isAvail ? 'Hazırdır' : 'Nasaz'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-4">
+                                  {rec.invoiceNumber
+                                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-green-600 border border-green-200"><CheckCircle size={11} /> Doldurulub</span>
+                                    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">Gözləyir</span>
+                                  }
+                                </td>
+                              </tr>
+                              {isSrvExpanded && (
+                                <tr>
+                                  <td colSpan={8} className="p-0">
+                                    <div className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                                      <div className="space-y-4">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sahələri doldur</p>
+                                        <div className="grid grid-cols-3 gap-3">
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                                            <input
+                                              value={srvInlineForm.invoiceNumber}
+                                              onChange={e => setSrvInlineForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                                              onClick={e => e.stopPropagation()}
+                                              placeholder="MT251010637360"
+                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
+                                            <DateInput
+                                              value={srvInlineForm.invoiceDate}
+                                              onChange={e => setSrvInlineForm(f => ({ ...f, invoiceDate: e.target.value }))}
+                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Qeydlər</label>
+                                            <input
+                                              value={rec.notes || ''}
+                                              disabled
+                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation()
+                                              setSrvInlineSaving(true)
+                                              try {
+                                                await serviceApi.patchInvoiceFields(rec.id, {
+                                                  invoiceNumber: srvInlineForm.invoiceNumber || null,
+                                                  invoiceDate: srvInlineForm.invoiceDate || null,
+                                                })
+                                                toast.success('Qaimə məlumatları saxlanıldı')
+                                                setServiceRecords(prev => prev.map(r => r.id === rec.id ? { ...r, invoiceNumber: srvInlineForm.invoiceNumber, invoiceDate: srvInlineForm.invoiceDate } : r))
+                                              } catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+                                              finally { setSrvInlineSaving(false) }
+                                            }}
+                                            disabled={srvInlineSaving}
+                                            className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white transition-colors flex items-center gap-1.5"
+                                          >
+                                            <PenLine size={12} /> {srvInlineSaving ? 'Saxlanılır...' : 'Saxla'}
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); setPrintSrvModal(rec) }}
+                                            className="px-4 py-2 text-xs font-semibold rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1.5"
+                                          >
+                                            <Printer size={12} /> Çap et
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                              </Fragment>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {filteredSrv.length > 0 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                      <span className="text-xs text-gray-500">{filteredSrv.length} qaimə</span>
+                      <span className="text-sm font-bold text-red-500">Cəmi: −{fmtMoney(totalSrv)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── Gözləyən Qaimələr bölməsi ── */}
+          {invoiceTab === 'pending' && (
+            <div className="space-y-3">
+              {loading ? (
+                [1, 2, 3].map(i => <div key={i} className="h-36 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)
+              ) : pendingGroups.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
+                  <CheckCircle size={36} className="text-green-400 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Gözləyən qaimə yoxdur</p>
+                  <p className="text-xs text-gray-400 mt-1">Bütün qaimələr mühasib tərəfindən təsdiqlənib</p>
+                  {canCreate && (
+                    <button onClick={() => setInvoiceModal({ open: true, editing: null, defaultType: 'INCOME', preProject: null })}
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors">
+                      <Plus size={13} /> Yeni Qaimə
+                    </button>
+                  )}
+                </div>
+              ) : pendingGroups.map(group => {
+                const hasIncome = !!group.income
+                const hasExpenses = group.expenses.length > 0
+                const isPair = hasIncome && hasExpenses
+                const firstInv = group.income || group.expenses[0]
+
+                const renderInvoicePanel = (inv, isLinked) => {
+                  const form = getPendingForm(inv.id, inv)
+                  const saving = !!pendingSaving[inv.id]
+                  const typeCfg = TYPE_CONFIG[inv.type] || TYPE_CONFIG.INCOME
+                  return (
+                    <div key={inv.id} className="p-4 space-y-3">
+                      {/* Invoice type + amount */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border', typeCfg.cls)}>{typeCfg.label}</span>
+                          {isLinked && <span className="text-[10px] text-gray-400 italic">bağlı xərc</span>}
+                          <span className={clsx('text-sm font-bold', inv.type === 'INCOME' ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
+                            {inv.type === 'INCOME' ? '+' : '−'}{fmtMoney(inv.amount)}
+                          </span>
+                        </div>
+                        <span className={clsx('px-2 py-0.5 rounded text-[10px] font-semibold border',
+                          inv.status === 'SENT'
+                            ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
+                            : 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                        )}>
+                          {inv.status === 'SENT' ? 'Göndərilib' : 'Qaralama'}
+                        </span>
+                      </div>
+                      {/* Details */}
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                        {(inv.companyName || inv.contractorName) && <span>{inv.companyName || inv.contractorName}</span>}
+                        {inv.equipmentName && <span className="text-gray-400">• {inv.equipmentName}</span>}
+                        {inv.serviceDescription && <span className="italic truncate max-w-[200px]">• {inv.serviceDescription}</span>}
+                        {!inv.invoiceNumber && <span className="text-amber-500 font-medium">• Qaimə № doldurulmayıb</span>}
+                        {inv.invoiceNumber && <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">• {inv.invoiceNumber}</span>}
+                      </div>
+                      {/* Fill form */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                          <input
+                            value={form.invoiceNumber}
+                            onChange={e => setPendingField(inv.id, 'invoiceNumber', e.target.value)}
+                            placeholder="MT25..."
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
+                          <DateInput
+                            value={form.invoiceDate}
+                            onChange={e => setPendingField(inv.id, 'invoiceDate', e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Qeyd</label>
+                          <input
+                            value={form.notes}
+                            onChange={e => setPendingField(inv.id, 'notes', e.target.value)}
+                            placeholder="Əlavə qeyd..."
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          />
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={() => handlePendingSave(inv)} disabled={saving}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 transition-colors flex items-center gap-1">
+                          <PenLine size={11} /> {saving ? 'Saxlanır...' : 'Saxla'}
+                        </button>
+                        <button onClick={() => handlePendingApprove(inv)} disabled={saving}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-500 hover:bg-green-600 text-white disabled:opacity-50 transition-colors flex items-center gap-1">
+                          <CheckCircle size={11} /> Təsdiqlə
+                        </button>
+                        {inv.projectId && (inv.type === 'INCOME' || inv.type === 'COMPANY_EXPENSE') && (
+                          <button onClick={() => handleReturnToProject(inv)}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white hover:bg-orange-50 dark:bg-gray-700 dark:hover:bg-orange-900/20 text-orange-600 border border-orange-200 dark:border-orange-800 transition-colors flex items-center gap-1">
+                            <Undo2 size={11} /> Geri Qaytar
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button onClick={() => handleDeleteInvoice(inv)}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 bg-white dark:bg-gray-700 transition-colors flex items-center gap-1 ml-auto">
+                            <Trash2 size={11} /> Sil
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={group.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                    {/* Card header */}
+                    <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700">
+                      {firstInv.projectCode && (
+                        <span className="font-mono text-xs font-bold text-green-600 dark:text-green-400">{firstInv.projectCode}</span>
+                      )}
+                      {firstInv.periodMonth && firstInv.periodYear && (
+                        <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                          {new Date(firstInv.periodYear, firstInv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'long', year: 'numeric' })}
+                        </span>
+                      )}
+                      {isPair && (
+                        <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full font-medium">
+                          {1 + group.expenses.length} qaimə birləşdirilmiş
+                        </span>
+                      )}
+                      <span className="ml-auto text-[10px] text-gray-400">{fmt(firstInv.invoiceDate || firstInv.createdAt)}</span>
+                    </div>
+                    {/* Invoice panels */}
+                    <div className={clsx(isPair && 'grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700')}>
+                      {hasIncome && renderInvoicePanel(group.income, false)}
+                      {group.expenses.map(exp => renderInvoicePanel(exp, true))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Summary stats for "Hamısı" tab */}
+          {invoiceTab === '' && invoices.length > 0 && (() => {
+            const stats = [
+              { label: 'Gəlir', types: ['INCOME'], sign: '+', cls: 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' },
+              { label: 'Podratçı Ödəməsi', types: ['CONTRACTOR_EXPENSE'], sign: '−', cls: 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400' },
+              { label: 'İnvestor Ödəməsi', types: ['INVESTOR_EXPENSE'], sign: '−', cls: 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400' },
+              { label: 'Şirkət Xərci', types: ['COMPANY_EXPENSE'], sign: '−', cls: 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400' },
+            ]
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+                {stats.map(s => {
+                  const total = invoices.filter(i => s.types.includes(i.type) && i.status === 'APPROVED').reduce((sum, i) => sum + parseFloat(i.amount || 0), 0)
+                  const count = invoices.filter(i => s.types.includes(i.type) && i.status === 'APPROVED').length
+                  return (
+                    <div key={s.label} className={clsx('px-3 py-2.5 rounded-lg border text-xs', s.cls)}>
+                      <p className="font-medium opacity-80">{s.label}</p>
+                      <p className="text-sm font-bold mt-0.5">{s.sign}{fmtMoney(total)}</p>
+                      <p className="opacity-60 text-[10px]">{count} qaimə (cəmi)</p>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
+          {/* Table — only for non-pending, non-service tabs */}
+          {invoiceTab !== 'service' && invoiceTab !== 'pending' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px]">
@@ -361,29 +893,58 @@ const filteredTransactions = useMemo(() => {
                   <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
                     <th className="w-8 py-3 px-2"></th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi / Açıqlama</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dövr</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Layihə</th>
+                    {invoiceTab !== 'COMPANY_EXPENSE' && (
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dövr</th>
+                    )}
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət / Təchizatçı</th>
+                    {invoiceTab !== 'COMPANY_EXPENSE' && (
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Layihə</th>
+                    )}
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? <TableSkeleton cols={9} rows={5} /> : invoiceData.content.length === 0 ? (
-                    <EmptyState icon={Receipt} title="Qaimə tapılmadı" description="Yeni qaimə əlavə edin"
+                  {loading ? <TableSkeleton cols={9} rows={5} /> : displayItems.length === 0 ? (
+                    <EmptyState icon={Receipt} title="Məlumat tapılmadı" description="Hələlik heç bir qaimə yoxdur"
                       action={canCreate ? () => setInvoiceModal({ open: true, editing: null, defaultType: invoiceTab || 'INCOME', preProject: null }) : undefined}
                       actionLabel="Yeni Qaimə" />
-                  ) : invoiceData.content.map(inv => {
+                  ) : displayItems.map(item => {
+                    // Group header row for "Hamısı" tab
+                    if (item._isGroupHeader) {
+                      const cfg = TYPE_CONFIG[item.type]
+                      return (
+                        <tr key={`grp-${item.type}`} className="border-b border-gray-200 dark:border-gray-600">
+                          <td colSpan={9} className={clsx('py-1.5 px-4', cfg.cls)}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wide">{cfg.label}</span>
+                              <span className="text-[10px] opacity-60">{item.count} qaimə</span>
+                              <span className="ml-auto text-xs font-semibold">{item.type === 'INCOME' ? '+' : '−'}{fmtMoney(item.total)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }
+
+                    const isExpanded = expandedId === item.id
+
+                    const inv = item
                     const typeCfg = TYPE_CONFIG[inv.type] || TYPE_CONFIG.INCOME
-                    const isExpanded = expandedId === inv.id
+                    const typeBorderCls = invoiceTab === '' ? ({
+                      INCOME: 'border-l-2 border-l-green-400',
+                      CONTRACTOR_EXPENSE: 'border-l-2 border-l-blue-400',
+                      INVESTOR_EXPENSE: 'border-l-2 border-l-purple-400',
+                      COMPANY_EXPENSE: 'border-l-2 border-l-red-400',
+                    }[inv.type] || '') : ''
                     return (
                       <Fragment key={inv.id}>
                         <tr
                           onClick={() => toggleExpand(inv)}
                           className={clsx(
                             'border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
+                            typeBorderCls,
                             isExpanded ? 'bg-amber-50/40 dark:bg-amber-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
                           )}
                         >
@@ -394,7 +955,14 @@ const filteredTransactions = useMemo(() => {
                             <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border', typeCfg.cls)}>{typeCfg.short}</span>
                           </td>
                           <td className="py-2.5 px-4">
-                            <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">{inv.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}</p>
+                            <div className="flex flex-col">
+                              <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">
+                                {inv.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}
+                              </p>
+                              {inv.type === 'COMPANY_EXPENSE' && (
+                                <span className="text-[10px] text-gray-400 italic truncate max-w-[180px]">{inv.serviceDescription}</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-2.5 px-4">
                             <span className={clsx('text-sm font-bold', inv.type === 'INCOME' ? 'text-green-600' : 'text-red-500')}>
@@ -402,21 +970,25 @@ const filteredTransactions = useMemo(() => {
                             </span>
                           </td>
                           <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(inv.invoiceDate)}</td>
+                          {invoiceTab !== 'COMPANY_EXPENSE' && (
+                            <td className="py-2.5 px-4">
+                              {inv.periodMonth && inv.periodYear ? (
+                                <span className="text-xs text-indigo-600 font-medium whitespace-nowrap">
+                                  {new Date(inv.periodYear, inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'short', year: 'numeric' })}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                          )}
                           <td className="py-2.5 px-4">
-                            {inv.periodMonth && inv.periodYear ? (
-                              <span className="text-xs text-indigo-600 font-medium whitespace-nowrap">
-                                {new Date(inv.periodYear, inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'short', year: 'numeric' })}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">—</span>
-                            )}
+                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{inv.companyName || inv.contractorName || inv.investorName || '—'}</p>
                           </td>
-                          <td className="py-2.5 px-4">
-                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[150px]">{inv.companyName || inv.contractorName || '—'}</p>
-                          </td>
-                          <td className="py-2.5 px-4">
-                            {inv.projectCode ? <span className="text-xs font-mono text-green-600">{inv.projectCode}</span> : <span className="text-xs text-gray-400">—</span>}
-                          </td>
+                          {invoiceTab !== 'COMPANY_EXPENSE' && (
+                            <td className="py-2.5 px-4">
+                              {inv.projectCode ? <span className="text-xs font-mono text-green-600">{inv.projectCode}</span> : <span className="text-xs text-gray-400">—</span>}
+                            </td>
+                          )}
                           <td className="py-2.5 px-4">
                             {inv.status === 'APPROVED'
                               ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-green-600 border border-green-200"><CheckCircle size={11} /> Təsdiqlənib</span>
@@ -429,7 +1001,7 @@ const filteredTransactions = useMemo(() => {
                           <tr>
                             <td colSpan={9} className="p-0">
                               <div className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                                {inv.status === 'SENT' && canEdit ? (
+                                {inv.status !== 'APPROVED' && inv.status !== 'RETURNED' ? (
                                   <div className="space-y-4">
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sahələri doldur</p>
                                     <div className="grid grid-cols-3 gap-3">
@@ -507,6 +1079,22 @@ const filteredTransactions = useMemo(() => {
                                       </div>
                                     </div>
                                   </div>
+                                ) : inv.status === 'RETURNED' ? (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <Undo2 size={14} className="text-orange-500" />
+                                      <span className="text-xs font-semibold text-orange-700">Geri qaytarılmış qaimə</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500">Bu qaiməni düzəldib yenidən göndərmək üçün DRAFT-a çevirin.</p>
+                                    {canEdit && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleReturnToDraft(inv) }}
+                                        className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors flex items-center gap-1.5"
+                                      >
+                                        <PenLine size={12} /> Düzəliş et
+                                      </button>
+                                    )}
+                                  </div>
                                 ) : null}
                               </div>
                             </td>
@@ -532,8 +1120,10 @@ const filteredTransactions = useMemo(() => {
               onPageSize={(s) => { setInvoicePageSize(s); setInvoicePage(0) }}
             />
           </div>
+          )}
         </div>
       )}
+
 
       {/* ═══════════════ TRANSACTIONS TAB ═══════════════ */}
       {activeTab === 'transactions' && (
@@ -724,7 +1314,13 @@ const filteredTransactions = useMemo(() => {
           defaultType={invoiceModal.defaultType}
           preProject={invoiceModal.preProject}
           onClose={() => setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null })}
-          onSaved={() => { setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null }); loadAll(); loadInvoices() }}
+          onSaved={() => { 
+            setInvoiceModal({ open: false, editing: null, defaultType: null, preProject: null }); 
+            setSearch('');
+            setInvoicePage(0);
+            loadAll(); 
+            loadInvoices(); 
+          }}
         />
       )}
 
@@ -834,7 +1430,9 @@ const filteredTransactions = useMemo(() => {
       )}
 
       {printInv && <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />}
+      {printSrvModal && <ServiceInvoicePrintModal record={printSrvModal} onClose={() => setPrintSrvModal(null)} />}
       <ConfirmDialog />
+      {docCreateModal && <DocumentCreateModal onClose={() => setDocCreateModal(false)} onCreated={() => { setDocCreateModal(false); setDocRefreshKey(k => k + 1) }} />}
     </div>
   )
 }

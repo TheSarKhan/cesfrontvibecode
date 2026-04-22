@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
-import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, Truck, Copy, Pencil, Plus } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import { configApi } from '../../api/config'
 import { contractorsApi } from '../../api/contractors'
@@ -235,7 +235,8 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-5 pb-2">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              {isClone ? <Copy size={18} className="text-amber-500 shrink-0" /> : isEditing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Plus size={18} className="text-amber-500 shrink-0" />}
               {isClone ? 'Texnikanı kopyala' : isEditing ? 'Texnikanı redaktə et' : 'Yeni texnika əlavə et'}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
