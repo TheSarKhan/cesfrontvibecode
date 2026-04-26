@@ -4,6 +4,7 @@ import { X, ChevronDown, ChevronUp } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
 import { contractorsApi } from '../../api/contractors'
+import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -42,6 +43,7 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
     serviceDescription: editing?.serviceDescription ?? '',
     projectId:          editing?.projectId    ?? (preProject?.id ? String(preProject.id) : ''),
     contractorId:       editing?.contractorId ?? '',
+    customerId:         editing?.customerId   ?? '',
     notes:              editing?.notes        ?? '',
     periodMonth:        editing?.periodMonth  ?? '',
     periodYear:         editing?.periodYear   ?? new Date().getFullYear(),
@@ -56,10 +58,12 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
   const [showTimesheet, setShowTimesheet] = useState(!!(editing?.periodMonth))
   const [projects, setProjects] = useState([])
   const [contractors, setContractors] = useState([])
+  const [customers, setCustomers] = useState([])
 
   useEffect(() => {
     projectsApi.getAll().then(r => setProjects(r.data.data || r.data || [])).catch(() => {})
     contractorsApi.getAll().then(r => setContractors(r.data.data || r.data || [])).catch(() => {})
+    customersApi.getAll().then(r => setCustomers(r.data.data || r.data || [])).catch(() => {})
   }, [])
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
@@ -100,6 +104,7 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
       serviceDescription: (isB1 || isB2) ? (form.serviceDescription || null) : null,
       projectId:          form.projectId    ? parseInt(form.projectId)    : null,
       contractorId:       form.contractorId ? parseInt(form.contractorId) : null,
+      customerId:         form.customerId   ? parseInt(form.customerId)   : null,
       notes:              form.notes || null,
       periodMonth:        (isA && showTimesheet && form.periodMonth) ? parseInt(form.periodMonth) : null,
       periodYear:         (isA && showTimesheet && form.periodYear)  ? parseInt(form.periodYear)  : null,
@@ -355,9 +360,23 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
             </Field>
           )}
 
-          {/* Gəlir — Müştəri şirkəti */}
+          {/* Gəlir — Müştəri */}
           {isA && (
-            <Field label="Müştəri şirkəti">
+            <Field label="Müştəri" hint="İstəyə bağlı">
+              <select value={form.customerId} onChange={e => set('customerId', e.target.value)} className={selectCls}>
+                <option value="">— Müştəri seçin (istəyə bağlı) —</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.companyName}{c.voen ? ` (${c.voen})` : ''}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          {/* Gəlir — Müştəri şirkəti (əl ilə) */}
+          {isA && (
+            <Field label="Müştəri şirkəti adı" hint="Siyahıda olmayan müştəri üçün əl ilə yazın">
               <input type="text" value={form.companyName} onChange={e => set('companyName', e.target.value)}
                 placeholder="ABC İnşaat MMC" className={inputCls} />
             </Field>
