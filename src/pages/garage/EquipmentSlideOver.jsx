@@ -847,7 +847,7 @@ const STATUS_LABELS = {
   AVAILABLE: { label: 'Mövcud', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' },
   RENTED: { label: 'İcarədə', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' },
   IN_TRANSIT: { label: 'Yolda', cls: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400' },
-  IN_INSPECTION: { label: 'Baxışdadır', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' },
+  IN_INSPECTION: { label: 'Servisdədir', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' },
   DEFECTIVE: { label: 'Nasaz', cls: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' },
   OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' },
 }

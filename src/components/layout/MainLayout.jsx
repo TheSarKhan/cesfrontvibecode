@@ -9,8 +9,10 @@ import { useAuthStore } from '../../store/authStore'
 import { useNotifications } from '../../hooks/useNotifications'
 
 function getPageTitle(pathname) {
-  const match = NAV_ITEMS.find((item) => pathname.startsWith(item.path))
-  return match?.label ?? 'Dashboard'
+  const match = NAV_ITEMS.find((item) =>
+    item.path === '/' ? pathname === '/' : pathname.startsWith(item.path)
+  )
+  return match?.label ?? 'İdarə Paneli'
 }
 
 export default function MainLayout() {

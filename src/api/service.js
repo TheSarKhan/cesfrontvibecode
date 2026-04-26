@@ -1,9 +1,12 @@
 import api from './axios'
 
 export const serviceApi = {
-  getAll:    (params) => api.get('/service/records', { params }),
-  getById:   (id)     => api.get(`/service/records/${id}`),
-  create:    (data)   => api.post('/service/records', data),
-  update:    (id, data) => api.put(`/service/records/${id}`, data),
-  delete:    (id)     => api.delete(`/service/records/${id}`),
+  getAll:              (params)           => api.get('/service/records', { params }),
+  getById:             (id)               => api.get(`/service/records/${id}`),
+  create:              (data)             => api.post('/service/records', data),
+  update:              (id, data)         => api.put(`/service/records/${id}`, data),
+  delete:              (id)               => api.delete(`/service/records/${id}`),
+  complete:            (id, data)         => api.put(`/service/records/${id}/complete`, data),
+  updateChecklistItem: (id, itemId, data) => api.patch(`/service/records/${id}/checklist/${itemId}`, data),
+  patchInvoiceFields:  (id, data)         => api.patch(`/service/records/${id}/invoice-fields`, data),
 }
