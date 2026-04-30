@@ -34,7 +34,7 @@ function getFirstDayOfWeek(year, month) {
 export default function DateInput({ value, onChange, placeholder = 'gg.aa.iiii', className = '', ...rest }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState('days')
-  const [pos, setPos] = useState({ top: true, left: true })
+  const [dropStyle, setDropStyle] = useState({})
   const ref = useRef(null)
 
   const today = new Date()
@@ -61,14 +61,20 @@ export default function DateInput({ value, onChange, placeholder = 'gg.aa.iiii',
     if (open) setView('days')
   }, [open])
 
-  // Position dropdown
+  // Position dropdown — fixed positioning overrides any parent overflow:hidden
   useEffect(() => {
     if (!open || !ref.current) return
     const rect = ref.current.getBoundingClientRect()
     const dropH = 340, dropW = 264
-    setPos({
-      top: rect.bottom + dropH <= window.innerHeight,
-      left: rect.left + dropW <= window.innerWidth
+    const goDown = rect.bottom + dropH <= window.innerHeight
+    const goRight = rect.left + dropW <= window.innerWidth
+    setDropStyle({
+      position: 'fixed',
+      top:    goDown  ? `${rect.bottom + 4}px`               : 'auto',
+      bottom: goDown  ? 'auto'                                 : `${window.innerHeight - rect.top + 4}px`,
+      left:   goRight ? `${rect.left}px`                      : 'auto',
+      right:  goRight ? 'auto'                                 : `${window.innerWidth - rect.right}px`,
+      zIndex: 9999,
     })
   }, [open])
 
@@ -159,10 +165,7 @@ export default function DateInput({ value, onChange, placeholder = 'gg.aa.iiii',
       </div>
 
       {open && (
-        <div className={`absolute z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 w-64 select-none
-          ${pos.top ? 'mt-1 top-full' : 'mb-1 bottom-full'}
-          ${pos.left ? 'left-0' : 'right-0'}
-        `}>
+        <div style={dropStyle} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 w-64 select-none">
           {/* Header */}
           <div className="flex items-center justify-between mb-2">
             <button type="button" onClick={onPrev}

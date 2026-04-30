@@ -22,6 +22,8 @@ const CATEGORY_LABELS = {
   SERVICE_CHECKLIST: 'Servis Checklist Şablonları',
   DOCUMENT_VAT_RATE: 'Sənəd ƏDV Dərəcəsi',
   COMPANY_INFO:      'Şirkət Məlumatları',
+  EXPENSE_CATEGORY:  'Xərc Kateqoriyaları',
+  EXPENSE_SOURCE:    'Xərc Mənbələri',
 }
 
 const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat
@@ -377,7 +379,14 @@ export default function ConfigPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               {activeCategory && (
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{categoryLabel(activeCategory)}</span>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{categoryLabel(activeCategory)}</span>
+                    {activeCategory === 'EXPENSE_SOURCE' && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
+                        Hər mənbənin <strong>Təsvir</strong> sahəsinə üst kateqoriyanın açarını yazın (məs: <code>PROVIDER</code>)
+                      </p>
+                    )}
+                  </div>
                   {canCreate && (
                     <button
                       onClick={() => setModal({ open: true, editing: null })}
@@ -402,8 +411,10 @@ export default function ConfigPage() {
                         <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide w-8">#</th>
                           <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Açar / Ad</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dəyər</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Təsvir</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dəyər (Display Adı)</th>
+                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            {activeCategory === 'EXPENSE_SOURCE' ? 'Üst Kateqoriya açarı' : 'Təsvir'}
+                          </th>
                           <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                           <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
                         </tr>
@@ -427,7 +438,12 @@ export default function ConfigPage() {
                                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{item.key}</span>
                               </td>
                               <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400">{item.value || '—'}</td>
-                              <td className="py-2.5 px-4 text-xs text-gray-400 max-w-[200px] truncate">{item.description || '—'}</td>
+                              <td className="py-2.5 px-4 text-xs max-w-[200px] truncate">
+                                {activeCategory === 'EXPENSE_SOURCE' && item.description
+                                  ? <span className="font-mono text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">{item.description}</span>
+                                  : <span className="text-gray-400">{item.description || '—'}</span>
+                                }
+                              </td>
                               <td className="py-2.5 px-4 text-center">
                                 {canEdit ? (
                                   <button onClick={() => handleToggleActive(item)} title={item.active ? 'Deaktiv et' : 'Aktiv et'} className="transition-colors">

@@ -5,13 +5,12 @@ import {
   ArrowUpRight, ArrowDownRight, CreditCard,
   Receipt, Download, PenLine, X, CheckCircle, Undo2,
   ChevronDown, ArrowLeft, ChevronRight, Banknote,
-  Wrench, Eye, AlertTriangle, Printer, FileText
+  Eye, AlertTriangle, Printer, FileText, RefreshCw
 } from 'lucide-react'
+import RecurringExpenseModal from './RecurringExpenseModal'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { accountingApi } from '../../api/accounting'
-import { serviceApi } from '../../api/service'
-import ServiceInvoicePrintModal from '../service/ServiceInvoicePrintModal'
 import InvoiceModal from './InvoiceModal'
 import InvoicePrintModal from './InvoicePrintModal'
 import TransactionModal from './TransactionModal'
@@ -99,15 +98,16 @@ export default function AccountingInvoicesPage() {
   const [transactionModal, setTransactionModal] = useState({ open: false, editing: null, defaultType: null })
   const [paymentModal, setPaymentModal] = useState({ open: false, editing: null })
   const [printInv, setPrintInv] = useState(null)
-  const [serviceRecords, setServiceRecords] = useState([])
-  const [printSrvModal, setPrintSrvModal] = useState(null)
-  const [srvSearch, setSrvSearch] = useState('')
-  const [srvTypeFilter, setSrvTypeFilter] = useState('')
-  const [expandedSrvId, setExpandedSrvId] = useState(null)
-  const [srvInlineForm, setSrvInlineForm] = useState({ invoiceNumber: '', invoiceDate: '' })
-  const [srvInlineSaving, setSrvInlineSaving] = useState(false)
   const [docCreateModal, setDocCreateModal] = useState(false)
   const [docRefreshKey, setDocRefreshKey]   = useState(0)
+
+  // Daimi Ödənişlər (Recurring Expenses)
+  const [recurring, setRecurring]                     = useState([])
+  const [recurringModal, setRecurringModal]           = useState({ open: false, editing: null })
+  const [generateModal, setGenerateModal]             = useState({ open: false, rec: null })
+  const [generateForm, setGenerateForm]               = useState({ invoiceDate: new Date().toISOString().slice(0, 10), amountOverride: '' })
+  const [generateSaving, setGenerateSaving]           = useState(false)
+  const [recurringCollapsed, setRecurringCollapsed]   = useState(false)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -133,19 +133,25 @@ export default function AccountingInvoicesPage() {
   }
 
   /* ── Data Loading ── */
+  const loadRecurring = useCallback(async () => {
+    try {
+      const res = await accountingApi.getRecurring()
+      setRecurring(res.data?.data || [])
+    } catch {}
+  }, [])
+
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
       const results = await Promise.allSettled([
         accountingApi.getAll(),
         accountingApi.getSummary(),
-        serviceApi.getAll(),
+        accountingApi.getRecurring(),
       ])
       const extract = (r) => r.status === 'fulfilled' ? (r.value?.data?.data || r.value?.data || []) : []
       setInvoices(extract(results[0]))
       setSummary(results[1].status === 'fulfilled' ? (results[1].value?.data?.data || results[1].value?.data) : null)
-      const allSrv = extract(results[2])
-      setServiceRecords(allSrv.filter(r => r.completed && r.cost != null && parseFloat(r.cost) > 0))
+      setRecurring(extract(results[2]))
       // Hələlik boş
       setTransactions([])
       setPayments([])
@@ -182,7 +188,7 @@ export default function AccountingInvoicesPage() {
 
   // ── Paged invoices for the table (only APPROVED) ──
   const loadInvoices = useCallback(async () => {
-    if (activeTab !== 'invoices' || invoiceTab === 'service' || invoiceTab === 'pending') return
+    if (activeTab !== 'invoices' || invoiceTab === 'pending') return
     try {
       const params = { page: invoicePage, size: invoicePageSize, status: 'APPROVED' }
       if (invoiceTab) params.type = invoiceTab
@@ -306,13 +312,13 @@ const filteredTransactions = useMemo(() => {
 
   /* ── Delete handlers ── */
   const handleDeleteInvoice = async (inv) => {
-    if (!(await confirm({ title: 'Qaiməni sil', message: `"${inv.invoiceNumber || `#${inv.id}`}" silinsin?` }))) return
+    if (!(await confirm({ title: 'Qaiməni sil', message: `"${inv.accountingId || inv.invoiceNumber || `#${inv.id}`}" silinsin?` }))) return
     try { await accountingApi.delete(inv.id); toast.success('Qaimə silindi'); loadAll(); loadInvoices() }
     catch (err) { if (!err?.isPending) return }
   }
 
   const handleApprove = async (inv) => {
-    if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${inv.invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Layihənin maliyyə hissəsinə gəlir olaraq əlavə ediləcək.` }))) return
+    if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${inv.accountingId || inv.invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Layihənin maliyyə hissəsinə gəlir olaraq əlavə ediləcək.` }))) return
     try {
       if (expandedId === inv.id) {
         await accountingApi.patchFields(inv.id, {
@@ -330,7 +336,7 @@ const filteredTransactions = useMemo(() => {
   }
 
   const handleReturnToProject = async (inv) => {
-    if (!(await confirm({ title: 'Layihəyə geri göndər', message: `"${inv.invoiceNumber || `#${inv.id}`}" layihəyə geri qaytarılsın? Bu əməliyyat geri qaytarıla bilməz.` }))) return
+    if (!(await confirm({ title: 'Layihəyə geri göndər', message: `"${inv.accountingId || inv.invoiceNumber || `#${inv.id}`}" layihəyə geri qaytarılsın? Bu əməliyyat geri qaytarıla bilməz.` }))) return
     try { await accountingApi.returnToProject(inv.id); toast.success('Qaimə geri qaytarıldı'); loadAll(); loadInvoices() }
     catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
   }
@@ -379,7 +385,7 @@ const filteredTransactions = useMemo(() => {
   }
 
   const handlePendingApprove = async (inv) => {
-    if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${getPendingForm(inv.id, inv).invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Qaimə əsas cədvələ keçəcək.` }))) return
+    if (!(await confirm({ title: 'Qaiməni təsdiqlə', message: `"${inv.accountingId || getPendingForm(inv.id, inv).invoiceNumber || `#${inv.id}`}" təsdiqlənsin? Qaimə əsas cədvələ keçəcək.` }))) return
     setPendingSaving(prev => ({ ...prev, [inv.id]: true }))
     try {
       const form = getPendingForm(inv.id, inv)
@@ -495,19 +501,15 @@ const filteredTransactions = useMemo(() => {
               { id: 'pending', label: 'Gözləyənlər' },
               { id: '', label: 'Hamısı' },
               { id: 'INCOME', label: 'Gəlirlər' },
-              { id: 'PAYMENT', label: 'Ödəmələr' },
-              { id: 'COMPANY_EXPENSE', label: 'Xərclər' },
-              { id: 'service', label: 'Servis', icon: Wrench },
+              { id: 'PAYMENT', label: 'Podratçı' },
+              { id: 'COMPANY_EXPENSE', label: 'Təchizatçı' },
             ].map(tab => (
               <button key={tab.id} onClick={() => { setInvoiceTab(tab.id); setSearch('') }}
                 className={clsx('flex-1 flex items-center justify-center gap-1 py-1.5 px-2 text-[11px] font-medium rounded-md transition-colors',
                   invoiceTab === tab.id
-                    ? tab.id === 'service'
-                      ? 'bg-white dark:bg-gray-800 shadow-sm text-orange-600'
-                      : 'bg-white dark:bg-gray-800 shadow-sm text-amber-600'
+                    ? 'bg-white dark:bg-gray-800 shadow-sm text-amber-600'
                     : 'text-gray-500 hover:text-gray-700'
                 )}>
-                {tab.icon && <tab.icon size={11} />}
                 {tab.label}
                 {tab.id === 'pending' && pendingCount > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white">{pendingCount}</span>
@@ -516,13 +518,12 @@ const filteredTransactions = useMemo(() => {
                 {tab.id === 'INCOME' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === 'INCOME' && i.status === 'APPROVED').length})</span>}
                 {tab.id === 'PAYMENT' && <span className="ml-1 opacity-60">({invoices.filter(i => (i.type === 'CONTRACTOR_EXPENSE' || i.type === 'INVESTOR_EXPENSE') && i.status === 'APPROVED').length})</span>}
                 {tab.id === 'COMPANY_EXPENSE' && <span className="ml-1 opacity-60">({invoices.filter(i => i.type === 'COMPANY_EXPENSE' && i.status === 'APPROVED').length})</span>}
-                {tab.id === 'service' && serviceRecords.length > 0 && <span className="ml-1 opacity-60">({serviceRecords.length})</span>}
               </button>
             ))}
           </div>
 
           {/* Search */}
-          {invoiceTab !== 'service' && invoiceTab !== 'pending' && (
+          {invoiceTab !== 'pending' && (
             <div className="relative mb-4">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
@@ -530,194 +531,6 @@ const filteredTransactions = useMemo(() => {
                 className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
             </div>
           )}
-
-          {/* ── Servis Qaimələri cədvəli ── */}
-          {invoiceTab === 'service' && (() => {
-            const filteredSrv = serviceRecords.filter(r => {
-              const q = srvSearch.toLowerCase()
-              if (q && !r.equipmentName?.toLowerCase().includes(q) && !r.serviceType?.toLowerCase().includes(q)) return false
-              if (srvTypeFilter && r.recordType !== srvTypeFilter) return false
-              return true
-            })
-            const totalSrv = filteredSrv.reduce((s, r) => s + parseFloat(r.cost || 0), 0)
-            return (
-              <div>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <div className="relative flex-1 min-w-[200px]">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input value={srvSearch} onChange={e => setSrvSearch(e.target.value)}
-                      placeholder="Texnika, servis növü..."
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                  </div>
-                  <select value={srvTypeFilter} onChange={e => setSrvTypeFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500">
-                    <option value="">Bütün növlər</option>
-                    <option value="INSPECTION">Texniki Baxış</option>
-                    <option value="REPAIR">Texniki Servis</option>
-                  </select>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[800px]">
-                      <thead>
-                        <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                          <th className="w-8 py-3 px-2"></th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi / Texnika</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nəticə</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {loading ? <TableSkeleton cols={8} rows={5} /> :
-                          filteredSrv.length === 0 ? (
-                            <EmptyState icon={Wrench} title="Servis qaiməsi yoxdur" description="Xərci olan tamamlanmış servis qeydi tapılmadı" />
-                          ) : filteredSrv.map(rec => {
-                            const isInsp = rec.recordType === 'INSPECTION'
-                            const isAvail = rec.statusAfter === 'AVAILABLE'
-                            const isSrvExpanded = expandedSrvId === rec.id
-                            return (
-                              <Fragment key={rec.id}>
-                              <tr
-                                onClick={() => {
-                                  if (isSrvExpanded) { setExpandedSrvId(null) }
-                                  else { setExpandedSrvId(rec.id); setSrvInlineForm({ invoiceNumber: rec.invoiceNumber || '', invoiceDate: rec.invoiceDate || '' }) }
-                                }}
-                                className={clsx('border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
-                                  isSrvExpanded ? 'bg-orange-50/40 dark:bg-orange-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
-                                )}
-                              >
-                                <td className="py-2.5 px-2 text-center">
-                                  <ChevronDown size={14} className={clsx('text-gray-400 transition-transform mx-auto', isSrvExpanded && 'rotate-180')} />
-                                </td>
-                                <td className="py-2.5 px-4">
-                                  <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border',
-                                    isInsp
-                                      ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
-                                      : 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
-                                  )}>{isInsp ? 'Baxış' : 'Servis'}</span>
-                                </td>
-                                <td className="py-2.5 px-4">
-                                  <div className="flex flex-col">
-                                    <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">
-                                      {rec.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}
-                                    </p>
-                                    <span className="text-[10px] text-gray-400 truncate max-w-[180px]">{rec.equipmentName}{rec.plateNumber ? ` • ${rec.plateNumber}` : ''}</span>
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-4">
-                                  <span className="text-sm font-bold text-red-500">−{fmtMoney(rec.cost)}</span>
-                                </td>
-                                <td className="py-2.5 px-4 text-xs text-gray-500 whitespace-nowrap">{fmt(rec.serviceDate)}</td>
-                                <td className="py-2.5 px-4">
-                                  <div className="flex items-center gap-1.5">
-                                    {isInsp ? <Eye size={12} className="text-amber-500 shrink-0" /> : <Wrench size={12} className="text-orange-500 shrink-0" />}
-                                    <span className="text-xs text-gray-600 dark:text-gray-300">{isInsp ? 'Texniki Baxış' : 'Texniki Servis'}</span>
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-4">
-                                  {rec.statusAfter && (
-                                    <div className="flex items-center gap-1">
-                                      {isAvail
-                                        ? <CheckCircle size={11} className="text-green-500 shrink-0" />
-                                        : <AlertTriangle size={11} className="text-red-500 shrink-0" />}
-                                      <span className={clsx('text-[10px] font-bold', isAvail ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
-                                        {isAvail ? 'Hazırdır' : 'Nasaz'}
-                                      </span>
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-4">
-                                  {rec.invoiceNumber
-                                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-50 text-green-600 border border-green-200"><CheckCircle size={11} /> Doldurulub</span>
-                                    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">Gözləyir</span>
-                                  }
-                                </td>
-                              </tr>
-                              {isSrvExpanded && (
-                                <tr>
-                                  <td colSpan={8} className="p-0">
-                                    <div className="bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                                      <div className="space-y-4">
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sahələri doldur</p>
-                                        <div className="grid grid-cols-3 gap-3">
-                                          <div>
-                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
-                                            <input
-                                              value={srvInlineForm.invoiceNumber}
-                                              onChange={e => setSrvInlineForm(f => ({ ...f, invoiceNumber: e.target.value }))}
-                                              onClick={e => e.stopPropagation()}
-                                              placeholder="MT251010637360"
-                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
-                                            <DateInput
-                                              value={srvInlineForm.invoiceDate}
-                                              onChange={e => setSrvInlineForm(f => ({ ...f, invoiceDate: e.target.value }))}
-                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Qeydlər</label>
-                                            <input
-                                              value={rec.notes || ''}
-                                              disabled
-                                              className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500"
-                                            />
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <button
-                                            onClick={async (e) => {
-                                              e.stopPropagation()
-                                              setSrvInlineSaving(true)
-                                              try {
-                                                await serviceApi.patchInvoiceFields(rec.id, {
-                                                  invoiceNumber: srvInlineForm.invoiceNumber || null,
-                                                  invoiceDate: srvInlineForm.invoiceDate || null,
-                                                })
-                                                toast.success('Qaimə məlumatları saxlanıldı')
-                                                setServiceRecords(prev => prev.map(r => r.id === rec.id ? { ...r, invoiceNumber: srvInlineForm.invoiceNumber, invoiceDate: srvInlineForm.invoiceDate } : r))
-                                              } catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
-                                              finally { setSrvInlineSaving(false) }
-                                            }}
-                                            disabled={srvInlineSaving}
-                                            className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white transition-colors flex items-center gap-1.5"
-                                          >
-                                            <PenLine size={12} /> {srvInlineSaving ? 'Saxlanılır...' : 'Saxla'}
-                                          </button>
-                                          <button onClick={(e) => { e.stopPropagation(); setPrintSrvModal(rec) }}
-                                            className="px-4 py-2 text-xs font-semibold rounded-lg bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1.5"
-                                          >
-                                            <Printer size={12} /> Çap et
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                              </Fragment>
-                            )
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {filteredSrv.length > 0 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                      <span className="text-xs text-gray-500">{filteredSrv.length} qaimə</span>
-                      <span className="text-sm font-bold text-red-500">Cəmi: −{fmtMoney(totalSrv)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })()}
 
           {/* ── Gözləyən Qaimələr bölməsi ── */}
           {invoiceTab === 'pending' && (
@@ -770,17 +583,51 @@ const filteredTransactions = useMemo(() => {
                         {(inv.companyName || inv.contractorName) && <span>{inv.companyName || inv.contractorName}</span>}
                         {inv.equipmentName && <span className="text-gray-400">• {inv.equipmentName}</span>}
                         {inv.serviceDescription && <span className="italic truncate max-w-[200px]">• {inv.serviceDescription}</span>}
-                        {!inv.invoiceNumber && <span className="text-amber-500 font-medium">• Qaimə № doldurulmayıb</span>}
-                        {inv.invoiceNumber && <span className="font-mono font-semibold text-gray-700 dark:text-gray-300">• {inv.invoiceNumber}</span>}
+                        {inv.accountingId && <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">• {inv.accountingId}</span>}
+                        {inv.invoiceNumber && <span className="font-mono text-gray-600 dark:text-gray-300">• {inv.invoiceNumber}</span>}
                       </div>
+                      {/* Transportations */}
+                      {(() => {
+                        const transports = (() => {
+                          const v = inv.transportations
+                          if (!v) return []
+                          if (Array.isArray(v)) return v
+                          try { return JSON.parse(v) } catch { return [] }
+                        })()
+                        if (transports.length === 0) return null
+                        const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+                        return (
+                          <div className="mt-2 rounded-lg border border-blue-100 dark:border-blue-800/40 overflow-hidden">
+                            <div className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40 flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Texnika daşınmaları</span>
+                              <span className="text-[10px] font-bold text-blue-600">{fmtMoney(total)}</span>
+                            </div>
+                            {transports.map((t, i) => (
+                              <div key={i} className="flex items-center justify-between px-2.5 py-1 text-[11px] border-b border-gray-50 dark:border-gray-700 last:border-0">
+                                <div className="flex items-center gap-2">
+                                  {t.date && <span className="text-gray-400">{new Date(t.date).toLocaleDateString('az-AZ')}</span>}
+                                  <span className="text-gray-600 dark:text-gray-300">{t.direction || '—'}</span>
+                                </div>
+                                <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
                       {/* Fill form */}
+                      {inv.accountingId && (
+                        <div className="mb-1.5 px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg flex items-center gap-2">
+                          <span className="text-[10px] text-indigo-500 font-medium">Sistem ID:</span>
+                          <span className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300">{inv.accountingId}</span>
+                        </div>
+                      )}
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Əsl qaimə № <span className="text-gray-400">(könüllü)</span></label>
                           <input
                             value={form.invoiceNumber}
                             onChange={e => setPendingField(inv.id, 'invoiceNumber', e.target.value)}
-                            placeholder="MT25..."
+                            placeholder="MT20250419..."
                             className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
                           />
                         </div>
@@ -884,6 +731,131 @@ const filteredTransactions = useMemo(() => {
             )
           })()}
 
+          {/* ── Daimi Ödənişlər bölməsi (yalnız Təchizatçı tabı) ── */}
+          {invoiceTab === 'COMPANY_EXPENSE' && (
+            <div className="mb-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-visible">
+              {/* Section Header */}
+              <div
+                className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+                onClick={() => setRecurringCollapsed(c => !c)}
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw size={14} className="text-amber-500" />
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Daimi Ödənişlər</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    {recurring.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {canCreate && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setRecurringModal({ open: true, editing: null }) }}
+                      className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
+                    >
+                      <Plus size={11} /> Yeni
+                    </button>
+                  )}
+                  <ChevronDown size={14} className={`text-gray-400 transition-transform ${recurringCollapsed ? '' : 'rotate-180'}`} />
+                </div>
+              </div>
+
+              {/* Recurring Cards */}
+              {!recurringCollapsed && (
+                <div className="border-t border-gray-100 dark:border-gray-700 p-3">
+                  {recurring.length === 0 ? (
+                    <div className="text-center py-6 text-sm text-gray-400">
+                      <RefreshCw size={24} className="mx-auto mb-2 opacity-30" />
+                      Daimi ödəniş şablonu yoxdur
+                    </div>
+                  ) : (
+                    (() => {
+                      // Group by category
+                      const grouped = {}
+                      recurring.forEach(r => {
+                        const cat = r.categoryLabel || r.categoryKey
+                        if (!grouped[cat]) grouped[cat] = []
+                        grouped[cat].push(r)
+                      })
+                      return Object.entries(grouped).map(([cat, items]) => (
+                        <div key={cat} className="mb-3 last:mb-0">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">{cat}</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                            {items.map(rec => (
+                              <div
+                                key={rec.id}
+                                className={`relative rounded-lg border p-3 transition-all ${rec.active
+                                  ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750'
+                                  : 'border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 opacity-60'
+                                }`}
+                              >
+                                {/* Card header */}
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div>
+                                    <p className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-tight">{rec.sourceLabel}</p>
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-tight">{rec.name}</p>
+                                  </div>
+                                  <div className="flex gap-1 shrink-0">
+                                    {canEdit && (
+                                      <button
+                                        onClick={() => setRecurringModal({ open: true, editing: rec })}
+                                        className="p-1 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                      >
+                                        <Pencil size={11} />
+                                      </button>
+                                    )}
+                                    {canDelete && (
+                                      <button
+                                        onClick={async () => {
+                                          if (!await confirm({ title: 'Daimi ödənişi sil', message: `"${rec.name}" silinsin?` })) return
+                                          await accountingApi.deleteRecurring(rec.id)
+                                          loadRecurring()
+                                        }}
+                                        className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                      >
+                                        <Trash2 size={11} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Amount + Freq */}
+                                <div className="flex items-center justify-between text-[10px] mb-2">
+                                  <span className={`font-bold text-sm ${rec.variableAmount ? 'text-gray-400 italic' : 'text-red-500'}`}>
+                                    {rec.variableAmount ? 'Dəyişkən' : `−${fmtMoney(rec.amount)}`}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
+                                    {rec.frequencyLabel}
+                                    {rec.dayOfMonth ? ` · ${rec.dayOfMonth}-ci gün` : ''}
+                                  </span>
+                                </div>
+
+                                {/* Generate button */}
+                                {canCreate && rec.active && (
+                                  <button
+                                    onClick={() => {
+                                      setGenerateModal({ open: true, rec })
+                                      setGenerateForm({
+                                        invoiceDate: new Date().toISOString().slice(0, 10),
+                                        amountOverride: rec.variableAmount ? '' : String(rec.amount),
+                                      })
+                                    }}
+                                    className="w-full py-1.5 text-[11px] font-semibold bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg transition-colors flex items-center justify-center gap-1"
+                                  >
+                                    <Receipt size={11} /> Qaimə Yarat
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    })()
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Table — only for non-pending, non-service tabs */}
           {invoiceTab !== 'service' && invoiceTab !== 'pending' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -893,7 +865,7 @@ const filteredTransactions = useMemo(() => {
                   <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
                     <th className="w-8 py-3 px-2"></th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qaimə nömrəsi / Açıqlama</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sistem ID / Qaimə №</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Məbləğ</th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
                     {invoiceTab !== 'COMPANY_EXPENSE' && (
@@ -956,9 +928,13 @@ const filteredTransactions = useMemo(() => {
                           </td>
                           <td className="py-2.5 px-4">
                             <div className="flex flex-col">
-                              <p className="text-xs font-mono font-semibold text-gray-800 dark:text-gray-200">
-                                {inv.invoiceNumber || <span className="text-gray-400 italic font-normal">doldurulmayıb</span>}
-                              </p>
+                              {inv.accountingId
+                                ? <p className="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400">{inv.accountingId}</p>
+                                : <p className="text-xs text-gray-400 italic">—</p>
+                              }
+                              {inv.invoiceNumber && (
+                                <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400">{inv.invoiceNumber}</p>
+                              )}
                               {inv.type === 'COMPANY_EXPENSE' && (
                                 <span className="text-[10px] text-gray-400 italic truncate max-w-[180px]">{inv.serviceDescription}</span>
                               )}
@@ -1006,12 +982,12 @@ const filteredTransactions = useMemo(() => {
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sahələri doldur</p>
                                     <div className="grid grid-cols-3 gap-3">
                                       <div>
-                                        <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                                        <label className="block text-[10px] font-medium text-gray-500 mb-1">Əsl qaimə № <span className="text-gray-400">(könüllü)</span></label>
                                         <input
                                           value={inlineForm.invoiceNumber}
                                           onChange={e => setInlineForm(f => ({ ...f, invoiceNumber: e.target.value }))}
                                           onClick={e => e.stopPropagation()}
-                                          placeholder="MT251010637360"
+                                          placeholder="MT20250419..."
                                           className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white dark:bg-gray-800"
                                         />
                                       </div>
@@ -1064,10 +1040,29 @@ const filteredTransactions = useMemo(() => {
                                       <CheckCircle size={14} className="text-green-500" />
                                       <span className="text-xs font-semibold text-green-700">Təsdiqlənmiş qaimə</span>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4 text-xs">
+                                    <div className="grid grid-cols-4 gap-4 text-xs">
                                       <div>
-                                        <span className="text-gray-400">Qaimə №</span>
-                                        <p className="font-mono font-semibold text-gray-800 dark:text-gray-200">{inv.invoiceNumber || '—'}</p>
+                                        <span className="text-gray-400">Sistem ID</span>
+                                        <p className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{inv.accountingId || '—'}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-400">Əsl qaimə № <span className="text-[9px]">(könüllü)</span></span>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <input
+                                            value={inlineForm.invoiceNumber}
+                                            onChange={e => setInlineForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                                            onClick={e => e.stopPropagation()}
+                                            placeholder="MT20250419..."
+                                            className="w-full px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white dark:bg-gray-800"
+                                          />
+                                          <button
+                                            onClick={e => { e.stopPropagation(); handleInlineSave(inv) }}
+                                            disabled={inlineSaving}
+                                            className="px-2 py-1 text-[10px] font-semibold rounded bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-50 whitespace-nowrap"
+                                          >
+                                            {inlineSaving ? '...' : 'Saxla'}
+                                          </button>
+                                        </div>
                                       </div>
                                       <div>
                                         <span className="text-gray-400">Tarix</span>
@@ -1078,6 +1073,33 @@ const filteredTransactions = useMemo(() => {
                                         <p className="text-gray-600 dark:text-gray-300">{inv.notes || '—'}</p>
                                       </div>
                                     </div>
+                                    {(() => {
+                                      const transports = (() => {
+                                        const v = inv.transportations
+                                        if (!v) return []
+                                        if (Array.isArray(v)) return v
+                                        try { return JSON.parse(v) } catch { return [] }
+                                      })()
+                                      if (transports.length === 0) return null
+                                      const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+                                      return (
+                                        <div className="rounded-lg border border-blue-100 dark:border-blue-800/40 overflow-hidden">
+                                          <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40 flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Texnika daşınmaları</span>
+                                            <span className="text-[10px] font-bold text-blue-600">{fmtMoney(total)}</span>
+                                          </div>
+                                          {transports.map((t, i) => (
+                                            <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-gray-50 dark:border-gray-700 last:border-0">
+                                              <div className="flex items-center gap-3">
+                                                {t.date && <span className="text-gray-400">{new Date(t.date).toLocaleDateString('az-AZ')}</span>}
+                                                <span className="text-gray-700 dark:text-gray-300">{t.direction || '—'}</span>
+                                              </div>
+                                              <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )
+                                    })()}
                                   </div>
                                 ) : inv.status === 'RETURNED' ? (
                                   <div className="space-y-3">
@@ -1367,11 +1389,11 @@ const filteredTransactions = useMemo(() => {
             {/* Form */}
             <div className="px-5 py-4 space-y-3">
               <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-1">Qaimə nömrəsi</label>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">Əsl qaimə № <span className="text-gray-400">(könüllü)</span></label>
                 <input
                   value={fieldsModal.form.invoiceNumber}
                   onChange={e => setFieldsModal(s => ({ ...s, form: { ...s.form, invoiceNumber: e.target.value } }))}
-                  placeholder="MT251010637360"
+                  placeholder="MT20250419..."
                   className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -1433,6 +1455,96 @@ const filteredTransactions = useMemo(() => {
       {printSrvModal && <ServiceInvoicePrintModal record={printSrvModal} onClose={() => setPrintSrvModal(null)} />}
       <ConfirmDialog />
       {docCreateModal && <DocumentCreateModal onClose={() => setDocCreateModal(false)} onCreated={() => { setDocCreateModal(false); setDocRefreshKey(k => k + 1) }} />}
+
+      {/* ═══ Daimi Ödəniş Modal ═══ */}
+      {recurringModal.open && (
+        <RecurringExpenseModal
+          editing={recurringModal.editing}
+          onClose={() => setRecurringModal({ open: false, editing: null })}
+          onSaved={() => { setRecurringModal({ open: false, editing: null }); loadRecurring() }}
+        />
+      )}
+
+      {/* ═══ Qaimə Yarat Modal (Generate from Recurring) ═══ */}
+      {generateModal.open && generateModal.rec && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                  <Receipt size={14} className="text-red-500" /> Qaimə Yarat
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {generateModal.rec.categoryLabel} · <span className="font-semibold text-gray-600 dark:text-gray-300">{generateModal.rec.sourceLabel}</span>
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">{generateModal.rec.name}</p>
+              </div>
+              <button onClick={() => setGenerateModal({ open: false, rec: null })} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 transition-colors">
+                <X size={14} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Tarix *</label>
+                <DateInput
+                  value={generateForm.invoiceDate}
+                  onChange={e => setGenerateForm(f => ({ ...f, invoiceDate: e.target.value }))}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 cursor-pointer"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Məbləğ {generateModal.rec.variableAmount ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal">(dəyişə bilər)</span>}
+                </label>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={generateForm.amountOverride}
+                  onChange={e => setGenerateForm(f => ({ ...f, amountOverride: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                disabled={generateSaving}
+                onClick={async () => {
+                  if (!generateForm.invoiceDate) return toast.error('Tarix seçin')
+                  const amount = parseFloat(generateForm.amountOverride) || 0
+                  if (generateModal.rec.variableAmount && amount <= 0) return toast.error('Məbləğ daxil edin')
+                  setGenerateSaving(true)
+                  try {
+                    await accountingApi.generateFromRecurring(generateModal.rec.id, {
+                      invoiceDate: generateForm.invoiceDate,
+                      amountOverride: amount > 0 ? amount : null,
+                    })
+                    toast.success('Qaimə yaradıldı — gözləyənlərə əlavə edildi')
+                    setGenerateModal({ open: false, rec: null })
+                    loadAll()
+                    loadInvoices()
+                  } catch (err) {
+                    toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+                  } finally {
+                    setGenerateSaving(false)
+                  }
+                }}
+                className="flex-1 py-2.5 text-sm font-semibold bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {generateSaving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Qaimə Yarat
+              </button>
+              <button
+                onClick={() => setGenerateModal({ open: false, rec: null })}
+                className="px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Ləğv et
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

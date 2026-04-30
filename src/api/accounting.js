@@ -62,6 +62,14 @@ export const accountingApi = {
   deletePayablePayment: (id, paymentId) => api.delete(`/accounting/payables/${id}/payments/${paymentId}`),
   completePayable: (id) => api.post(`/accounting/payables/${id}/complete`),
 
+  // ── Daimi Ödənişlər (Recurring Expenses) ──
+  getRecurring: ()           => api.get('/accounting/recurring'),
+  getRecurringActive: ()     => api.get('/accounting/recurring/active'),
+  createRecurring: (data)    => api.post('/accounting/recurring', data),
+  updateRecurring: (id, data)=> api.put(`/accounting/recurring/${id}`, data),
+  deleteRecurring: (id)      => api.delete(`/accounting/recurring/${id}`),
+  generateFromRecurring: (id, data) => api.post(`/accounting/recurring/${id}/generate`, data),
+
   // ── Sənədlər (Generated Documents) ──
   getDocumentsPaged: (params) => api.get('/accounting/documents/paged', { params }),
   getDocument: (id) => api.get(`/accounting/documents/${id}`),
