@@ -856,8 +856,8 @@ const filteredTransactions = useMemo(() => {
             </div>
           )}
 
-          {/* Table — only for non-pending, non-service tabs */}
-          {invoiceTab !== 'service' && invoiceTab !== 'pending' && (
+          {/* Table — only for non-pending tabs */}
+          {invoiceTab !== 'pending' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px]">
@@ -1452,7 +1452,6 @@ const filteredTransactions = useMemo(() => {
       )}
 
       {printInv && <InvoicePrintModal inv={printInv} onClose={() => setPrintInv(null)} />}
-      {printSrvModal && <ServiceInvoicePrintModal record={printSrvModal} onClose={() => setPrintSrvModal(null)} />}
       <ConfirmDialog />
       {docCreateModal && <DocumentCreateModal onClose={() => setDocCreateModal(false)} onCreated={() => { setDocCreateModal(false); setDocRefreshKey(k => k + 1) }} />}
 

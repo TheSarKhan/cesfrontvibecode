@@ -118,7 +118,7 @@ export default function AccountingPage() {
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{card.description}</p>
               {card.disabled && (
                 <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full">
-                  Tezliklə
+                  Soon
                 </span>
               )}
             </button>
