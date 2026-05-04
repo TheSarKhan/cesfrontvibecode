@@ -108,6 +108,7 @@ export const NAV_ITEMS = [
     path: '/service',
     icon: Wrench,
     module: 'SERVICE_MANAGEMENT',
+    comingSoon: true,
   },
   {
     id: 'approval',

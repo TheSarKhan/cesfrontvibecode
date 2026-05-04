@@ -191,7 +191,11 @@ export default function AccountingInvoicesPage() {
     if (activeTab !== 'invoices' || invoiceTab === 'pending') return
     try {
       const params = { page: invoicePage, size: invoicePageSize, status: 'APPROVED' }
-      if (invoiceTab) params.type = invoiceTab
+      if (invoiceTab === 'PAYMENT') {
+        params.types = 'CONTRACTOR_EXPENSE,INVESTOR_EXPENSE'
+      } else if (invoiceTab) {
+        params.type = invoiceTab
+      }
       if (search) params.q = search
       const res = await accountingApi.getAllPaged(params)
       setInvoiceData(res.data.data || res.data)
@@ -406,6 +410,43 @@ const filteredTransactions = useMemo(() => {
     }
   }
 
+  const handlePendingApproveGroup = async (group) => {
+    const all = [group.income, ...group.expenses].filter(Boolean)
+    if (all.length === 0) return
+    if (!(await confirm({
+      title: 'Hər ikisini təsdiqlə',
+      message: `Bu layihəyə aid ${all.length} qaimə (gəlir + xərc) bir anda təsdiqlənsin? Hər biri əsas cədvələ keçəcək.`
+    }))) return
+    const idsObj = all.reduce((acc, inv) => ({ ...acc, [inv.id]: true }), {})
+    setPendingSaving(prev => ({ ...prev, ...idsObj }))
+    try {
+      for (const inv of all) {
+        const form = getPendingForm(inv.id, inv)
+        await accountingApi.patchFields(inv.id, {
+          invoiceNumber: form.invoiceNumber || null,
+          invoiceDate: form.invoiceDate || null,
+          notes: form.notes || null,
+        })
+        await accountingApi.approve(inv.id)
+      }
+      toast.success(`${all.length} qaimə təsdiqləndi`)
+      setPendingForms(prev => {
+        const n = { ...prev }
+        all.forEach(inv => delete n[inv.id])
+        return n
+      })
+      loadAll()
+      loadInvoices()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Xəta baş verdi — bəzi qaimələr təsdiqlənmədi')
+      loadAll()
+      loadInvoices()
+    } finally {
+      const reset = all.reduce((acc, inv) => ({ ...acc, [inv.id]: false }), {})
+      setPendingSaving(prev => ({ ...prev, ...reset }))
+    }
+  }
+
   const handleDeleteTransaction = async (t) => {
     if (!(await confirm({ title: 'Əməliyyatı sil', message: `${fmtMoney(t.amount)} məbləğli əməliyyat silinsin?` }))) return
     try { await accountingApi.deleteTransaction(t.id); toast.success('Əməliyyat silindi'); loadAll() }
@@ -534,9 +575,9 @@ const filteredTransactions = useMemo(() => {
 
           {/* ── Gözləyən Qaimələr bölməsi ── */}
           {invoiceTab === 'pending' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {loading ? (
-                [1, 2, 3].map(i => <div key={i} className="h-36 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)
+                [1, 2, 3].map(i => <div key={i} className="h-44 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)
               ) : pendingGroups.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
                   <CheckCircle size={36} className="text-green-400 mx-auto mb-3" />
@@ -554,38 +595,88 @@ const filteredTransactions = useMemo(() => {
                 const hasExpenses = group.expenses.length > 0
                 const isPair = hasIncome && hasExpenses
                 const firstInv = group.income || group.expenses[0]
+                const incomeAmt = group.income ? parseFloat(group.income.amount || 0) : 0
+                const expenseAmt = group.expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0)
+                const margin = incomeAmt - expenseAmt
+                const marginPct = incomeAmt > 0 ? (margin / incomeAmt * 100) : 0
 
-                const renderInvoicePanel = (inv, isLinked) => {
+                const renderInvoicePanel = (inv) => {
                   const form = getPendingForm(inv.id, inv)
                   const saving = !!pendingSaving[inv.id]
                   const typeCfg = TYPE_CONFIG[inv.type] || TYPE_CONFIG.INCOME
+                  const isIncome = inv.type === 'INCOME'
+                  const accentClasses = isIncome
+                    ? 'border-l-green-500 bg-green-50/30 dark:bg-green-900/10'
+                    : inv.type === 'INVESTOR_EXPENSE'
+                      ? 'border-l-purple-500 bg-purple-50/30 dark:bg-purple-900/10'
+                      : inv.type === 'COMPANY_EXPENSE'
+                        ? 'border-l-red-500 bg-red-50/30 dark:bg-red-900/10'
+                        : 'border-l-blue-500 bg-blue-50/30 dark:bg-blue-900/10'
+                  const fieldsComplete = !!(form.invoiceNumber && form.invoiceDate)
                   return (
-                    <div key={inv.id} className="p-4 space-y-3">
-                      {/* Invoice type + amount */}
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border', typeCfg.cls)}>{typeCfg.label}</span>
-                          {isLinked && <span className="text-[10px] text-gray-400 italic">bağlı xərc</span>}
-                          <span className={clsx('text-sm font-bold', inv.type === 'INCOME' ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
-                            {inv.type === 'INCOME' ? '+' : '−'}{fmtMoney(inv.amount)}
-                          </span>
+                    <div key={inv.id} className={clsx('p-4 space-y-3 border-l-4', accentClasses)}>
+                      {/* Header: type + counterparty + amount */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={clsx('px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wide', typeCfg.cls)}>
+                              {isIncome ? 'Müştəridən gələn' : inv.type === 'INVESTOR_EXPENSE' ? 'İnvestora ödəniş' : inv.type === 'COMPANY_EXPENSE' ? 'Şirkət xərci' : 'Podratçıya ödəniş'}
+                            </span>
+                            <span className={clsx('px-1.5 py-0.5 rounded text-[9px] font-semibold border',
+                              inv.status === 'SENT'
+                                ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
+                                : 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                            )}>
+                              {inv.status === 'SENT' ? 'Göndərilib' : 'Qaralama'}
+                            </span>
+                            {fieldsComplete && (
+                              <span title="Bütün məcburi sahələr doldurulub" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-100 dark:bg-green-900/30">
+                                <CheckCircle size={10} className="text-green-600 dark:text-green-400" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                            {inv.customerName || inv.contractorName || inv.companyName || (isIncome ? 'Müştəri' : 'Tərəf-müqabil')}
+                          </div>
+                          {inv.equipmentName && (
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                              {inv.equipmentName}
+                            </div>
+                          )}
                         </div>
-                        <span className={clsx('px-2 py-0.5 rounded text-[10px] font-semibold border',
-                          inv.status === 'SENT'
-                            ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
-                            : 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
-                        )}>
-                          {inv.status === 'SENT' ? 'Göndərilib' : 'Qaralama'}
-                        </span>
+                        <div className="text-right shrink-0">
+                          <div className={clsx('text-lg font-bold tabular-nums', isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400')}>
+                            {isIncome ? '+' : '−'}{fmtMoney(inv.amount)}
+                          </div>
+                          {inv.accountingId && (
+                            <div className="text-[10px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                              {inv.accountingId}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {/* Details */}
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                        {(inv.companyName || inv.contractorName) && <span>{inv.companyName || inv.contractorName}</span>}
-                        {inv.equipmentName && <span className="text-gray-400">• {inv.equipmentName}</span>}
-                        {inv.serviceDescription && <span className="italic truncate max-w-[200px]">• {inv.serviceDescription}</span>}
-                        {inv.accountingId && <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">• {inv.accountingId}</span>}
-                        {inv.invoiceNumber && <span className="font-mono text-gray-600 dark:text-gray-300">• {inv.invoiceNumber}</span>}
-                      </div>
+
+                      {/* Period & days breakdown */}
+                      {(inv.periodMonth || inv.standardDays != null || inv.extraDays != null || inv.extraHours != null) && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] bg-white/60 dark:bg-gray-800/40 rounded-lg px-2.5 py-1.5 border border-gray-100 dark:border-gray-700">
+                          {inv.periodMonth && inv.periodYear && (
+                            <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                              {new Date(inv.periodYear, inv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'long', year: 'numeric' })}
+                            </span>
+                          )}
+                          {inv.standardDays != null && <span className="text-gray-500">Standart: <b className="text-gray-700 dark:text-gray-300">{inv.standardDays} gün</b></span>}
+                          {inv.extraDays != null && parseFloat(inv.extraDays) > 0 && <span className="text-gray-500">Əlavə: <b className="text-gray-700 dark:text-gray-300">{inv.extraDays} gün</b></span>}
+                          {inv.extraHours != null && parseFloat(inv.extraHours) > 0 && <span className="text-gray-500">+<b className="text-gray-700 dark:text-gray-300">{inv.extraHours} saat</b></span>}
+                        </div>
+                      )}
+
+                      {/* Service description */}
+                      {inv.serviceDescription && (
+                        <div className="text-[11px] text-gray-600 dark:text-gray-400 italic line-clamp-2 px-1">
+                          {inv.serviceDescription}
+                        </div>
+                      )}
+
                       {/* Transportations */}
                       {(() => {
                         const transports = (() => {
@@ -597,9 +688,9 @@ const filteredTransactions = useMemo(() => {
                         if (transports.length === 0) return null
                         const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
                         return (
-                          <div className="mt-2 rounded-lg border border-blue-100 dark:border-blue-800/40 overflow-hidden">
-                            <div className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40 flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Texnika daşınmaları</span>
+                          <div className="rounded-lg border border-blue-100 dark:border-blue-800/40 overflow-hidden">
+                            <div className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40 flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Daşınma</span>
                               <span className="text-[10px] font-bold text-blue-600">{fmtMoney(total)}</span>
                             </div>
                             {transports.map((t, i) => (
@@ -614,16 +705,11 @@ const filteredTransactions = useMemo(() => {
                           </div>
                         )
                       })()}
-                      {/* Fill form */}
-                      {inv.accountingId && (
-                        <div className="mb-1.5 px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg flex items-center gap-2">
-                          <span className="text-[10px] text-indigo-500 font-medium">Sistem ID:</span>
-                          <span className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300">{inv.accountingId}</span>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-3 gap-2">
+
+                      {/* Accountant fields */}
+                      <div className="grid grid-cols-3 gap-2 pt-1">
                         <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Əsl qaimə № <span className="text-gray-400">(könüllü)</span></label>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Əsl qaimə № <span className="text-gray-400">(könüllü)</span></label>
                           <input
                             value={form.invoiceNumber}
                             onChange={e => setPendingField(inv.id, 'invoiceNumber', e.target.value)}
@@ -632,7 +718,7 @@ const filteredTransactions = useMemo(() => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Tarix</label>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Tarix</label>
                           <DateInput
                             value={form.invoiceDate}
                             onChange={e => setPendingField(inv.id, 'invoiceDate', e.target.value)}
@@ -640,7 +726,7 @@ const filteredTransactions = useMemo(() => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-1">Qeyd</label>
+                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Qeyd</label>
                           <input
                             value={form.notes}
                             onChange={e => setPendingField(inv.id, 'notes', e.target.value)}
@@ -649,26 +735,27 @@ const filteredTransactions = useMemo(() => {
                           />
                         </div>
                       </div>
+
                       {/* Actions */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
                         <button onClick={() => handlePendingSave(inv)} disabled={saving}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 transition-colors flex items-center gap-1">
-                          <PenLine size={11} /> {saving ? 'Saxlanır...' : 'Saxla'}
+                          className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-50 transition-colors flex items-center gap-1">
+                          <PenLine size={10} /> {saving ? 'Saxlanır...' : 'Saxla'}
                         </button>
                         <button onClick={() => handlePendingApprove(inv)} disabled={saving}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-500 hover:bg-green-600 text-white disabled:opacity-50 transition-colors flex items-center gap-1">
-                          <CheckCircle size={11} /> Təsdiqlə
+                          className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-green-500 hover:bg-green-600 text-white disabled:opacity-50 transition-colors flex items-center gap-1">
+                          <CheckCircle size={10} /> Təsdiqlə
                         </button>
                         {inv.projectId && (inv.type === 'INCOME' || inv.type === 'COMPANY_EXPENSE') && (
                           <button onClick={() => handleReturnToProject(inv)}
-                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white hover:bg-orange-50 dark:bg-gray-700 dark:hover:bg-orange-900/20 text-orange-600 border border-orange-200 dark:border-orange-800 transition-colors flex items-center gap-1">
-                            <Undo2 size={11} /> Geri Qaytar
+                            className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-white hover:bg-orange-50 dark:bg-gray-700 dark:hover:bg-orange-900/20 text-orange-600 border border-orange-200 dark:border-orange-800 transition-colors flex items-center gap-1">
+                            <Undo2 size={10} /> Geri
                           </button>
                         )}
                         {canDelete && (
-                          <button onClick={() => handleDeleteInvoice(inv)}
-                            className="px-3 py-1.5 text-xs font-semibold rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 bg-white dark:bg-gray-700 transition-colors flex items-center gap-1 ml-auto">
-                            <Trash2 size={11} /> Sil
+                          <button onClick={() => handleDeleteInvoice(inv)} title="Sil"
+                            className="ml-auto p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 bg-white dark:bg-gray-700 transition-colors">
+                            <Trash2 size={11} />
                           </button>
                         )}
                       </div>
@@ -677,29 +764,88 @@ const filteredTransactions = useMemo(() => {
                 }
 
                 return (
-                  <div key={group.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
-                    {/* Card header */}
-                    <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700">
-                      {firstInv.projectCode && (
-                        <span className="font-mono text-xs font-bold text-green-600 dark:text-green-400">{firstInv.projectCode}</span>
-                      )}
-                      {firstInv.periodMonth && firstInv.periodYear && (
-                        <span className="text-xs text-indigo-600 dark:text-indigo-400">
-                          {new Date(firstInv.periodYear, firstInv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'long', year: 'numeric' })}
+                  <div key={group.id} className={clsx(
+                    'bg-white dark:bg-gray-800 border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow',
+                    isPair ? 'border-amber-200 dark:border-amber-800/50' : 'border-gray-200 dark:border-gray-700'
+                  )}>
+                    {/* Card header — project info + cash flow summary */}
+                    <div className={clsx(
+                      'px-4 py-2.5 border-b flex items-center justify-between gap-3 flex-wrap',
+                      isPair
+                        ? 'bg-gradient-to-r from-amber-50/60 via-white to-amber-50/60 dark:from-amber-900/10 dark:via-gray-800 dark:to-amber-900/10 border-amber-100 dark:border-amber-900/30'
+                        : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700'
+                    )}>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {firstInv.projectCode && (
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                            {firstInv.projectCode}
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          {firstInv.projectName && (
+                            <div className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">{firstInv.projectName}</div>
+                          )}
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                            {firstInv.periodMonth && firstInv.periodYear && (
+                              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                                {new Date(firstInv.periodYear, firstInv.periodMonth - 1).toLocaleDateString('az-AZ', { month: 'long', year: 'numeric' })}
+                              </span>
+                            )}
+                            <span>{fmt(firstInv.invoiceDate || firstInv.createdAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right-side: cash flow / margin or single amount */}
+                      {isPair ? (
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className="text-green-600 dark:text-green-400 font-bold tabular-nums">+{fmtMoney(incomeAmt)}</span>
+                          <ChevronRight size={12} className="text-gray-400" />
+                          <span className="text-red-500 font-bold tabular-nums">−{fmtMoney(expenseAmt)}</span>
+                          <span className="text-gray-300 dark:text-gray-600">=</span>
+                          <span className={clsx(
+                            'px-2 py-0.5 rounded-md font-bold tabular-nums border',
+                            margin >= 0
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800'
+                              : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
+                          )}>
+                            {margin >= 0 ? '+' : ''}{fmtMoney(margin)}
+                            {incomeAmt > 0 && <span className="ml-1 opacity-70">({marginPct.toFixed(0)}%)</span>}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-gray-400 italic">
+                          {hasIncome ? 'Tək gəlir qaiməsi' : 'Tək xərc qaiməsi'}
                         </span>
                       )}
-                      {isPair && (
-                        <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full font-medium">
-                          {1 + group.expenses.length} qaimə birləşdirilmiş
-                        </span>
-                      )}
-                      <span className="ml-auto text-[10px] text-gray-400">{fmt(firstInv.invoiceDate || firstInv.createdAt)}</span>
                     </div>
-                    {/* Invoice panels */}
-                    <div className={clsx(isPair && 'grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700')}>
-                      {hasIncome && renderInvoicePanel(group.income, false)}
-                      {group.expenses.map(exp => renderInvoicePanel(exp, true))}
+
+                    {/* Invoice panels — side by side when paired */}
+                    <div className={clsx(isPair && 'grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700')}>
+                      {hasIncome && renderInvoicePanel(group.income)}
+                      {group.expenses.map(exp => renderInvoicePanel(exp))}
                     </div>
+
+                    {/* Unified approve action — only when both income & expense exist */}
+                    {isPair && (() => {
+                      const all = [group.income, ...group.expenses]
+                      const anySaving = all.some(inv => pendingSaving[inv.id])
+                      return (
+                        <div className="px-4 py-3 bg-gradient-to-r from-amber-50/80 via-amber-50/40 to-amber-50/80 dark:from-amber-900/20 dark:via-amber-900/10 dark:to-amber-900/20 border-t border-amber-100 dark:border-amber-900/30 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="text-[11px] text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                            <CheckCircle size={12} />
+                            <span>Bu layihənin gəlir və xərc qaimələri eyni anda təsdiqlənə bilər</span>
+                          </div>
+                          <button
+                            onClick={() => handlePendingApproveGroup(group)}
+                            disabled={anySaving}
+                            className="px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-sm">
+                            <CheckCircle size={13} />
+                            {anySaving ? 'Təsdiqlənir...' : `Hər ikisini təsdiqlə (${all.length})`}
+                          </button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}
