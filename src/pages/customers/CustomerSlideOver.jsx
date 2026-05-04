@@ -1,13 +1,12 @@
 import DateInput from '../../components/common/DateInput'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
-  X, Pencil, Trash2, Building2, Phone, MapPin,
-  CreditCard, AlertTriangle, FileText, ClipboardList,
-  History, Upload, Download, Loader2, User,
+  X, Pencil, Trash2, Building2,
+  FileText, History, Upload, Download, Loader2, FolderOpen,
+  CheckCircle, Clock, XCircle, PlayCircle, AlertCircle,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { customersApi } from '../../api/customers'
-import { auditApi } from '../../api/audit'
 import ActivityFeed from '../../components/common/ActivityFeed'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -40,11 +39,21 @@ function formatDate(dt) {
   return new Date(dt).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+const PROJECT_STATUS_CONFIG = {
+  PENDING:   { label: 'Gözləyir',   icon: Clock,         cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+  ACTIVE:    { label: 'Aktiv',      icon: PlayCircle,    cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  COMPLETED: { label: 'Tamamlandı', icon: CheckCircle,   cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  CANCELLED: { label: 'Ləğv edildi',icon: XCircle,       cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  ON_HOLD:   { label: 'Dayandırıldı',icon: AlertCircle,  cls: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+}
+
+const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
+
 const TABS = [
-  { id: 'info',      label: 'Məlumat',     icon: Building2 },
-  { id: 'orders',    label: 'Sifarişlər',  icon: ClipboardList },
-  { id: 'documents', label: 'Sənədlər',    icon: FileText },
-  { id: 'history',   label: 'Tarixçə',     icon: History },
+  { id: 'info',      label: 'Məlumat',   icon: Building2 },
+  { id: 'projects',  label: 'Layihələr', icon: FolderOpen },
+  { id: 'documents', label: 'Sənədlər',  icon: FileText },
+  { id: 'history',   label: 'Tarixçə',   icon: History },
 ]
 
 export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete, onUpdated }) {
@@ -53,9 +62,20 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
   const [uploading, setUploading] = useState(false)
   const [docName, setDocName] = useState('')
   const [docDate, setDocDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
   const fileRef = useRef()
   const { confirm, ConfirmDialog } = useConfirm()
   useEscapeKey(onClose)
+
+  useEffect(() => {
+    if (tab !== 'projects') return
+    setProjectsLoading(true)
+    customersApi.getProjects(customer.id)
+      .then(r => setProjects(r.data?.data || []))
+      .catch(() => setProjects([]))
+      .finally(() => setProjectsLoading(false))
+  }, [tab, customer.id])
 
   const risk   = RISK_CONFIG[customer.riskLevel]   || RISK_CONFIG.LOW
   const status = STATUS_CONFIG[customer.status]     || STATUS_CONFIG.ACTIVE
@@ -195,16 +215,88 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
             </div>
           )}
 
-          {/* ── Orders tab ── */}
-          {tab === 'orders' && (
-            <div className="py-16 flex flex-col items-center gap-3 text-center px-6">
-              <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <ClipboardList size={22} className="text-gray-400" />
-              </div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Sifariş tapılmadı</p>
-              <p className="text-xs text-gray-400 max-w-xs">
-                Bu müştəriyə aid sorğular və layihələr burada görünəcək.
-              </p>
+          {/* ── Projects tab ── */}
+          {tab === 'projects' && (
+            <div className="flex flex-col h-full">
+              {projectsLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-gray-400">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="text-sm">Yüklənir...</span>
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="py-16 flex flex-col items-center gap-3 text-center px-6">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <FolderOpen size={22} className="text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Layihə tapılmadı</p>
+                  <p className="text-xs text-gray-400 max-w-xs">Bu müştəriyə aid aktiv layihə yoxdur.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {projects.map(p => {
+                    const sc = PROJECT_STATUS_CONFIG[p.status] || PROJECT_STATUS_CONFIG.PENDING
+                    const StatusIcon = sc.icon
+                    return (
+                      <div key={p.id} className="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        {/* Header row */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100 shrink-0">{p.projectCode}</span>
+                            {p.requestCode && (
+                              <span className="text-xs text-gray-400">· {p.requestCode}</span>
+                            )}
+                          </div>
+                          <span className={clsx('flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0', sc.cls)}>
+                            <StatusIcon size={10} />
+                            {sc.label}
+                          </span>
+                        </div>
+
+                        {/* Project name & region */}
+                        {(p.projectName || p.region) && (
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 truncate">
+                            {[p.projectName, p.region].filter(Boolean).join(' — ')}
+                          </p>
+                        )}
+
+                        {/* Details grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                          {p.projectType && (
+                            <span className="text-gray-400">Növ: <span className="text-gray-600 dark:text-gray-300">{PROJECT_TYPE_LABEL[p.projectType] || p.projectType}</span></span>
+                          )}
+                          {p.equipmentName && (
+                            <span className="text-gray-400 truncate">Texnika: <span className="text-gray-600 dark:text-gray-300">{p.equipmentCode ? `${p.equipmentCode} – ${p.equipmentName}` : p.equipmentName}</span></span>
+                          )}
+                          {p.operatorName && (
+                            <span className="text-gray-400">Operator: <span className="text-gray-600 dark:text-gray-300">{p.operatorName}</span></span>
+                          )}
+                          {(p.planStartDate || p.startDate) && (
+                            <span className="text-gray-400">Başlanğıc: <span className="text-gray-600 dark:text-gray-300">{formatDate(p.startDate || p.planStartDate)}</span></span>
+                          )}
+                          {(p.planEndDate || p.endDate) && (
+                            <span className="text-gray-400">Bitmə: <span className="text-gray-600 dark:text-gray-300">{formatDate(p.endDate || p.planEndDate)}</span></span>
+                          )}
+                          {p.planDayCount != null && (
+                            <span className="text-gray-400">Gün sayı: <span className="text-gray-600 dark:text-gray-300">{p.planDayCount}</span></span>
+                          )}
+                        </div>
+
+                        {/* Finance row */}
+                        {(p.planEquipmentTotal != null || p.totalRevenue != null) && (
+                          <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[11px]">
+                            {p.planEquipmentTotal != null && (
+                              <span className="text-gray-400">Müqavilə məbləği: <span className="font-semibold text-gray-700 dark:text-gray-200">{Number(p.planEquipmentTotal).toLocaleString()} ₼</span></span>
+                            )}
+                            {p.netProfit != null && (
+                              <span className="text-gray-400">Mənfəət: <span className={clsx('font-semibold', Number(p.netProfit) >= 0 ? 'text-green-600' : 'text-red-500')}>{Number(p.netProfit).toLocaleString()} ₼</span></span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
