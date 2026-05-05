@@ -99,7 +99,7 @@ export default function PayrollDetailPage() {
 
   return (
     <div>
-      {ConfirmDialog}
+      <ConfirmDialog />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

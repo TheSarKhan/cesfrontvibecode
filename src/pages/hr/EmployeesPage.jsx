@@ -104,7 +104,7 @@ export default function EmployeesPage() {
 
   return (
     <div>
-      {ConfirmDialog}
+      <ConfirmDialog />
 
       <div className="flex items-center justify-between mb-4">
         <div>

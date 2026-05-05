@@ -61,7 +61,7 @@ export default function PositionsPage() {
 
   return (
     <div>
-      {ConfirmDialog}
+      <ConfirmDialog />
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
