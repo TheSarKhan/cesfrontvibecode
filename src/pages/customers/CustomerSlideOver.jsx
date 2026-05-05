@@ -4,6 +4,7 @@ import {
   X, Pencil, Trash2, Building2,
   FileText, History, Upload, Download, Loader2, FolderOpen,
   CheckCircle, Clock, XCircle, PlayCircle, AlertCircle,
+  TrendingUp, Banknote, CheckCircle2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { customersApi } from '../../api/customers'
@@ -52,6 +53,8 @@ const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 const TABS = [
   { id: 'info',      label: 'Məlumat',   icon: Building2 },
   { id: 'projects',  label: 'Layihələr', icon: FolderOpen },
+  { id: 'invoices',  label: 'Qaimələr',  icon: TrendingUp },
+  { id: 'payments',  label: 'Alacaqlar', icon: Banknote },
   { id: 'documents', label: 'Sənədlər',  icon: FileText },
   { id: 'history',   label: 'Tarixçə',   icon: History },
 ]
@@ -64,6 +67,10 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
   const [docDate, setDocDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [projects, setProjects] = useState([])
   const [projectsLoading, setProjectsLoading] = useState(false)
+  const [invoices, setInvoices] = useState([])
+  const [invLoading, setInvLoading] = useState(false)
+  const [receivables, setReceivables] = useState([])
+  const [recLoading, setRecLoading] = useState(false)
   const fileRef = useRef()
   const { confirm, ConfirmDialog } = useConfirm()
   useEscapeKey(onClose)
@@ -76,6 +83,26 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
       .catch(() => setProjects([]))
       .finally(() => setProjectsLoading(false))
   }, [tab, customer.id])
+
+  useEffect(() => {
+    if (tab !== 'invoices') return
+    setInvLoading(true)
+    customersApi.getInvoices(customer.id)
+      .then(r => setInvoices(r.data?.data || []))
+      .catch(() => {})
+      .finally(() => setInvLoading(false))
+  }, [tab, customer.id])
+
+  useEffect(() => {
+    if (tab !== 'payments') return
+    setRecLoading(true)
+    customersApi.getReceivables(customer.id)
+      .then(r => setReceivables(r.data?.data || []))
+      .catch(() => {})
+      .finally(() => setRecLoading(false))
+  }, [tab, customer.id])
+
+  const fmtMoney = (v) => v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : '—'
 
   const risk   = RISK_CONFIG[customer.riskLevel]   || RISK_CONFIG.LOW
   const status = STATUS_CONFIG[customer.status]     || STATUS_CONFIG.ACTIVE
@@ -142,7 +169,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0.5 px-4 pt-3 pb-0 border-b border-gray-100 dark:border-gray-800 shrink-0">
+        <div className="flex gap-0.5 px-4 pt-3 pb-0 border-b border-gray-100 dark:border-gray-800 shrink-0 overflow-x-auto">
           {TABS.map(t => {
             const Icon = t.icon
             return (
@@ -290,6 +317,107 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
                             {p.netProfit != null && (
                               <span className="text-gray-400">Mənfəət: <span className={clsx('font-semibold', Number(p.netProfit) >= 0 ? 'text-green-600' : 'text-red-500')}>{Number(p.netProfit).toLocaleString()} ₼</span></span>
                             )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Qaimələr tab ── */}
+          {tab === 'invoices' && (
+            <div className="p-4">
+              {invLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />)}</div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <FileText size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Bu müştəri üçün hələ qaimə yoxdur</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {invoices.length} qaimə · {fmtMoney(invoices.reduce((s, i) => s + parseFloat(i.amount || 0), 0))}
+                  </p>
+                  {invoices.map(inv => (
+                    <div key={inv.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{inv.invoiceNumber || inv.accountingId || '—'}</span>
+                          <span className="text-[10px] text-gray-400">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('az-AZ') : '—'}</span>
+                          {inv.status === 'APPROVED' && <span className="text-[10px] font-medium text-green-600 dark:text-green-400">Təsdiqləndi</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {inv.equipmentName && <span className="text-[10px] text-gray-400 truncate">{inv.equipmentName}</span>}
+                          {inv.projectCode && <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400">{inv.projectCode}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-green-600 dark:text-green-400">{fmtMoney(inv.amount)}</p>
+                        {inv.paidAmount != null && parseFloat(inv.paidAmount) > 0 && (
+                          <p className="text-[10px] text-gray-400">daxil oldu: {fmtMoney(inv.paidAmount)}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Alacaqlar tab ── */}
+          {tab === 'payments' && (
+            <div className="p-4">
+              {recLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}</div>
+              ) : receivables.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <Banknote size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Bu müştəri üçün hələ alacaq yoxdur</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {receivables.length} alacaq · daxil oldu: {fmtMoney(receivables.reduce((s, r) => s + parseFloat(r.paidAmount || 0), 0))}
+                  </p>
+                  {receivables.map(r => {
+                    const remaining = parseFloat(r.totalAmount || 0) - parseFloat(r.paidAmount || 0)
+                    const statusCfg = {
+                      PENDING:   { icon: Clock,         cls: 'text-amber-500', label: 'Gözləyir' },
+                      PARTIAL:   { icon: AlertCircle,   cls: 'text-blue-500',  label: 'Qismən' },
+                      COMPLETED: { icon: CheckCircle2,  cls: 'text-green-500', label: 'Tamamlandı' },
+                      OVERDUE:   { icon: AlertCircle,   cls: 'text-red-500',   label: 'Gecikmiş' },
+                    }[r.status] || { icon: Clock, cls: 'text-gray-400', label: r.status }
+                    const StatusIcon = statusCfg.icon
+                    return (
+                      <div key={r.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {r.projectCode && <p className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{r.projectCode}</p>}
+                            {r.projectName && <p className="text-[10px] text-gray-400 truncate">{r.projectName}</p>}
+                            {r.equipmentName && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{r.equipmentName}</p>}
+                            {r.region && <p className="text-[10px] text-gray-400">{r.region}</p>}
+                          </div>
+                          <div className={clsx('flex items-center gap-1 text-[10px] font-medium shrink-0', statusCfg.cls)}>
+                            <StatusIcon size={11} />{statusCfg.label}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Cəmi</p><p className="font-semibold text-gray-700 dark:text-gray-300">{fmtMoney(r.totalAmount)}</p></div>
+                          <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Daxil oldu</p><p className="font-semibold text-green-600 dark:text-green-400">{fmtMoney(r.paidAmount)}</p></div>
+                          {remaining > 0.01 && <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Qalıq</p><p className="font-semibold text-red-500">{fmtMoney(remaining)}</p></div>}
+                        </div>
+                        {r.payments && r.payments.length > 0 && (
+                          <div className="pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                            {r.payments.map((pay, pi) => (
+                              <div key={pi} className="flex items-center justify-between text-[10px]">
+                                <span className="text-gray-400">{pay.paymentDate ? new Date(pay.paymentDate).toLocaleDateString('az-AZ') : '—'}{pay.note ? ` · ${pay.note}` : ''}</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">{fmtMoney(pay.amount)}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>

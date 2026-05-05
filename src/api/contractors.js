@@ -7,4 +7,7 @@ export const contractorsApi = {
   create: (data) => api.post('/contractors', data),
   update: (id, data) => api.put(`/contractors/${id}`, data),
   delete: (id) => api.delete(`/contractors/${id}`),
+  getProjectHistory: (id) => api.get(`/contractors/${id}/projects`),
+  getInvoices: (id) => api.get(`/contractors/${id}/invoices`),
+  getPayables: (id) => api.get(`/contractors/${id}/payables`),
 }

@@ -9,6 +9,8 @@ export const customersApi = {
   delete: (id) => api.delete(`/customers/${id}`),
   deleteAll: (ids) => api.delete('/customers/bulk', { data: { ids } }),
   getProjects: (id) => api.get(`/customers/${id}/projects`),
+  getInvoices: (id) => api.get(`/customers/${id}/invoices`),
+  getReceivables: (id) => api.get(`/customers/${id}/receivables`),
 
   uploadDocument: (id, file, documentName, documentDate) => {
     const fd = new FormData()

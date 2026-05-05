@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
   X, Star, TrendingDown, FileText, History,
-  Building2, Pencil, Trash2, Phone, Mail, CreditCard, Landmark, Truck, ChevronDown, ChevronUp,
+  Building2, Pencil, Trash2, Truck, ChevronDown, ChevronUp,
+  FolderKanban, Calendar, Banknote, CheckCircle2, Clock, AlertCircle,
 } from 'lucide-react'
-import { accountingApi } from '../../api/accounting'
 import { garageApi } from '../../api/garage'
+import { contractorsApi } from '../../api/contractors'
 import { clsx } from 'clsx'
 import ActivityFeed from '../../components/common/ActivityFeed'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -42,19 +43,33 @@ const EQUIPMENT_STATUS = {
   DECOMMISSIONED:{ label: 'Silinmiş',    cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
 }
 
+const PROJECT_STATUS = {
+  PENDING:   { label: 'Gözləmədə', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+  ACTIVE:    { label: 'Aktiv',     cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  COMPLETED: { label: 'Tamamlandı',cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  CANCELLED: { label: 'Ləğv edildi',cls:'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+}
+
 const TABS = [
-  { id: 'info',      label: 'Məlumat',   icon: Building2 },
-  { id: 'equipment', label: 'Texnikalar', icon: Truck },
-  { id: 'invoices',  label: 'Qaimələr',  icon: TrendingDown },
-  { id: 'history',   label: 'Tarixçə',   icon: History },
+  { id: 'info',      label: 'Məlumat',         icon: Building2 },
+  { id: 'equipment', label: 'Texnikalar',       icon: Truck },
+  { id: 'invoices',  label: 'Qaimələr',         icon: TrendingDown },
+  { id: 'payments',  label: 'Ödənişlər',        icon: Banknote },
+  { id: 'projects',  label: 'Layihə Tarixçəsi', icon: FolderKanban },
+  { id: 'history',   label: 'Tarixçə',          icon: History },
 ]
 
 export default function ContractorSlideOver({ contractor, onClose, onEdit, onDelete }) {
   const [tab, setTab] = useState('info')
   const [invoices, setInvoices] = useState([])
+  const [invLoading, setInvLoading] = useState(false)
+  const [payables, setPayables] = useState([])
+  const [payLoading, setPayLoading] = useState(false)
   const [equipment, setEquipment] = useState([])
   const [expandedEq, setExpandedEq] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
   useEscapeKey(onClose)
 
   const risk   = RISK_CONFIG[contractor.riskLevel]  || RISK_CONFIG.LOW
@@ -62,14 +77,20 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
 
   useEffect(() => {
     if (tab !== 'invoices') return
-    setLoading(true)
-    accountingApi.getAll({ type: 'CONTRACTOR_EXPENSE' })
-      .then(r => {
-        const all = r.data.data || r.data || []
-        setInvoices(all.filter(inv => inv.contractorId === contractor.id))
-      })
+    setInvLoading(true)
+    contractorsApi.getInvoices(contractor.id)
+      .then(r => setInvoices(r.data.data || r.data || []))
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => setInvLoading(false))
+  }, [tab, contractor.id])
+
+  useEffect(() => {
+    if (tab !== 'payments') return
+    setPayLoading(true)
+    contractorsApi.getPayables(contractor.id)
+      .then(r => setPayables(r.data.data || r.data || []))
+      .catch(() => {})
+      .finally(() => setPayLoading(false))
   }, [tab, contractor.id])
 
   useEffect(() => {
@@ -81,7 +102,17 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
       .finally(() => setLoading(false))
   }, [tab, contractor.id])
 
-  const totalPaid = invoices.reduce((s, inv) => s + parseFloat(inv.amount || 0), 0)
+  useEffect(() => {
+    if (tab !== 'projects') return
+    setProjectsLoading(true)
+    contractorsApi.getProjectHistory(contractor.id)
+      .then(r => setProjects(r.data.data || r.data || []))
+      .catch(() => {})
+      .finally(() => setProjectsLoading(false))
+  }, [tab, contractor.id])
+
+  const totalInvoiced = invoices.reduce((s, inv) => s + parseFloat(inv.amount || 0), 0)
+  const totalPaid = payables.reduce((s, p) => s + parseFloat(p.paidAmount || 0), 0)
 
   return (
     <>
@@ -124,7 +155,7 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0.5 px-4 pt-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+        <div className="flex gap-0.5 px-4 pt-3 border-b border-gray-100 dark:border-gray-800 shrink-0 overflow-x-auto">
           {TABS.map(t => {
             const Icon = t.icon
             return (
@@ -276,40 +307,160 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
           {/* ── Qaimələr ── */}
           {tab === 'invoices' && (
             <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Podratçı Qaimələri (B1)</p>
-                {invoices.length > 0 && (
-                  <span className="text-xs font-bold text-orange-600 dark:text-orange-400">−{fmtMoney(totalPaid)}</span>
-                )}
-              </div>
-              {loading ? (
-                <div className="space-y-2">
-                  {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />)}
-                </div>
+              {invLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />)}</div>
               ) : invoices.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <FileText size={28} className="mx-auto mb-2 opacity-30" />
                   <p className="text-xs">Bu podratçı üçün hələ qaimə yoxdur</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {invoices.length} qaimə · {fmtMoney(invoices.reduce((s, i) => s + parseFloat(i.amount || 0), 0))}
+                  </p>
                   {invoices.map(inv => (
-                    <div key={inv.id} className="flex items-center gap-3 p-3 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30">
+                    <div key={inv.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{inv.invoiceNumber || '—'}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{inv.invoiceNumber || inv.accountingId || '—'}</span>
                           <span className="text-[10px] text-gray-400">{fmt(inv.invoiceDate)}</span>
+                          {inv.status === 'APPROVED' && <span className="text-[10px] font-medium text-green-600 dark:text-green-400">Təsdiqləndi</span>}
                         </div>
-                        {inv.equipmentName && <p className="text-[10px] text-gray-400 truncate">{inv.equipmentName}</p>}
-                        {inv.projectCode && <p className="text-[10px] font-mono text-green-600 dark:text-green-400">{inv.projectCode}</p>}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {inv.equipmentName && <span className="text-[10px] text-gray-400 truncate">{inv.equipmentName}</span>}
+                          {inv.projectCode && <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400">{inv.projectCode}</span>}
+                        </div>
                       </div>
-                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400 shrink-0">−{fmtMoney(inv.amount)}</span>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-orange-600 dark:text-orange-400">{fmtMoney(inv.amount)}</p>
+                        {inv.paidAmount != null && parseFloat(inv.paidAmount) > 0 && (
+                          <p className="text-[10px] text-green-600 dark:text-green-400">ödəndi: {fmtMoney(inv.paidAmount)}</p>
+                        )}
+                      </div>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between pt-2 border-t border-orange-200 dark:border-orange-800/50 mt-2">
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{invoices.length} qaimə</span>
-                    <span className="text-sm font-bold text-orange-600 dark:text-orange-400">−{fmtMoney(totalPaid)}</span>
-                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Ödənişlər ── */}
+          {tab === 'payments' && (
+            <div className="p-4">
+              {payLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}</div>
+              ) : payables.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <Banknote size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Bu podratçı üçün hələ ödəniş yoxdur</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {payables.length} ödəniş · ödəndi: {fmtMoney(payables.reduce((s, p) => s + parseFloat(p.paidAmount || 0), 0))}
+                  </p>
+                  {payables.map(p => {
+                    const remaining = parseFloat(p.totalAmount || 0) - parseFloat(p.paidAmount || 0)
+                    const statusCfg = {
+                      PENDING:   { icon: Clock,         cls: 'text-amber-500', label: 'Gözləyir' },
+                      PARTIAL:   { icon: AlertCircle,   cls: 'text-blue-500',  label: 'Qismən' },
+                      COMPLETED: { icon: CheckCircle2,  cls: 'text-green-500', label: 'Tamamlandı' },
+                      OVERDUE:   { icon: AlertCircle,   cls: 'text-red-500',   label: 'Gecikmiş' },
+                    }[p.status] || { icon: Clock, cls: 'text-gray-400', label: p.status }
+                    const StatusIcon = statusCfg.icon
+                    return (
+                      <div key={p.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {p.projectCode && <p className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{p.projectCode}</p>}
+                            {p.projectName && <p className="text-[10px] text-gray-400 truncate">{p.projectName}</p>}
+                            {p.equipmentName && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{p.equipmentName}</p>}
+                          </div>
+                          <div className={clsx('flex items-center gap-1 text-[10px] font-medium shrink-0', statusCfg.cls)}>
+                            <StatusIcon size={11} />{statusCfg.label}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Cəmi</p><p className="font-semibold text-gray-700 dark:text-gray-300">{fmtMoney(p.totalAmount)}</p></div>
+                          <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Ödənildi</p><p className="font-semibold text-green-600 dark:text-green-400">{fmtMoney(p.paidAmount)}</p></div>
+                          {remaining > 0.01 && <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Qalıq</p><p className="font-semibold text-red-500">{fmtMoney(remaining)}</p></div>}
+                        </div>
+                        {p.payments && p.payments.length > 0 && (
+                          <div className="pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                            {p.payments.map((pay, pi) => (
+                              <div key={pi} className="flex items-center justify-between text-[10px]">
+                                <span className="text-gray-400">{pay.paymentDate ? new Date(pay.paymentDate).toLocaleDateString('az-AZ') : '—'}{pay.note ? ` · ${pay.note}` : ''}</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">{fmtMoney(pay.amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Layihə Tarixçəsi ── */}
+          {tab === 'projects' && (
+            <div className="p-4">
+              {projectsLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <FolderKanban size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Bu podratçının texnikaları heç bir layihədə iştirak etməyib</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{projects.length} layihə</p>
+                  {projects.map((p, i) => {
+                    const ps = PROJECT_STATUS[p.status] || PROJECT_STATUS.PENDING
+                    return (
+                      <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{p.companyName || '—'}</p>
+                            {p.projectName && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{p.projectName}</p>}
+                          </div>
+                          <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0', ps.cls)}>{ps.label}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-gray-400">
+                          {p.projectCode && <span className="font-mono font-semibold text-gray-600 dark:text-gray-300">{p.projectCode}</span>}
+                          {p.requestCode && <span className="font-mono">{p.requestCode}</span>}
+                          {p.region && <span>{p.region}</span>}
+                        </div>
+                        {(p.equipmentName || p.equipmentCode) && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                            <Truck size={11} className="text-orange-500 shrink-0" />
+                            <span className="font-medium truncate">{p.equipmentName}</span>
+                            {p.equipmentCode && <span className="text-[10px] font-mono text-gray-400">({p.equipmentCode})</span>}
+                            {p.equipmentType && <span className="text-[10px] text-gray-400">· {p.equipmentType}</span>}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+                          {(p.startDate || p.endDate) && (
+                            <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                              <Calendar size={10} />
+                              <span>{p.startDate ? new Date(p.startDate).toLocaleDateString('az-AZ') : '?'} — {p.endDate ? new Date(p.endDate).toLocaleDateString('az-AZ') : '?'}</span>
+                              {p.dayCount && <span className="ml-0.5">({p.dayCount} gün)</span>}
+                            </div>
+                          )}
+                          {p.contractorPayment != null && (
+                            <div className="flex items-center gap-1 text-[10px] text-orange-600 dark:text-orange-400 font-semibold">
+                              <Banknote size={10} />
+                              <span>{parseFloat(p.contractorPayment).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
