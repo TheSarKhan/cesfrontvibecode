@@ -121,7 +121,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
       if (selectedInvIds.length <= 1) setLockedCustomerId(null)
     } else {
       // İlk seçim → müştərini kilid
-      const custId = inv.project?.customer?.id ?? inv.customerId ?? null
+      const custId = inv.customerId ?? null
       if (lockedCustomerId === null && selectedInvIds.length === 0) {
         setLockedCustomerId(custId)
         setCustomerId(custId)
@@ -134,7 +134,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
   const availableInvoices = useMemo(() => {
     if (!lockedCustomerId) return allInvoices
     return allInvoices.filter(inv => {
-      const custId = inv.project?.customer?.id ?? inv.customerId ?? null
+      const custId = inv.customerId ?? null
       return custId === lockedCustomerId
     })
   }, [allInvoices, lockedCustomerId])
@@ -351,7 +351,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                       {availableInvoices.map(inv => {
                         const selected = selectedInvIds.includes(inv.id)
-                        const custId = inv.project?.customer?.id ?? inv.customerId ?? null
+                        const custId = inv.customerId ?? null
                         const disabled = lockedCustomerId !== null && custId !== lockedCustomerId && !selected
                         return (
                           <button
