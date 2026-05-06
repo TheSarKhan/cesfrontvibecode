@@ -38,7 +38,7 @@ const fmtMoney = (v) => v != null
   : '—'
 const fmt = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('az-AZ') : '—'
 
-const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət' : 'gün', quantity: '1', unitPrice: '', sourceInvoiceId: null })
+const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət' : 'ədəd', quantity: '1', unitPrice: '', sourceInvoiceId: null })
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 export default function DocumentCreateModal({ onClose, onCreated }) {
@@ -171,11 +171,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
 
   // ─── Hesablama ─────────────────────────────────────────────────────────────
   const subtotal = useMemo(() => {
-    return lines.reduce((sum, l) => {
-      const q = parseFloat(l.quantity) || 0
-      const p = parseFloat(l.unitPrice) || 0
-      return sum + q * p
-    }, 0)
+    return lines.reduce((sum, l) => sum + (parseFloat(l.unitPrice) || 0), 0)
   }, [lines])
 
   const vatAmount  = useMemo(() => (subtotal * vatRate / 100), [subtotal, vatRate])
@@ -222,7 +218,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
         lines: validLines.map((l, i) => ({
           description: l.description.trim(),
           unit: l.unit || 'ədəd',
-          quantity: parseFloat(l.quantity) || 1,
+          quantity: 1,
           unitPrice: parseFloat(l.unitPrice) || 0,
           sourceInvoiceId: l.sourceInvoiceId || null,
         })),
@@ -568,22 +564,21 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
 
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   {/* Table header */}
-                  <div className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr_auto] gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                  <div className="grid grid-cols-[3fr_1fr_1.5fr_1.5fr_auto] gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
                     <span>Təsvir</span>
                     <span>Vahid</span>
-                    <span>Miqdar</span>
-                    <span>Vahid qiymət</span>
-                    <span className="text-right">Cəmi</span>
+                    <span>Qiymət</span>
+                    <span className="text-right">Məbləğ</span>
                     <span></span>
                   </div>
 
                   {lines.map((line, idx) => {
                     const isAkt = docType === 'TEHVIL_TESLIM_AKTI'
-                    const total = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0)
+                    const price = parseFloat(line.unitPrice) || 0
                     return (
                       <div
                         key={idx}
-                        className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr_auto] gap-1 items-center px-3 py-2 border-t border-gray-200 dark:border-gray-700"
+                        className="grid grid-cols-[3fr_1fr_1.5fr_1.5fr_auto] gap-1 items-center px-3 py-2 border-t border-gray-200 dark:border-gray-700"
                       >
                         <input
                           value={line.description}
@@ -601,18 +596,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                             onCompositionStart={() => { composingRef.current = true }}
                             onCompositionEnd={e => { composingRef.current = false; updateLine(idx, 'unit', e.target.value) }}
                             onChange={e => { if (!composingRef.current) updateLine(idx, 'unit', e.target.value) }}
-                            placeholder="gün"
-                            className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                        )}
-                        {isAkt ? (
-                          <span className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">1</span>
-                        ) : (
-                          <input
-                            type="number"
-                            value={line.quantity}
-                            onChange={e => updateLine(idx, 'quantity', e.target.value)}
-                            min="0"
+                            placeholder="ədəd"
                             className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                           />
                         )}
@@ -625,7 +609,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                           className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 text-right">
-                          {fmtMoney(total)}
+                          {fmtMoney(price)}
                         </span>
                         <button
                           onClick={() => removeLine(idx)}
