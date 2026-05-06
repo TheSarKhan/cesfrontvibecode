@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock, CheckCircle, Undo2, Eye, X, Calendar, Hash, Pencil, Trash2 } from 'lucide-react'
+import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock, CheckCircle, Undo2, Eye, X, Calendar, Hash, Pencil, Trash2, Upload, Paperclip } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -195,9 +195,9 @@ function InvoiceDetailModal({ inv, onClose }) {
 
           {/* Daşınmalar */}
           {(() => {
-            const transports = parseTransportations(inv.transportations)
+            const transports = inv.transports || []
             if (transports.length === 0) return null
-            const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+            const total = parseFloat(inv.totalTransportAmount || 0)
             return (
               <div className="rounded-xl border border-blue-100 dark:border-blue-800/40 overflow-hidden">
                 <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40">
@@ -207,10 +207,10 @@ function InvoiceDetailModal({ inv, onClose }) {
                   {transports.map((t, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2 text-xs">
                       <div className="flex flex-col gap-0.5">
-                        {t.date && <span className="text-[10px] text-gray-400">{new Date(t.date).toLocaleDateString('az-AZ')}</span>}
-                        <span className="font-medium text-gray-700 dark:text-gray-300">{t.direction || '—'}</span>
+                        {t.transportDate && <span className="text-[10px] text-gray-400">{new Date(t.transportDate).toLocaleDateString('az-AZ')}</span>}
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{t.transportDirection || '—'}</span>
                       </div>
-                      <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)} ₼</span>
+                      <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.transportAmount) || 0)} ₼</span>
                     </div>
                   ))}
                 </div>
@@ -243,6 +243,9 @@ export default function ProjectQaimeTab({ project }) {
   const [form, setForm] = useState(getDefaultForm(project))
   const [sendingId, setSendingId] = useState(null)
   const [justCreatedId, setJustCreatedId] = useState(null)
+  const [aktFile, setAktFile] = useState(null)
+  const [aktUploading, setAktUploading] = useState(false)
+  const [uploadingAktFor, setUploadingAktFor] = useState(null)
   const [viewInvoice, setViewInvoice] = useState(null)
   const [editingInvoice, setEditingInvoice] = useState(null)
   const { confirm, ConfirmDialog } = useConfirm()
@@ -260,7 +263,7 @@ export default function ProjectQaimeTab({ project }) {
     setLoading(true)
     try {
       const res = await accountingApi.getByProject(project.id)
-      setInvoices((res.data?.data || []).filter(inv => inv.type === 'INCOME'))
+      setInvoices(res.data?.data || [])
     } catch {
       toast.error('Qaimələr yüklənmədi')
     } finally {
@@ -364,7 +367,7 @@ export default function ProjectQaimeTab({ project }) {
         equipmentName: project.equipmentName || '',
         invoiceDate: form.invoiceDate,
         notes: form.notes || null,
-        amount: parseFloat(calc.total.toFixed(2)),
+        amount: parseFloat((calc.total + transTotal).toFixed(2)),
         periodMonth: d.getMonth() + 1,
         periodYear: d.getFullYear(),
         standardDays: form.standardDays !== '' ? parseInt(form.standardDays) : null,
@@ -375,11 +378,27 @@ export default function ProjectQaimeTab({ project }) {
         workingHoursPerDay: parseInt(form.workingHoursPerDay),
         overtimeRate: parseFloat(form.overtimeRate) || 1,
         status: 'DRAFT',
-        transportations: transports.length > 0 ? transports : null,
-        transportationsTotal: transports.length > 0 ? parseFloat(transTotal.toFixed(2)) : null,
+        hasTransport: form.hasTransport,
+        transports: transports.length > 0 ? transports.map(t => ({
+          transportDate: t.date,
+          transportDirection: t.direction,
+          transportAmount: parseFloat(t.amount) || 0,
+        })) : null,
       })
-      toast.success('Qaimə yaradıldı')
-      setJustCreatedId(res.data?.data?.id)
+      const createdId = res.data?.data?.id
+      if (aktFile && createdId) {
+        try {
+          await accountingApi.uploadAkt(createdId, aktFile)
+          toast.success('Qaimə və Akt yükləndi')
+        } catch {
+          toast.success('Qaimə yaradıldı')
+          toast.error('Akt yüklənmədi — sonradan əlavə edə bilərsiniz')
+        }
+      } else {
+        toast.success('Qaimə yaradıldı')
+      }
+      setJustCreatedId(createdId)
+      setAktFile(null)
       setForm(getDefaultForm(project))
       setShowForm(false)
       load()
@@ -392,7 +411,11 @@ export default function ProjectQaimeTab({ project }) {
 
   function handleEdit(inv) {
     setEditingInvoice(inv)
-    const existingTransports = parseTransportations(inv.transportations)
+    const existingTransports = (inv.transports || []).map(t => ({
+      date: t.transportDate ? String(t.transportDate).slice(0, 10) : '',
+      direction: t.transportDirection || '',
+      amount: t.transportAmount != null ? String(t.transportAmount) : '',
+    }))
     setForm({
       standardDays:       inv.standardDays ?? '',
       extraDays:          inv.extraDays ?? '',
@@ -427,19 +450,24 @@ export default function ProjectQaimeTab({ project }) {
     try {
       const transports = form.hasTransport ? form.transportations.filter(t => t.direction || t.amount) : []
       await accountingApi.resubmit(editingInvoice.id, {
-        invoiceDate:          form.invoiceDate,
-        notes:                form.notes || null,
-        standardDays:         form.standardDays !== '' ? parseInt(form.standardDays) : null,
-        extraDays:            form.extraDays !== '' ? parseInt(form.extraDays) : null,
-        extraHours:           form.extraHours !== '' ? parseFloat(form.extraHours) : null,
-        monthlyRate:          parseFloat(form.monthlyRate),
-        workingDaysInMonth:   parseInt(form.workingDaysInMonth),
-        workingHoursPerDay:   parseInt(form.workingHoursPerDay),
-        overtimeRate:         parseFloat(form.overtimeRate) || 1,
-        periodMonth:          d.getMonth() + 1,
-        periodYear:           d.getFullYear(),
-        transportations:      transports.length > 0 ? transports : null,
-        transportationsTotal: transports.length > 0 ? parseFloat(transTotal.toFixed(2)) : null,
+        invoiceDate:        form.invoiceDate,
+        notes:              form.notes || null,
+        amount:             parseFloat((calc.total + transTotal).toFixed(2)),
+        standardDays:       form.standardDays !== '' ? parseInt(form.standardDays) : null,
+        extraDays:          form.extraDays !== '' ? parseInt(form.extraDays) : null,
+        extraHours:         form.extraHours !== '' ? parseFloat(form.extraHours) : null,
+        monthlyRate:        parseFloat(form.monthlyRate),
+        workingDaysInMonth: parseInt(form.workingDaysInMonth),
+        workingHoursPerDay: parseInt(form.workingHoursPerDay),
+        overtimeRate:       parseFloat(form.overtimeRate) || 1,
+        periodMonth:        d.getMonth() + 1,
+        periodYear:         d.getFullYear(),
+        hasTransport:       form.hasTransport,
+        transports:         transports.length > 0 ? transports.map(t => ({
+          transportDate:      t.date,
+          transportDirection: t.direction,
+          transportAmount:    parseFloat(t.amount) || 0,
+        })) : null,
       })
       toast.success('Qaimə yenidən göndərildi')
       setEditingInvoice(null)
@@ -450,6 +478,35 @@ export default function ProjectQaimeTab({ project }) {
       toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleOpenAkt(invoiceId, fileName) {
+    try {
+      const res = await accountingApi.downloadAkt(invoiceId)
+      const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noreferrer'
+      a.download = fileName || 'akt'
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 1000)
+    } catch { toast.error('Fayl açıla bilmədi') }
+  }
+
+  async function handleUploadAkt(invoiceId, file) {
+    setAktUploading(true)
+    try {
+      await accountingApi.uploadAkt(invoiceId, file)
+      toast.success('Akt yükləndi')
+      setUploadingAktFor(null)
+      load()
+    } catch {
+      toast.error('Akt yüklənmədi')
+    } finally {
+      setAktUploading(false)
     }
   }
 
@@ -742,6 +799,29 @@ export default function ProjectQaimeTab({ project }) {
             )}
           </div>
 
+          {/* Təhvil-Təslim Aktı */}
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <Paperclip size={10} /> Təhvil-Təslim Aktı <span className="font-normal normal-case">(opsional)</span>
+            </label>
+            {aktFile ? (
+              <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                <Paperclip size={12} className="text-green-600 shrink-0" />
+                <span className="text-xs text-green-700 font-medium truncate flex-1">{aktFile.name}</span>
+                <button type="button" onClick={() => setAktFile(null)} className="text-red-400 hover:text-red-600">
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-dashed border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-colors">
+                <Upload size={12} className="text-gray-400" />
+                <span className="text-xs text-gray-400">Fayl seçin (PDF, şəkil)</span>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+                  onChange={e => e.target.files?.[0] && setAktFile(e.target.files[0])} />
+              </label>
+            )}
+          </div>
+
           <button type="submit" disabled={saving || calc.total <= 0 || !canCreate}
             className={`w-full py-2 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
               editingInvoice ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
@@ -792,14 +872,16 @@ export default function ProjectQaimeTab({ project }) {
       {/* Invoice list */}
       {loading ? (
         <div className="py-6 text-center text-xs text-gray-400">Yüklənir...</div>
-      ) : invoices.length === 0 ? (
+      ) : invoices.filter(i => i.type === 'INCOME').length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-200 py-8 text-center">
           <FileText size={28} className="mx-auto text-gray-300 mb-2" />
           <p className="text-xs text-gray-400">Hələ qaime yoxdur</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
-          {invoices.map(inv => {
+        <div className="space-y-3">
+          {/* INCOME qaimələri */}
+          <div className="rounded-xl border border-gray-100 overflow-hidden divide-y divide-gray-100">
+          {invoices.filter(i => i.type === 'INCOME').map(inv => {
             const periodLbl = periodLabel(inv.periodMonth, inv.periodYear)
             const statusCfg = {
               DRAFT:    { cls: 'bg-gray-50 text-gray-500',   icon: null,                      label: 'Qaralama' },
@@ -830,9 +912,9 @@ export default function ProjectQaimeTab({ project }) {
                     {inv.extraDays != null && inv.extraDays > 0 && <span>Əl: {inv.extraDays} gün</span>}
                     {inv.extraHours != null && inv.extraHours > 0 && <span>Əl: {inv.extraHours} saat</span>}
                     <span>{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>
-                    {parseTransportations(inv.transportations).length > 0 && (
+                    {(inv.transports || []).length > 0 && (
                       <span className="text-blue-500 font-medium">
-                        • Daşınma: {fmtMoney(inv.transportationsTotal || 0)} ₼
+                        • Daşınma: {fmtMoney(inv.totalTransportAmount || 0)} ₼
                       </span>
                     )}
                   </div>
@@ -841,6 +923,20 @@ export default function ProjectQaimeTab({ project }) {
                   {fmtMoney(inv.amount)} ₼
                 </span>
                 <div className="flex items-center gap-0.5">
+                  {/* Akt fayl */}
+                  {inv.aktFileUploaded ? (
+                    <button onClick={() => handleOpenAkt(inv.id, inv.aktFileName)}
+                      className="p-1 rounded text-green-500 hover:text-green-700 hover:bg-green-50 transition-colors"
+                      title={`Akt: ${inv.aktFileName || 'Fayla bax'}`}>
+                      <Paperclip size={12} />
+                    </button>
+                  ) : (
+                    <label className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors" title="Akt yüklə">
+                      <Upload size={12} />
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+                        onChange={e => { if (e.target.files?.[0]) handleUploadAkt(inv.id, e.target.files[0]) }} />
+                    </label>
+                  )}
                   <button
                     onClick={() => setViewInvoice(inv)}
                     className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
@@ -867,7 +963,7 @@ export default function ProjectQaimeTab({ project }) {
                       <Send size={12} />
                     </button>
                   )}
-                  {!isLocked && (inv.status === 'DRAFT' || inv.status === 'RETURNED') && canDelete && (
+                  {!isLocked && (inv.status === 'DRAFT' || inv.status === 'SENT' || inv.status === 'RETURNED') && canDelete && (
                     <button
                       onClick={() => handleDelete(inv.id)}
                       className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -881,11 +977,66 @@ export default function ProjectQaimeTab({ project }) {
             )
           })}
           <div className="flex justify-between items-center px-3 py-2 bg-green-50">
-            <span className="text-[10px] font-semibold text-green-700">Ümumi cəmi</span>
+            <span className="text-[10px] font-semibold text-green-700">Müştəridən alınacaq cəmi</span>
             <span className="text-sm font-bold text-green-700">
-              {fmtMoney(invoices.reduce((s, inv) => s + parseFloat(inv.amount || 0), 0))} ₼
+              {fmtMoney(invoices.filter(i => i.type === 'INCOME').reduce((s, inv) => s + parseFloat(inv.amount || 0), 0))} ₼
             </span>
           </div>
+          </div>
+
+          {/* Xərc qaimələri — podratçı / investor */}
+          {invoices.filter(i => i.type === 'CONTRACTOR_EXPENSE' || i.type === 'INVESTOR_EXPENSE').length > 0 && (
+            <div className="rounded-xl border border-orange-100 overflow-hidden divide-y divide-orange-50">
+              <div className="px-3 py-1.5 bg-orange-50">
+                <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wide">
+                  {project?.ownershipType === 'INVESTOR' ? 'İnvestora ödəniləcək' : 'Podratçıya ödəniləcək'}
+                </span>
+              </div>
+              {invoices.filter(i => i.type === 'CONTRACTOR_EXPENSE' || i.type === 'INVESTOR_EXPENSE').map(inv => {
+                const statusCfg = {
+                  DRAFT:    { cls: 'bg-gray-50 text-gray-500',   label: 'Qaralama' },
+                  SENT:     { cls: 'bg-amber-50 text-amber-700', label: 'Göndərilib' },
+                  APPROVED: { cls: 'bg-green-50 text-green-700', label: 'Təsdiqlənib' },
+                  RETURNED: { cls: 'bg-red-50 text-red-600',     label: 'Geri qaytarılıb' },
+                }[inv.status] || { cls: 'bg-gray-50 text-gray-500', label: inv.status }
+                return (
+                  <div key={inv.id} className="flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-orange-50/40 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-gray-800">
+                          {inv.contractorName || inv.companyName || '—'}
+                        </span>
+                        <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-semibold', statusCfg.cls)}>
+                          {statusCfg.label}
+                        </span>
+                        {inv.accountingId && (
+                          <span className="text-[10px] font-mono text-indigo-500">{inv.accountingId}</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">
+                        {inv.equipmentName && <span>{inv.equipmentName}</span>}
+                        {inv.invoiceDate && <span className="ml-2">{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>}
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-orange-600 whitespace-nowrap">
+                      −{fmtMoney(inv.amount)} ₼
+                    </span>
+                    <button onClick={() => setViewInvoice(inv)}
+                      className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                      title="Qaiməyə bax">
+                      <Eye size={12} />
+                    </button>
+                  </div>
+                )
+              })}
+              <div className="flex justify-between items-center px-3 py-2 bg-orange-50">
+                <span className="text-[10px] font-semibold text-orange-700">Ödəniləcək cəmi</span>
+                <span className="text-sm font-bold text-orange-700">
+                  −{fmtMoney(invoices.filter(i => i.type === 'CONTRACTOR_EXPENSE' || i.type === 'INVESTOR_EXPENSE').reduce((s, i) => s + parseFloat(i.amount || 0), 0))} ₼
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
       <ConfirmDialog />

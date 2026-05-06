@@ -5,7 +5,8 @@ import {
   ArrowUpRight, ArrowDownRight, CreditCard,
   Receipt, Download, PenLine, X, CheckCircle, Undo2,
   ChevronDown, ArrowLeft, ChevronRight, Banknote,
-  Eye, AlertTriangle, Printer, FileText, RefreshCw
+  Eye, AlertTriangle, Printer, FileText, RefreshCw,
+  Paperclip, Upload
 } from 'lucide-react'
 import RecurringExpenseModal from './RecurringExpenseModal'
 import { useNavigate } from 'react-router-dom'
@@ -667,6 +668,9 @@ const filteredTransactions = useMemo(() => {
                           {inv.standardDays != null && <span className="text-gray-500">Standart: <b className="text-gray-700 dark:text-gray-300">{inv.standardDays} gün</b></span>}
                           {inv.extraDays != null && parseFloat(inv.extraDays) > 0 && <span className="text-gray-500">Əlavə: <b className="text-gray-700 dark:text-gray-300">{inv.extraDays} gün</b></span>}
                           {inv.extraHours != null && parseFloat(inv.extraHours) > 0 && <span className="text-gray-500">+<b className="text-gray-700 dark:text-gray-300">{inv.extraHours} saat</b></span>}
+                          {(inv.transports || []).length > 0 && (
+                            <span className="text-blue-600">Daşınma: <b>{(inv.transports || []).length}× {fmtMoney(inv.totalTransportAmount)}</b></span>
+                          )}
                         </div>
                       )}
 
@@ -679,14 +683,9 @@ const filteredTransactions = useMemo(() => {
 
                       {/* Transportations */}
                       {(() => {
-                        const transports = (() => {
-                          const v = inv.transportations
-                          if (!v) return []
-                          if (Array.isArray(v)) return v
-                          try { return JSON.parse(v) } catch { return [] }
-                        })()
+                        const transports = inv.transports || []
                         if (transports.length === 0) return null
-                        const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+                        const total = parseFloat(inv.totalTransportAmount || 0)
                         return (
                           <div className="rounded-lg border border-blue-100 dark:border-blue-800/40 overflow-hidden">
                             <div className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40 flex items-center justify-between">
@@ -696,10 +695,10 @@ const filteredTransactions = useMemo(() => {
                             {transports.map((t, i) => (
                               <div key={i} className="flex items-center justify-between px-2.5 py-1 text-[11px] border-b border-gray-50 dark:border-gray-700 last:border-0">
                                 <div className="flex items-center gap-2">
-                                  {t.date && <span className="text-gray-400">{new Date(t.date).toLocaleDateString('az-AZ')}</span>}
-                                  <span className="text-gray-600 dark:text-gray-300">{t.direction || '—'}</span>
+                                  {t.transportDate && <span className="text-gray-400">{new Date(t.transportDate).toLocaleDateString('az-AZ')}</span>}
+                                  <span className="text-gray-600 dark:text-gray-300">{t.transportDirection || '—'}</span>
                                 </div>
-                                <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)}</span>
+                                <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.transportAmount) || 0)}</span>
                               </div>
                             ))}
                           </div>
@@ -735,6 +734,40 @@ const filteredTransactions = useMemo(() => {
                           />
                         </div>
                       </div>
+
+                      {/* Təhvil-Təslim Aktı — yalnız gəlir qaimələri üçün */}
+                      {isIncome && <div className="flex items-center gap-2 pt-1">
+                        {inv.aktFileUploaded ? (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await accountingApi.downloadAkt(inv.id)
+                                const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
+                                window.open(url, '_blank')
+                                setTimeout(() => URL.revokeObjectURL(url), 5000)
+                              } catch { toast.error('Fayl açıla bilmədi') }
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800 transition-colors"
+                            title={inv.aktFileName}
+                          >
+                            <Paperclip size={10} /> Akt: {inv.aktFileName || 'Fayla bax'}
+                          </button>
+                        ) : (
+                          <label className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-50 hover:bg-amber-50 text-gray-500 hover:text-amber-700 border border-gray-200 hover:border-amber-300 dark:bg-gray-700 dark:hover:bg-amber-900/20 dark:border-gray-600 cursor-pointer transition-colors">
+                            <Upload size={10} /> Akt yüklə
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+                              onChange={async e => {
+                                const file = e.target.files?.[0]
+                                if (!file) return
+                                try {
+                                  await accountingApi.uploadAkt(inv.id, file)
+                                  toast.success('Akt yükləndi')
+                                  loadInvoices()
+                                } catch { toast.error('Akt yüklənmədi') }
+                              }} />
+                          </label>
+                        )}
+                      </div>}
 
                       {/* Actions */}
                       <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -1181,6 +1214,7 @@ const filteredTransactions = useMemo(() => {
                                     </div>
                                   </div>
                                 ) : inv.status === 'APPROVED' ? (
+                                  <>
                                   <div className="space-y-3">
                                     <div className="flex items-center gap-2">
                                       <CheckCircle size={14} className="text-green-500" />
@@ -1220,14 +1254,9 @@ const filteredTransactions = useMemo(() => {
                                       </div>
                                     </div>
                                     {(() => {
-                                      const transports = (() => {
-                                        const v = inv.transportations
-                                        if (!v) return []
-                                        if (Array.isArray(v)) return v
-                                        try { return JSON.parse(v) } catch { return [] }
-                                      })()
+                                      const transports = inv.transports || []
                                       if (transports.length === 0) return null
-                                      const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+                                      const total = parseFloat(inv.totalTransportAmount || 0)
                                       return (
                                         <div className="rounded-lg border border-blue-100 dark:border-blue-800/40 overflow-hidden">
                                           <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40 flex items-center justify-between">
@@ -1237,16 +1266,50 @@ const filteredTransactions = useMemo(() => {
                                           {transports.map((t, i) => (
                                             <div key={i} className="flex items-center justify-between px-3 py-1.5 text-xs border-b border-gray-50 dark:border-gray-700 last:border-0">
                                               <div className="flex items-center gap-3">
-                                                {t.date && <span className="text-gray-400">{new Date(t.date).toLocaleDateString('az-AZ')}</span>}
-                                                <span className="text-gray-700 dark:text-gray-300">{t.direction || '—'}</span>
+                                                {t.transportDate && <span className="text-gray-400">{new Date(t.transportDate).toLocaleDateString('az-AZ')}</span>}
+                                                <span className="text-gray-700 dark:text-gray-300">{t.transportDirection || '—'}</span>
                                               </div>
-                                              <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)}</span>
+                                              <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.transportAmount) || 0)}</span>
                                             </div>
                                           ))}
                                         </div>
                                       )
                                     })()}
                                   </div>
+                                  {inv.type === 'INCOME' && <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Akt:</span>
+                                    {inv.aktFileUploaded ? (
+                                      <button
+                                        onClick={async e => {
+                                          e.stopPropagation()
+                                          try {
+                                            const res = await accountingApi.downloadAkt(inv.id)
+                                            const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
+                                            window.open(url, '_blank')
+                                            setTimeout(() => URL.revokeObjectURL(url), 5000)
+                                          } catch { toast.error('Fayl açıla bilmədi') }
+                                        }}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 transition-colors">
+                                        <Paperclip size={10} /> {inv.aktFileName || 'Fayla bax'}
+                                      </button>
+                                    ) : (
+                                      <label className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 cursor-pointer transition-colors">
+                                        <Upload size={10} /> Akt yüklə
+                                        <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+                                          onClick={e => e.stopPropagation()}
+                                          onChange={async e => {
+                                            const file = e.target.files?.[0]
+                                            if (!file) return
+                                            try {
+                                              await accountingApi.uploadAkt(inv.id, file)
+                                              toast.success('Akt yükləndi')
+                                              loadInvoices()
+                                            } catch { toast.error('Akt yüklənmədi') }
+                                          }} />
+                                      </label>
+                                    )}
+                                  </div>}
+                                  </>
                                 ) : inv.status === 'RETURNED' ? (
                                   <div className="space-y-3">
                                     <div className="flex items-center gap-2">

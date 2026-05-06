@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { X, FileText, ChevronRight, ChevronLeft, Plus, Trash2, RefreshCw, Check } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { customersApi } from '../../api/customers'
@@ -43,6 +43,7 @@ const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət'
 /* ═══════════════════════════════════════════════════════════════════════════ */
 export default function DocumentCreateModal({ onClose, onCreated }) {
   const [step, setStep] = useState(1)
+  const composingRef = useRef(false)   // AZ klaviatura composition dəstəyi
 
   // Step 1
   const [docType, setDocType]         = useState(null)
@@ -471,7 +472,9 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Müqavilə №</label>
                     <input
                       value={contractNumber}
-                      onChange={e => setContractNumber(e.target.value)}
+                      onCompositionStart={() => { composingRef.current = true }}
+                      onCompositionEnd={e => { composingRef.current = false; setContractNumber(e.target.value) }}
+                      onChange={e => { if (!composingRef.current) setContractNumber(e.target.value) }}
                       placeholder="MÜQ-2025-001"
                       className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
@@ -584,7 +587,9 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                       >
                         <input
                           value={line.description}
-                          onChange={e => updateLine(idx, 'description', e.target.value)}
+                          onCompositionStart={() => { composingRef.current = true }}
+                          onCompositionEnd={e => { composingRef.current = false; updateLine(idx, 'description', e.target.value) }}
+                          onChange={e => { if (!composingRef.current) updateLine(idx, 'description', e.target.value) }}
                           placeholder="Xidmətin adı..."
                           className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
@@ -593,7 +598,9 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                         ) : (
                           <input
                             value={line.unit}
-                            onChange={e => updateLine(idx, 'unit', e.target.value)}
+                            onCompositionStart={() => { composingRef.current = true }}
+                            onCompositionEnd={e => { composingRef.current = false; updateLine(idx, 'unit', e.target.value) }}
+                            onChange={e => { if (!composingRef.current) updateLine(idx, 'unit', e.target.value) }}
                             placeholder="gün"
                             className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                           />
@@ -638,7 +645,9 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Qeyd</label>
                 <textarea
                   value={notes}
-                  onChange={e => setNotes(e.target.value)}
+                  onCompositionStart={() => { composingRef.current = true }}
+                  onCompositionEnd={e => { composingRef.current = false; setNotes(e.target.value) }}
+                  onChange={e => { if (!composingRef.current) setNotes(e.target.value) }}
                   rows={2}
                   placeholder="Əlavə qeydlər..."
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -656,7 +665,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                   <span className="font-semibold text-gray-800 dark:text-gray-200">{fmtMoney(vatAmount)}</span>
                 </div>
                 <div className="flex justify-between text-base pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <span className="font-bold text-gray-700 dark:text-gray-300">YEKUNa:</span>
+                  <span className="font-bold text-gray-700 dark:text-gray-300">YEKUN:</span>
                   <span className="font-bold text-amber-600 text-lg">{fmtMoney(grandTotal)}</span>
                 </div>
               </div>
