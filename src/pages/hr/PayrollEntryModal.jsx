@@ -9,13 +9,23 @@ function round2(n) {
   return Math.round(n * 100) / 100
 }
 
-function bracketed(amount, threshold, rateBelow, rateAbove) {
+// Xam (yuvarlaqlaşdırılmamış) bracket hesablaması — kumulyativ 0.01 fərq olmasın deyə.
+function bracketedRaw(amount, threshold, rateBelow, rateAbove) {
   if (!amount || amount <= 0) return 0
   const t = Number(threshold ?? 0)
   const rb = Number(rateBelow ?? 0)
   const ra = Number(rateAbove ?? 0)
-  if (amount <= t) return round2(amount * rb)
-  return round2(t * rb + (amount - t) * ra)
+  if (amount <= t) return amount * rb
+  return t * rb + (amount - t) * ra
+}
+
+// Azərbaycan 2026 progressiv gəlir vergisi (xam — yuvarlaqlaşdırma sonda)
+function progressiveIncomeTaxRaw(taxBase) {
+  if (!taxBase || taxBase <= 0) return 0
+  if (taxBase <= 200)  return 0
+  if (taxBase <= 2500) return (taxBase - 200) * 0.03
+  if (taxBase <= 8000) return 75 + (taxBase - 2500) * 0.10
+  return 625 + (taxBase - 8000) * 0.14
 }
 
 function calcPreview(form, cfg, workingDaysInMonth) {
@@ -35,42 +45,43 @@ function calcPreview(form, cfg, workingDaysInMonth) {
   let gross = round2(proRated + overtimePay + bonus + vacation - penalty)
   if (gross < 0) gross = 0
 
-  const employeePension      = bracketed(gross, cfg.employeePensionThreshold, cfg.employeePensionRateBelow, cfg.employeePensionRateAbove)
-  const employeeUnemployment = round2(gross * Number(cfg.employeeUnemploymentRate ?? 0))
-  const employeeMedical      = bracketed(gross, cfg.employeeMedicalThreshold, cfg.employeeMedicalRateBelow, cfg.employeeMedicalRateAbove)
+  // Xam dəyərlər — yuvarlaqlaşdırma yalnız sonunda (0.01 kumulyativ fərq olmasın deyə)
+  const pensionRaw      = bracketedRaw(gross, cfg.employeePensionThreshold, cfg.employeePensionRateBelow, cfg.employeePensionRateAbove)
+  const unemploymentRaw = gross * Number(cfg.employeeUnemploymentRate ?? 0)
+  const medicalRaw      = bracketedRaw(gross, cfg.employeeMedicalThreshold, cfg.employeeMedicalRateBelow, cfg.employeeMedicalRateAbove)
 
   let taxBase = gross
   if (cfg.deductSocialFromTaxBase) {
-    taxBase -= employeePension + employeeUnemployment + employeeMedical
+    taxBase -= pensionRaw + unemploymentRaw + medicalRaw
   }
   if (Number(cfg.nonTaxableMinimum) > 0) {
     taxBase -= Number(cfg.nonTaxableMinimum)
   }
   if (taxBase < 0) taxBase = 0
 
-  const incomeTax       = bracketed(taxBase, cfg.incomeTaxThreshold, cfg.incomeTaxRateBelow, cfg.incomeTaxRateAbove)
-  const totalDeductions = round2(incomeTax + employeePension + employeeUnemployment + employeeMedical)
-  let   netPay          = round2(gross - totalDeductions)
-  if (netPay < 0) netPay = 0
+  const incomeTaxRaw      = progressiveIncomeTaxRaw(taxBase)
+  const totalDeductionsRaw = incomeTaxRaw + pensionRaw + unemploymentRaw + medicalRaw
+  let   netPayRaw         = gross - totalDeductionsRaw
+  if (netPayRaw < 0) netPayRaw = 0
 
-  const employerPension      = bracketed(gross, cfg.employerPensionThreshold, cfg.employerPensionRateBelow, cfg.employerPensionRateAbove)
-  const employerUnemployment = round2(gross * Number(cfg.employerUnemploymentRate ?? 0))
-  const employerMedical      = bracketed(gross, cfg.employerMedicalThreshold, cfg.employerMedicalRateBelow, cfg.employerMedicalRateAbove)
-  const totalEmployer        = round2(employerPension + employerUnemployment + employerMedical)
+  const employerPensionRaw      = bracketedRaw(gross, cfg.employerPensionThreshold, cfg.employerPensionRateBelow, cfg.employerPensionRateAbove)
+  const employerUnemploymentRaw = gross * Number(cfg.employerUnemploymentRate ?? 0)
+  const employerMedicalRaw      = bracketedRaw(gross, cfg.employerMedicalThreshold, cfg.employerMedicalRateBelow, cfg.employerMedicalRateAbove)
+  const totalEmployerRaw        = employerPensionRaw + employerUnemploymentRaw + employerMedicalRaw
 
   return {
-    grossTotal: gross,
-    incomeTax,
-    employeePension,
-    employeeUnemployment,
-    employeeMedical,
-    totalDeductions,
-    netPay,
-    employerPension,
-    employerUnemployment,
-    employerMedical,
-    totalEmployerContributions: totalEmployer,
-    totalCompanyCost: round2(gross + totalEmployer),
+    grossTotal: round2(gross),
+    incomeTax:           round2(incomeTaxRaw),
+    employeePension:     round2(pensionRaw),
+    employeeUnemployment: round2(unemploymentRaw),
+    employeeMedical:     round2(medicalRaw),
+    totalDeductions:     round2(totalDeductionsRaw),
+    netPay:              round2(netPayRaw),
+    employerPension:     round2(employerPensionRaw),
+    employerUnemployment: round2(employerUnemploymentRaw),
+    employerMedical:     round2(employerMedicalRaw),
+    totalEmployerContributions: round2(totalEmployerRaw),
+    totalCompanyCost:    round2(gross + totalEmployerRaw),
   }
 }
 
@@ -166,10 +177,10 @@ export default function PayrollEntryModal({ entry, onClose, onSaved }) {
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hesablama</h3>
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 divide-y divide-gray-200 dark:divide-gray-700 text-sm">
               <Row label="HESABLANIB CƏMİ"    value={fmt(preview.grossTotal)}                bold />
-              <Row label="Gəlir vergisi"       value={fmt(preview.incomeTax)} />
+              <Row label="Gəlir vergisi (0/3/10/14%)" value={fmt(preview.incomeTax)} />
               <Row label="Pensiya (3% / 10%)"  value={fmt(preview.employeePension)} />
               <Row label="İşsizlik (0.5%)"     value={fmt(preview.employeeUnemployment)} />
-              <Row label="Tibbi (2% / 0.5%)"   value={fmt(preview.employeeMedical)} />
+              <Row label="Tibbi (2% / 0.5%, ≷2500)" value={fmt(preview.employeeMedical)} />
               <Row label="CƏMİ TUTULMUŞDUR"   value={fmt(preview.totalDeductions)}           bold negative />
               <Row label="ÖDƏNİLMƏLİ MƏBLƏĞ" value={fmt(preview.netPay)}                    bold positive big />
               <Row label="İGÖ Pensiya (22%/15%)" value={fmt(preview.employerPension)} />
