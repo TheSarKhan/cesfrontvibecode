@@ -44,24 +44,27 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true)
-    
-    // Simulyasiya
-    setTimeout(() => {
-      // Uğurlu olduqda
+
+    try {
+      await authApi.resetPassword(verificationToken, form.newPassword)
       toast.success('Şifrə uğurla yeniləndi')
       sessionStorage.removeItem('verificationToken')
       sessionStorage.removeItem('resetEmail')
-      
-      // STATE ilə loginə yönləndir - burada əsas düzəliş!
-      navigate('/login', { 
+      navigate('/login', {
         replace: true,
-        state: { 
+        state: {
           showSuccessMessage: true,
           successTitle: 'Təbriklər, şifrə yeniləndi!',
           successText: 'Daxil olmaq üçün yeni şifrənizdən istifadə edin'
         }
       })
-    }, 1000)
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Şifrə yenilənə bilmədi. Yenidən cəhd edin.'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

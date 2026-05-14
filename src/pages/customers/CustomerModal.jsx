@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Building2, Pencil } from 'lucide-react'
 import { customersApi } from '../../api/customers'
+import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -42,12 +43,13 @@ const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-
 export default function CustomerModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
     if (editing) {
-      setForm({
+      const data = {
         companyName: editing.companyName || '',
         voen: editing.voen || '',
         address: editing.address || '',
@@ -60,9 +62,12 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
         status: editing.status || 'ACTIVE',
         riskLevel: editing.riskLevel || 'LOW',
         notes: editing.notes || '',
-      })
+      }
+      setForm(data)
+      setInitialForm(data)
     } else {
       setForm(EMPTY)
+      setInitialForm(null)
     }
   }, [editing])
 
@@ -80,34 +85,41 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
 
   const validate = () => {
     const errs = {}
+    const e = (field, ...rules) => { const err = v.chain(form[field], ...rules); if (err) errs[field] = err }
 
-    if (!form.companyName?.trim())
-      errs.companyName = 'Şirkət adı tələb olunur'
-    else if (form.companyName.trim().length < 2)
-      errs.companyName = 'Minimum 2 simvol olmalıdır'
-    else if (form.companyName.trim().length > 150)
-      errs.companyName = 'Maksimum 150 simvol ola bilər'
+    e('companyName',
+      (val) => v.required(val, 'Şirkət adı tələb olunur'),
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 150))
 
-    if (form.voen && !/^\d{10}$/.test(form.voen.trim()))
-      errs.voen = 'VÖEN 10 rəqəmdən ibarət olmalıdır'
+    e('voen', v.voen)
 
-    if (form.address && form.address.trim().length > 200)
-      errs.address = 'Maksimum 200 simvol ola bilər'
+    e('directorName',
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
 
-    if (form.supplierPerson && form.supplierPerson.trim().length > 100)
-      errs.supplierPerson = 'Maksimum 100 simvol ola bilər'
+    e('address',
+      (val) => v.minLen(val, 3, 'Minimum 3 simvol olmalıdır'),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 200))
 
-    if (form.supplierPhone && form.supplierPhone.trim().length > 30)
-      errs.supplierPhone = 'Maksimum 30 simvol ola bilər'
+    e('supplierPerson',
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
 
-    if (form.officeContactPerson && form.officeContactPerson.trim().length > 100)
-      errs.officeContactPerson = 'Maksimum 100 simvol ola bilər'
+    e('supplierPhone', v.phone)
 
-    if (form.officeContactPhone && form.officeContactPhone.trim().length > 30)
-      errs.officeContactPhone = 'Maksimum 30 simvol ola bilər'
+    e('officeContactPerson',
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
 
-    if (form.notes && form.notes.trim().length > 500)
-      errs.notes = 'Maksimum 500 simvol ola bilər'
+    e('officeContactPhone', v.phone)
+
+    e('notes', (val) => v.maxLen(val, 500))
 
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -125,6 +137,10 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+    if (editing && initialForm && JSON.stringify(form) === JSON.stringify(initialForm)) {
+      toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+      return
+    }
 
     setLoading(true)
     try {
@@ -195,6 +211,7 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
               <div>
                 <label className={labelCls}>Direktor adı</label>
                 <input type="text" value={form.directorName} onChange={(e) => set('directorName', e.target.value)} placeholder="Ad Soyad" className={inputCls('directorName')} />
+                {errors.directorName && <p className="mt-1 text-xs text-red-500">{errors.directorName}</p>}
               </div>
             </div>
 

@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { NAV_ITEMS } from '../../constants/navigation'
 import { useAuthStore } from '../../store/authStore'
+import { useNotificationStore } from '../../store/notificationStore'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { dashboardApi } from '../../api/dashboard'
 
@@ -11,13 +12,13 @@ export default function Sidebar({ collapsed, onToggle }) {
   const user = useAuthStore((s) => s.user)
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const [pendingCount, setPendingCount] = useState(0)
+  const approvalQueueVersion = useNotificationStore((s) => s.approvalQueueVersion)
 
   useEffect(() => {
-    const fetch = () => dashboardApi.getStats().then(r => setPendingCount(r.data?.data?.pendingApprovals ?? r.data?.pendingApprovals ?? 0)).catch(() => {})
-    fetch()
-    const id = setInterval(fetch, 60000)
-    return () => clearInterval(id)
-  }, [])
+    dashboardApi.getStats()
+      .then(r => setPendingCount(r.data?.data?.pendingApprovals ?? r.data?.pendingApprovals ?? 0))
+      .catch(() => {})
+  }, [approvalQueueVersion])
 
   return (
     <aside

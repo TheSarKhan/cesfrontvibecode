@@ -13,7 +13,8 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 
-const fmt      = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+import { fmtDate } from '../../utils/date'
+const fmt      = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'

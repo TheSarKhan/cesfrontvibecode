@@ -3,7 +3,8 @@ import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { clsx } from 'clsx'
 import cesLogoUrl from '../../assets/filelogo.png'
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+import { fmtDate } from '../../utils/date'
+const fmt = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'

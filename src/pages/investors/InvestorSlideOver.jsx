@@ -5,7 +5,8 @@ import ActivityFeed from '../../components/common/ActivityFeed'
 import { garageApi } from '../../api/garage'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : null
+import { fmtDate } from '../../utils/date'
+const fmt = (d) => fmtDate(d) === '—' ? null : fmtDate(d)
 const fmtMoney = (v) => v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : null
 
 const RISK_CONFIG = {

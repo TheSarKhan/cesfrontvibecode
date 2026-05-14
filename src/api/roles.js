@@ -1,6 +1,7 @@
 import axiosInstance from './axios'
 
 export const rolesApi = {
+  getAll: () => axiosInstance.get('/roles'),
   getAllPaged: (params) => axiosInstance.get('/roles/paged', { params }),
   getByDepartment: (deptId) => axiosInstance.get(`/roles/department/${deptId}`),
   create: (data) => axiosInstance.post('/roles', data),

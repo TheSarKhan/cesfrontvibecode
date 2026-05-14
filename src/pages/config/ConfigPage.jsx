@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Settings, Search, GripVertical, ToggleLeft, Toggl
 import { configApi } from '../../api/config'
 import { banksApi } from '../../api/banks'
 import { useAuthStore } from '../../store/authStore'
+import { v } from '../../utils/validation'
 import ConfigItemModal from './ConfigItemModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -42,11 +43,13 @@ export default function ConfigPage() {
   // Document settings state
   const [docItems, setDocItems]     = useState({})
   const [docValues, setDocValues]   = useState({})
+  const [docErrors, setDocErrors]   = useState({})
   const [banks, setBanks]     = useState([])
   const [docLoading, setDocLoading] = useState(true)
   const [docSaving, setDocSaving]   = useState(false)
   const [editingBankIdx, setEditingBankIdx] = useState(null)
   const [bankForm, setBankForm] = useState({})
+  const [bankErrors, setBankErrors] = useState({})
 
   const activeCategory = searchParams.get('category') || null
   const search = searchParams.get('q') || ''
@@ -133,7 +136,35 @@ export default function ConfigPage() {
     }
   }
 
+  const validateDocFields = () => {
+    const errs = {}
+    const val = (cat, key) => docValues[mk(cat, key)] || ''
+
+    // Şirkət məlumatları validasiyası
+    const voenVal = val('COMPANY_INFO', 'VOEN')
+    if (voenVal.trim()) {
+      const voenErr = v.voen(voenVal)
+      if (voenErr) errs[mk('COMPANY_INFO', 'VOEN')] = voenErr
+    }
+
+    const phoneVal = val('COMPANY_INFO', 'PHONE')
+    if (phoneVal.trim()) {
+      const phoneErr = v.phone(phoneVal)
+      if (phoneErr) errs[mk('COMPANY_INFO', 'PHONE')] = phoneErr
+    }
+
+    const emailVal = val('COMPANY_INFO', 'EMAIL')
+    if (emailVal.trim()) {
+      const emailErr = v.email(emailVal)
+      if (emailErr) errs[mk('COMPANY_INFO', 'EMAIL')] = emailErr
+    }
+
+    setDocErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const handleDocSave = async () => {
+    if (!validateDocFields()) { toast.error('Xahiş edirik xətaları düzəldin'); return }
     setDocSaving(true)
     try {
       const updates = Object.entries(docValues)
@@ -176,8 +207,18 @@ export default function ConfigPage() {
     setBankForm({ ...bank })
   }
 
+  const validateBankForm = () => {
+    const errs = {}
+    const e = (field, ...rules) => { const err = v.chain(bankForm[field] || '', ...rules); if (err) errs[field] = err }
+    e('bankName', v.required, v.minLen(2), v.realContent, v.maxLen(100))
+    e('bankCode', v.required, v.minLen(2), v.maxLen(20))
+    e('iban', v.required, v.minLen(10), v.maxLen(34))
+    setBankErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const handleSaveBank = async () => {
-    if (!bankForm.bankName?.trim()) { toast.error('Bank adı tələbdir'); return }
+    if (!validateBankForm()) return
     setDocSaving(true)
     try {
       if (editingBankIdx === 'new') {
@@ -529,6 +570,7 @@ export default function ConfigPage() {
                 <div className="grid grid-cols-2 gap-4">
                   {section.fields.map(field => {
                     const k = mk(section.category, field.key)
+                    const err = docErrors[k]
                     return (
                       <div key={field.key}>
                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -537,10 +579,14 @@ export default function ConfigPage() {
                         <input
                           type="text"
                           value={docValues[k] ?? ''}
-                          onChange={e => setDocValues(v => ({ ...v, [k]: e.target.value }))}
+                          onChange={e => {
+                            setDocValues(prev => ({ ...prev, [k]: e.target.value }))
+                            if (err) setDocErrors(prev => { const n = { ...prev }; delete n[k]; return n })
+                          }}
                           placeholder={field.placeholder}
-                          className={inputCls}
+                          className={`${inputCls} ${err ? 'border-red-400 focus:ring-red-400' : ''}`}
                         />
+                        {err && <p className="text-xs text-red-500 mt-1">{err}</p>}
                       </div>
                     )
                   })}
@@ -564,24 +610,31 @@ export default function ConfigPage() {
               {editingBankIdx !== null && (
                 <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-3">
                   <div className="grid grid-cols-3 gap-3">
-                    {BANK_FIELDS.map(field => (
-                      <div key={field.key}>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          {field.label}
-                        </label>
-                        <input
-                          type="text"
-                          value={bankForm[field.key] || ''}
-                          onChange={e => setBankForm(f => ({ ...f, [field.key]: e.target.value }))}
-                          placeholder={field.label}
-                          className={inputCls}
-                        />
-                      </div>
-                    ))}
+                    {BANK_FIELDS.map(field => {
+                      const err = bankErrors[field.key]
+                      return (
+                        <div key={field.key}>
+                          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            {field.label} {['bankName', 'bankCode', 'iban'].includes(field.key) && <span className="text-red-500">*</span>}
+                          </label>
+                          <input
+                            type="text"
+                            value={bankForm[field.key] || ''}
+                            onChange={e => {
+                              setBankForm(f => ({ ...f, [field.key]: e.target.value }))
+                              if (err) setBankErrors(prev => { const n = { ...prev }; delete n[field.key]; return n })
+                            }}
+                            placeholder={field.label}
+                            className={`${inputCls} ${err ? 'border-red-400 focus:ring-red-400' : ''}`}
+                          />
+                          {err && <p className="text-xs text-red-500 mt-1">{err}</p>}
+                        </div>
+                      )
+                    })}
                   </div>
                   <div className="flex gap-2 justify-end pt-2">
                     <button
-                      onClick={() => { setEditingBankIdx(null); setBankForm({}) }}
+                      onClick={() => { setEditingBankIdx(null); setBankForm({}); setBankErrors({}) }}
                       className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-lg text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600"
                     >
                       Ləğv et

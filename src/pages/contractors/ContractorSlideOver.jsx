@@ -9,7 +9,8 @@ import { clsx } from 'clsx'
 import ActivityFeed from '../../components/common/ActivityFeed'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+import { fmtDate } from '../../utils/date'
+const fmt = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'

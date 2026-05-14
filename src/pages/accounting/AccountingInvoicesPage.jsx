@@ -30,7 +30,8 @@ import Pagination from '../../components/common/Pagination'
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+import { fmtDate } from '../../utils/date'
+const fmt = fmtDate
 const dash = (v) => (v != null && v !== '') ? v : '—'
 
 const MAIN_TABS = [

@@ -13,6 +13,7 @@ import ProjectQaimeTab from './ProjectQaimeTab'
 import axiosInstance from '../../api/axios'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import { fmtDate } from '../../utils/date'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import PrintButton from '../../components/common/PrintButton'
 
@@ -184,7 +185,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
     }
   }
 
-  const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+  const fmt = fmtDate
   const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
 
   return (
@@ -601,7 +602,7 @@ function FinanceTab({ project }) {
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-800 truncate">{e.key}</p>
                 <p className="text-[10px] text-gray-400">
-                  {e.date ? new Date(e.date).toLocaleDateString('az-AZ') : ''}
+                  {e.date ? fmtDate(e.date) : ''}
                 </p>
               </div>
               <span className="text-xs font-semibold text-red-600 whitespace-nowrap">{fmtMoney(e.value)} ₼</span>
@@ -648,7 +649,7 @@ function FinanceTab({ project }) {
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-800 truncate">{r.key}</p>
                 <p className="text-[10px] text-gray-400">
-                  {r.date ? new Date(r.date).toLocaleDateString('az-AZ') : ''}
+                  {r.date ? fmtDate(r.date) : ''}
                 </p>
               </div>
               <span className="text-xs font-semibold text-green-600 whitespace-nowrap">{fmtMoney(r.value)} ₼</span>
@@ -726,7 +727,7 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }))
 
   const isCompleted = project.status === 'COMPLETED'
-  const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+  const fmt = fmtDate
   const fmtMoney = (v) => v != null && v !== '' ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
 
   const effectiveDays = project.startDate && project.endDate

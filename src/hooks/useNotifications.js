@@ -16,6 +16,7 @@ function getWsUrl() {
 
 export function useNotifications(enabled = true) {
   const addNotification = useNotificationStore((s) => s.addNotification)
+  const bumpApprovalQueue = useNotificationStore((s) => s.bumpApprovalQueue)
 
   useEffect(() => {
     if (!enabled) return
@@ -28,11 +29,15 @@ export function useNotifications(enabled = true) {
           try {
             const payload = JSON.parse(message.body)
             addNotification(payload)
-            const icon = TOAST_ICONS[payload.type] || 'ℹ️'
-            toast(`${icon} ${payload.title}\n${payload.message}`, {
-              duration: 5000,
-              style: { fontSize: '12px', maxWidth: '320px' },
-            })
+            if (payload.type === 'APPROVAL_QUEUE_UPDATED') {
+              bumpApprovalQueue()
+            } else {
+              const icon = TOAST_ICONS[payload.type] || 'ℹ️'
+              toast(`${icon} ${payload.title}\n${payload.message}`, {
+                duration: 5000,
+                style: { fontSize: '12px', maxWidth: '320px' },
+              })
+            }
           } catch {
             // ignore parse errors
           }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, HardHat, Pencil } from 'lucide-react'
 import { contractorsApi } from '../../api/contractors'
+import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -37,12 +38,13 @@ const EMPTY = {
 export default function ContractorModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
     if (editing) {
-      setForm({
+      const data = {
         companyName: editing.companyName || '',
         voen: editing.voen || '',
         contactPerson: editing.contactPerson || '',
@@ -53,9 +55,12 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
         riskLevel: editing.riskLevel || 'LOW',
         rating: editing.rating ?? '',
         notes: editing.notes || '',
-      })
+      }
+      setForm(data)
+      setInitialForm(data)
     } else {
       setForm(EMPTY)
+      setInitialForm(null)
     }
   }, [editing])
 
@@ -73,7 +78,30 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
 
   const validate = () => {
     const errs = {}
-    if (!form.companyName?.trim()) errs.companyName = 'Şirkət adı tələb olunur'
+    const e = (field, ...rules) => { const err = v.chain(form[field], ...rules); if (err) errs[field] = err }
+
+    e('companyName',
+      (val) => v.required(val, 'Şirkət adı tələb olunur'),
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 150))
+
+    e('voen', v.voen)
+
+    e('contactPerson',
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
+
+    e('phone', v.phone)
+
+    e('address',
+      (val) => v.minLen(val, 3, 'Minimum 3 simvol olmalıdır'),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 200))
+
+    e('notes', (val) => v.maxLen(val, 500))
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -81,6 +109,10 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+    if (editing && initialForm && JSON.stringify(form) === JSON.stringify(initialForm)) {
+      toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+      return
+    }
 
     const payload = {
       ...form,
@@ -153,10 +185,11 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
               <input
                 type="text"
                 value={form.voen}
-                onChange={(e) => set('voen', e.target.value)}
+                onChange={(e) => set('voen', e.target.value.replace(/\D/g, '').slice(0, 10))}
                 placeholder="1234567890"
-                className={inputCls('')}
+                className={inputCls('voen')}
               />
+              {errors.voen && <p className="mt-1 text-xs text-red-500">{errors.voen}</p>}
             </div>
 
             {/* Contact person */}
@@ -167,8 +200,9 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
                 value={form.contactPerson}
                 onChange={(e) => set('contactPerson', e.target.value)}
                 placeholder="Ad Soyad"
-                className={inputCls('')}
+                className={inputCls('contactPerson')}
               />
+              {errors.contactPerson && <p className="mt-1 text-xs text-red-500">{errors.contactPerson}</p>}
             </div>
 
             {/* Phone */}
@@ -178,9 +212,10 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
                 type="text"
                 value={form.phone}
                 onChange={(e) => set('phone', e.target.value)}
-                placeholder="0501234567"
-                className={inputCls('')}
+                placeholder="+994501234567"
+                className={inputCls('phone')}
               />
+              {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone}</p>}
             </div>
 
             {/* Address */}
@@ -191,8 +226,9 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
                 value={form.address}
                 onChange={(e) => set('address', e.target.value)}
                 placeholder="Şəhər, küçə"
-                className={inputCls('')}
+                className={inputCls('address')}
               />
+              {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
             </div>
 
             {/* Payment type */}
@@ -272,8 +308,9 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
                 onChange={(e) => set('notes', e.target.value)}
                 rows={3}
                 placeholder="Əlavə qeydlər..."
-                className={`${inputCls('')} resize-none`}
+                className={`${inputCls('notes')} resize-none`}
               />
+              {errors.notes && <p className="mt-1 text-xs text-red-500">{errors.notes}</p>}
             </div>
           </div>
 

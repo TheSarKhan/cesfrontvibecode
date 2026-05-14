@@ -9,8 +9,10 @@ import toast from 'react-hot-toast'
 import DateInput from '../../components/common/DateInput'
 import { clsx } from 'clsx'
 
+import { fmtDate } from '../../utils/date'
+
 const fmtMoney = (v) => v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : '0.00 ₼'
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+const fmt = fmtDate
 
 export default function KreditorPage() {
   const navigate = useNavigate()

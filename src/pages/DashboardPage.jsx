@@ -18,8 +18,7 @@ import { clsx } from 'clsx'
 const fmt = (n) =>
   new Intl.NumberFormat('az-AZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n ?? 0)
 
-const fmtDate = (d) =>
-  d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+import { fmtDate } from '../utils/date'
 
 /* ─────────────────────────────────────────────
    KPI CARD  — pastel background, label top-left,

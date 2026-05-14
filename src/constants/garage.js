@@ -46,7 +46,7 @@ export const FILE_UPLOAD = {
 }
 
 export const fmtMoney = (v) => v != null ? `${Number(v).toLocaleString()} ₼` : '—'
-export const fmtDate  = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+export { fmtDate } from '../utils/date'
 export const dash     = (v) => (v != null && v !== '') ? v : '—'
 
 export function inspectionCountdown(nextDate) {

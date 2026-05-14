@@ -23,7 +23,7 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
     }
 
     setLoading(true)
-    let ok = 0, fail = 0
+    let ok = 0, pending = 0, fail = 0
     for (const id of selectedIds) {
       try {
         const { data: res } = await garageApi.getById(id)
@@ -61,10 +61,14 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
         }
         await garageApi.update(id, payload)
         ok++
-      } catch { fail++ }
+      } catch (err) {
+        if (err?.isPending) pending++
+        else fail++
+      }
     }
     setLoading(false)
     if (ok) toast.success(`${ok} texnika yeniləndi`)
+    if (pending) toast.success(`${pending} texnikanın dəyişikliyi təsdiq növbəsinə göndərildi`)
     if (fail) toast.error(`${fail} texnika yenilənmədi`)
     onSaved()
   }

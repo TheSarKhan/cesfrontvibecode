@@ -16,13 +16,7 @@ const TYPE_DOT = {
   WARNING: 'bg-amber-500',
 }
 
-function fmtTime(timestamp) {
-  if (!timestamp) return ''
-  try {
-    const d = new Date(timestamp)
-    return d.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })
-  } catch { return '' }
-}
+import { fmtTime } from '../../utils/date'
 
 export default function Topbar({ pageTitle, onSearchOpen }) {
   const user = useAuthStore((s) => s.user)

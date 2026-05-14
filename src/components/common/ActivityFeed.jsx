@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import axiosInstance from '../../api/axios'
 import { Clock, RefreshCw, PlusCircle, Edit3, Trash2, RotateCcw, LogIn, LogOut, CheckCircle, XCircle } from 'lucide-react'
 import { clsx } from 'clsx'
+import { timeAgo } from '../../utils/date'
 
 const ACTION_CONFIG = {
   'YARADILDI':    { icon: PlusCircle,   color: 'text-green-500',  bg: 'bg-green-100 dark:bg-green-900/30' },
@@ -12,17 +13,6 @@ const ACTION_CONFIG = {
   'ÇIXIŞ ETDİ':  { icon: LogOut,       color: 'text-gray-500',   bg: 'bg-gray-100 dark:bg-gray-700' },
   'TƏSDİQLƏNDİ': { icon: CheckCircle,  color: 'text-teal-500',   bg: 'bg-teal-100 dark:bg-teal-900/30' },
   'RƏDD EDİLDİ': { icon: XCircle,      color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
-}
-
-function timeAgo(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'İndicə'
-  if (mins < 60) return `${mins} dəq əvvəl`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs} saat əvvəl`
-  const days = Math.floor(hrs / 24)
-  return `${days} gün əvvəl`
 }
 
 export default function ActivityFeed({ entityType, entityId, className }) {

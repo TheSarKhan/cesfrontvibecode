@@ -35,27 +35,34 @@ export default function RolesPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [deptRes, userRes] = await Promise.all([
+      const [deptRes, userRes, rolesRes] = await Promise.all([
         departmentsApi.getAll(),
         usersApi.getAll(),
+        rolesApi.getAll(),
       ])
       const depts = deptRes.data.data || []
+      const allRoles = rolesRes.data.data || []
       setDepartments(depts)
       setUsers(userRes.data.data || [])
 
-      // Load role counts for each department
+      // Compute role counts from single fetch instead of N requests
       const counts = {}
-      await Promise.all(depts.map(async (d) => {
-        try {
-          const res = await rolesApi.getByDepartment(d.id)
-          counts[d.id] = (res.data.data || []).length
-        } catch { counts[d.id] = 0 }
-      }))
+      depts.forEach(d => { counts[d.id] = 0 })
+      allRoles.forEach(r => {
+        if (r.departmentId != null) counts[r.departmentId] = (counts[r.departmentId] || 0) + 1
+      })
       setRoleCounts(counts)
     } catch {
     } finally {
       setLoading(false)
     }
+  }
+
+  const refreshRoleCount = async (deptId) => {
+    try {
+      const res = await rolesApi.getByDepartment(deptId)
+      setRoleCounts(prev => ({ ...prev, [deptId]: (res.data.data || []).length }))
+    } catch {}
   }
 
   useEffect(() => { loadData() }, [])
@@ -74,7 +81,8 @@ export default function RolesPage() {
     try {
       await departmentsApi.delete(dept.id)
       toast.success('Şöbə silindi')
-      loadData()
+      setDepartments(prev => prev.filter(d => d.id !== dept.id))
+      setRoleCounts(prev => { const next = { ...prev }; delete next[dept.id]; return next })
     } catch (err) {
       if (err?.isPending) return
     }
@@ -87,7 +95,7 @@ export default function RolesPage() {
         dept={selectedDept}
         users={users}
         departments={departments}
-        onBack={() => { setSelectedDept(null); loadData() }}
+        onBack={() => { refreshRoleCount(selectedDept.id); setSelectedDept(null) }}
       />
     )
   }
@@ -164,9 +172,14 @@ export default function RolesPage() {
         <DepartmentModal
           editing={deptModal.editing}
           onClose={() => setDeptModal({ open: false, editing: null })}
-          onSaved={() => {
+          onSaved={(newDept) => {
             setDeptModal({ open: false, editing: null })
-            loadData()
+            if (newDept) {
+              // New dept created — append to state without full reload
+              setDepartments(prev => [...prev, newDept])
+              setRoleCounts(prev => ({ ...prev, [newDept.id]: 0 }))
+            }
+            // null = edit was pending approval, state unchanged
           }}
         />
       )}

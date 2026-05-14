@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, UserCog, Pencil } from 'lucide-react'
 import { operatorsApi } from '../../api/operators'
+import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -10,12 +11,13 @@ const EMPTY = { firstName: '', lastName: '', address: '', phone: '', email: '', 
 export default function OperatorModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
     if (editing) {
-      setForm({
+      const data = {
         firstName: editing.firstName || '',
         lastName: editing.lastName || '',
         address: editing.address || '',
@@ -23,9 +25,12 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
         email: editing.email || '',
         specialization: editing.specialization || '',
         notes: editing.notes || '',
-      })
+      }
+      setForm(data)
+      setInitialForm(data)
     } else {
       setForm(EMPTY)
+      setInitialForm(null)
     }
   }, [editing])
 
@@ -44,8 +49,35 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
 
   const validate = () => {
     const errs = {}
-    if (!form.firstName?.trim()) errs.firstName = 'Ad tələb olunur'
-    if (!form.lastName?.trim()) errs.lastName = 'Soyad tələb olunur'
+    const e = (field, ...rules) => { const err = v.chain(form[field], ...rules); if (err) errs[field] = err }
+
+    e('firstName',
+      (val) => v.required(val, 'Ad tələb olunur'),
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 50))
+
+    e('lastName',
+      (val) => v.required(val, 'Soyad tələb olunur'),
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 50))
+
+    e('phone', v.phone)
+    e('email', v.email)
+
+    e('address',
+      (val) => v.minLen(val, 3, 'Minimum 3 simvol olmalıdır'),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 200))
+
+    e('specialization',
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
+
+    e('notes', (val) => v.maxLen(val, 500))
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -53,6 +85,10 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+    if (editing && initialForm && JSON.stringify(form) === JSON.stringify(initialForm)) {
+      toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+      return
+    }
     setSaving(true)
     try {
       if (editing) {
@@ -69,19 +105,6 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
       setSaving(false)
     }
   }
-
-  const Field = ({ label, name, type = 'text', placeholder }) => (
-    <div>
-      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</label>
-      <input
-        type={type}
-        value={form[name]}
-        onChange={set(name)}
-        placeholder={placeholder}
-        className={inputCls('')}
-      />
-    </div>
-  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -121,12 +144,52 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
               {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
             </div>
           </div>
-          <Field label="Ünvan" name="address" placeholder="Bakı, Nərimanov r." />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Telefon" name="phone" type="tel" placeholder="+994 50 000 00 00" />
-            <Field label="E-mail" name="email" type="email" placeholder="ali@mail.com" />
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Ünvan</label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={set('address')}
+              placeholder="Bakı, Nərimanov r."
+              className={inputCls('address')}
+            />
+            {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
           </div>
-          <Field label="İxtisas" name="specialization" placeholder="Ekskavator operatoru, Kran operatoru..." />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Telefon</label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={set('phone')}
+                placeholder="+994 50 000 00 00"
+                className={inputCls('phone')}
+              />
+              {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">E-mail</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={set('email')}
+                placeholder="ali@mail.com"
+                className={inputCls('email')}
+              />
+              {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">İxtisas</label>
+            <input
+              type="text"
+              value={form.specialization}
+              onChange={set('specialization')}
+              placeholder="Ekskavator operatoru, Kran operatoru..."
+              className={inputCls('specialization')}
+            />
+            {errors.specialization && <p className="mt-1 text-xs text-red-500">{errors.specialization}</p>}
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Qeyd</label>
             <textarea

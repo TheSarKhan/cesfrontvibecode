@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Mail, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { authApi } from '../../api/auth'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
@@ -22,12 +23,18 @@ export default function ForgotPasswordPage() {
     
     setLoading(true)
     setError('')
-    
-    setTimeout(() => {
+
+    try {
+      await authApi.forgotPassword(email)
       setStep('otp')
       toast.success('OTP kod emailə göndərildi')
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Email göndərilə bilmədi. Yenidən cəhd edin.'
+      setError(msg)
+      toast.error(msg)
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   const handleOtpChange = (index, value) => {
@@ -57,14 +64,21 @@ export default function ForgotPasswordPage() {
     
     setLoading(true)
     setError('')
-    
-    setTimeout(() => {
+
+    try {
+      const res = await authApi.verifyOtp(email, otpValue)
+      const token = res.data?.data?.verificationToken || res.data?.verificationToken || res.data?.token
       toast.success('OTP doğrulandı!')
-      sessionStorage.setItem('verificationToken', 'test-token-123')
+      sessionStorage.setItem('verificationToken', token)
       sessionStorage.setItem('resetEmail', email)
       navigate('/reset-password')
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'OTP kod yanlışdır. Yenidən cəhd edin.'
+      setError(msg)
+      toast.error(msg)
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   return (

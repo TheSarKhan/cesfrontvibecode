@@ -36,7 +36,8 @@ const COLOR_MAP = {
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'
-const fmt = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('az-AZ') : '—'
+import { fmtDate } from '../../utils/date'
+const fmt = fmtDate
 
 const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət' : 'gün', quantity: '1', unitPrice: '', sourceInvoiceId: null })
 

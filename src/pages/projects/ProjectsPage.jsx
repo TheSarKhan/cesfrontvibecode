@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Search, Clock, Zap, CheckCircle, TrendingUp, ChevronRight, FileText, FolderKanban } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
+import { fmtDate } from '../../utils/date'
 import ProjectSlideOver from './ProjectSlideOver'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -105,7 +106,7 @@ export default function ProjectsPage() {
   }, [allProjects])
 
   const fmtMoney = (v) => parseFloat(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
-  const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+  const fmt = fmtDate
 
   return (
     <div>

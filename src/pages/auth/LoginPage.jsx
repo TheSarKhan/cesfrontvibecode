@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+const SESSION_KEY = 'login_form_draft'
+
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState(() => {
+    const draft = sessionStorage.getItem(SESSION_KEY)
+    if (draft) {
+      sessionStorage.removeItem(SESSION_KEY)
+      return JSON.parse(draft)
+    }
+    return { email: '', password: '' }
+  })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -18,11 +27,14 @@ export default function LoginPage() {
     // Reset password səhifəsindən gələn state-i yoxla
     if (location.state?.showSuccessMessage) {
       setShowSuccess(true)
-      
-      // State-i təmizlə (səhifə yenilənməsinə baxmayaraq mesaj təkrar göstərilməsin)
       window.history.replaceState({}, document.title)
     }
   }, [location])
+
+  const goToForgotPassword = () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(form))
+    navigate('/forgot-password')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -30,6 +42,7 @@ export default function LoginPage() {
     setError('')
     try {
       await login(form)
+      sessionStorage.removeItem(SESSION_KEY)
       navigate('/', { replace: true })
     } catch (err) {
       const msg = err?.response?.data?.message || 'Email və ya şifrə yanlışdır'
@@ -134,13 +147,14 @@ export default function LoginPage() {
 
             {/* Şifrəmi unutmuşam - Daxil ol buttonunun ÜSTÜNDƏ, rəng #2A86FF */}
             <div className="text-right">
-              <Link
-                to="/forgot-password"
-                className="text-sm transition-colors"
+              <button
+                type="button"
+                onClick={goToForgotPassword}
+                className="text-sm transition-colors bg-transparent border-none p-0 cursor-pointer"
                 style={{ color: '#2A86FF' }}
               >
                 Şifrəmi unutmuşam
-              </Link>
+              </button>
             </div>
 
             {/* Submit */}

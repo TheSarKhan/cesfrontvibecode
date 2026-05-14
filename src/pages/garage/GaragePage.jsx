@@ -9,6 +9,9 @@ import {
 import * as XLSX from 'xlsx'
 import { useSearchParams } from 'react-router-dom'
 import { garageApi } from '../../api/garage'
+import { contractorsApi } from '../../api/contractors'
+import { investorsApi } from '../../api/investors'
+import { configApi } from '../../api/config'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentModal from './EquipmentModal'
 import EquipmentSlideOver, { AuthImage } from './EquipmentSlideOver'
@@ -309,6 +312,17 @@ export default function GaragePage() {
   // All equipment for stats (lightweight fetch on mount)
   const [allEquipment, setAllEquipment] = useState([])
 
+  // Modal reference data — fetched once, reused across modal opens
+  const [contractors, setContractors] = useState([])
+  const [investors, setInvestors] = useState([])
+  const [safetyTypes, setSafetyTypes] = useState([])
+
+  useEffect(() => {
+    contractorsApi.getAll().then(r => setContractors(r.data.data || r.data || [])).catch(() => {})
+    investorsApi.getAll().then(r => setInvestors(r.data.data || r.data || [])).catch(() => {})
+    configApi.getActiveByCategory('SAFETY_EQUIPMENT').then(r => setSafetyTypes(r.data.data || [])).catch(() => {})
+  }, [])
+
   // Filter presets
   const [presets, setPresets] = useState(() => {
     try { return JSON.parse(localStorage.getItem('garage_filter_presets')) || [] } catch { return [] }
@@ -480,15 +494,22 @@ export default function GaragePage() {
   const handleBulkDelete = async () => {
     if (!(await confirm({ title: 'Toplu silmə', message: `${selected.size} texnika silinsin?` }))) return
     setBulkLoading(true)
-    try {
-      await Promise.all([...selected].map(id => garageApi.delete(id)))
-      toast.success(`${selected.size} texnika silindi`)
-      setSelected(new Set())
-      load()
-    } catch {
-    } finally {
-      setBulkLoading(false)
+    let ok = 0, pending = 0, fail = 0
+    for (const id of [...selected]) {
+      try {
+        await garageApi.delete(id)
+        ok++
+      } catch (err) {
+        if (err?.isPending) pending++
+        else fail++
+      }
     }
+    setBulkLoading(false)
+    if (ok) toast.success(`${ok} texnika silindi`)
+    if (pending) toast.success(`${pending} texnikanın silinməsi təsdiq növbəsinə göndərildi`)
+    if (fail) toast.error(`${fail} texnika silinmədi`)
+    setSelected(new Set())
+    load()
   }
 
   const handleStatusChange = async (item, newStatus, reason) => {
@@ -1265,6 +1286,9 @@ export default function GaragePage() {
       {modal.open && (
         <EquipmentModal
           editing={modal.editing}
+          contractors={contractors}
+          investors={investors}
+          safetyTypes={safetyTypes}
           onClose={() => setModal({ open: false, editing: null })}
           onSaved={() => { setModal({ open: false, editing: null }); load() }}
         />

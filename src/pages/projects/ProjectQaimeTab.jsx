@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useAuthStore } from '../../store/authStore'
 import { clsx } from 'clsx'
+import { fmtDate } from '../../utils/date'
 
 const MONTHS = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
@@ -130,7 +131,7 @@ function InvoiceDetailModal({ inv, onClose }) {
             <Calendar size={13} className="text-gray-400" />
             <span>Tarix:</span>
             <span className="font-medium text-gray-700 dark:text-gray-300">
-              {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('az-AZ') : '—'}
+              {inv.invoiceDate ? fmtDate(inv.invoiceDate) : '—'}
             </span>
             {inv.invoiceNumber && (
               <>
@@ -207,7 +208,7 @@ function InvoiceDetailModal({ inv, onClose }) {
                   {transports.map((t, i) => (
                     <div key={i} className="flex items-center justify-between px-3 py-2 text-xs">
                       <div className="flex flex-col gap-0.5">
-                        {t.date && <span className="text-[10px] text-gray-400">{new Date(t.date).toLocaleDateString('az-AZ')}</span>}
+                        {t.date && <span className="text-[10px] text-gray-400">{fmtDate(t.date)}</span>}
                         <span className="font-medium text-gray-700 dark:text-gray-300">{t.direction || '—'}</span>
                       </div>
                       <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)} ₼</span>
@@ -829,7 +830,7 @@ export default function ProjectQaimeTab({ project }) {
                     {inv.standardDays != null && <span>Std: {inv.standardDays} gün</span>}
                     {inv.extraDays != null && inv.extraDays > 0 && <span>Əl: {inv.extraDays} gün</span>}
                     {inv.extraHours != null && inv.extraHours > 0 && <span>Əl: {inv.extraHours} saat</span>}
-                    <span>{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>
+                    <span>{fmtDate(inv.invoiceDate)}</span>
                     {parseTransportations(inv.transportations).length > 0 && (
                       <span className="text-blue-500 font-medium">
                         • Daşınma: {fmtMoney(inv.transportationsTotal || 0)} ₼

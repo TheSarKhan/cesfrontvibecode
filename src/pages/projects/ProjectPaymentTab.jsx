@@ -5,11 +5,12 @@ import { projectsApi } from '../../api/projects'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { fmtDate } from '../../utils/date'
 
 const fmtMoney = (v) =>
   v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : '—'
 
-const fmt = (d) => (d ? new Date(d).toLocaleDateString('az-AZ') : '—')
+const fmt = fmtDate
 
 /**
  * Podratçı / investor texnikasına aid layihələrdə ödəniş tarixçəsi.
