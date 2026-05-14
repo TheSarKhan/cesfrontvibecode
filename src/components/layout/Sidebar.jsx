@@ -47,6 +47,25 @@ export default function Sidebar({ collapsed, onToggle }) {
       <nav className="flex-1 overflow-y-auto py-3 scrollbar-thin">
         {NAV_ITEMS.filter((item) => !item.module || hasPermission(item.module)).map((item) => {
           const Icon = item.icon
+          if (item.comingSoon) {
+            return (
+              <div
+                key={item.id}
+                title="Bu modul gələcəkdə əlavə olunacaq"
+                className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg text-sm font-medium text-gray-500 cursor-not-allowed select-none opacity-70"
+              >
+                <Icon size={18} className="shrink-0" />
+                {!collapsed && (
+                  <>
+                    <span className="truncate">{item.label}</span>
+                    <span className="ml-auto text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                      Tezliklə
+                    </span>
+                  </>
+                )}
+              </div>
+            )
+          }
           return (
             <NavLink
               key={item.id}

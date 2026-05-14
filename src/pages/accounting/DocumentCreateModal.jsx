@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { X, FileText, ChevronRight, ChevronLeft, Plus, Trash2, RefreshCw, Check } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { customersApi } from '../../api/customers'
@@ -39,11 +39,12 @@ const fmtMoney = (v) => v != null
 import { fmtDate } from '../../utils/date'
 const fmt = fmtDate
 
-const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət' : 'gün', quantity: '1', unitPrice: '', sourceInvoiceId: null })
+const emptyLine = (isAkt = false) => ({ description: '', unit: isAkt ? 'xidmət' : 'ədəd', quantity: '1', unitPrice: '', sourceInvoiceId: null })
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 export default function DocumentCreateModal({ onClose, onCreated }) {
   const [step, setStep] = useState(1)
+  const composingRef = useRef(false)   // AZ klaviatura composition dəstəyi
 
   // Step 1
   const [docType, setDocType]         = useState(null)
@@ -122,7 +123,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
       if (selectedInvIds.length <= 1) setLockedCustomerId(null)
     } else {
       // İlk seçim → müştərini kilid
-      const custId = inv.project?.customer?.id ?? inv.customerId ?? null
+      const custId = inv.customerId ?? null
       if (lockedCustomerId === null && selectedInvIds.length === 0) {
         setLockedCustomerId(custId)
         setCustomerId(custId)
@@ -135,7 +136,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
   const availableInvoices = useMemo(() => {
     if (!lockedCustomerId) return allInvoices
     return allInvoices.filter(inv => {
-      const custId = inv.project?.customer?.id ?? inv.customerId ?? null
+      const custId = inv.customerId ?? null
       return custId === lockedCustomerId
     })
   }, [allInvoices, lockedCustomerId])
@@ -171,11 +172,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
 
   // ─── Hesablama ─────────────────────────────────────────────────────────────
   const subtotal = useMemo(() => {
-    return lines.reduce((sum, l) => {
-      const q = parseFloat(l.quantity) || 0
-      const p = parseFloat(l.unitPrice) || 0
-      return sum + q * p
-    }, 0)
+    return lines.reduce((sum, l) => sum + (parseFloat(l.unitPrice) || 0), 0)
   }, [lines])
 
   const vatAmount  = useMemo(() => (subtotal * vatRate / 100), [subtotal, vatRate])
@@ -222,7 +219,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
         lines: validLines.map((l, i) => ({
           description: l.description.trim(),
           unit: l.unit || 'ədəd',
-          quantity: parseFloat(l.quantity) || 1,
+          quantity: 1,
           unitPrice: parseFloat(l.unitPrice) || 0,
           sourceInvoiceId: l.sourceInvoiceId || null,
         })),
@@ -352,7 +349,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                     <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                       {availableInvoices.map(inv => {
                         const selected = selectedInvIds.includes(inv.id)
-                        const custId = inv.project?.customer?.id ?? inv.customerId ?? null
+                        const custId = inv.customerId ?? null
                         const disabled = lockedCustomerId !== null && custId !== lockedCustomerId && !selected
                         return (
                           <button
@@ -472,7 +469,9 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Müqavilə №</label>
                     <input
                       value={contractNumber}
-                      onChange={e => setContractNumber(e.target.value)}
+                      onCompositionStart={() => { composingRef.current = true }}
+                      onCompositionEnd={e => { composingRef.current = false; setContractNumber(e.target.value) }}
+                      onChange={e => { if (!composingRef.current) setContractNumber(e.target.value) }}
                       placeholder="MÜQ-2025-001"
                       className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
@@ -566,26 +565,27 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
 
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   {/* Table header */}
-                  <div className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr_auto] gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                  <div className="grid grid-cols-[3fr_1fr_1.5fr_1.5fr_auto] gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
                     <span>Təsvir</span>
                     <span>Vahid</span>
-                    <span>Miqdar</span>
-                    <span>Vahid qiymət</span>
-                    <span className="text-right">Cəmi</span>
+                    <span>Qiymət</span>
+                    <span className="text-right">Məbləğ</span>
                     <span></span>
                   </div>
 
                   {lines.map((line, idx) => {
                     const isAkt = docType === 'TEHVIL_TESLIM_AKTI'
-                    const total = (parseFloat(line.quantity) || 0) * (parseFloat(line.unitPrice) || 0)
+                    const price = parseFloat(line.unitPrice) || 0
                     return (
                       <div
                         key={idx}
-                        className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr_auto] gap-1 items-center px-3 py-2 border-t border-gray-200 dark:border-gray-700"
+                        className="grid grid-cols-[3fr_1fr_1.5fr_1.5fr_auto] gap-1 items-center px-3 py-2 border-t border-gray-200 dark:border-gray-700"
                       >
                         <input
                           value={line.description}
-                          onChange={e => updateLine(idx, 'description', e.target.value)}
+                          onCompositionStart={() => { composingRef.current = true }}
+                          onCompositionEnd={e => { composingRef.current = false; updateLine(idx, 'description', e.target.value) }}
+                          onChange={e => { if (!composingRef.current) updateLine(idx, 'description', e.target.value) }}
                           placeholder="Xidmətin adı..."
                           className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
@@ -594,19 +594,10 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                         ) : (
                           <input
                             value={line.unit}
-                            onChange={e => updateLine(idx, 'unit', e.target.value)}
-                            placeholder="gün"
-                            className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                        )}
-                        {isAkt ? (
-                          <span className="px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400">1</span>
-                        ) : (
-                          <input
-                            type="number"
-                            value={line.quantity}
-                            onChange={e => updateLine(idx, 'quantity', e.target.value)}
-                            min="0"
+                            onCompositionStart={() => { composingRef.current = true }}
+                            onCompositionEnd={e => { composingRef.current = false; updateLine(idx, 'unit', e.target.value) }}
+                            onChange={e => { if (!composingRef.current) updateLine(idx, 'unit', e.target.value) }}
+                            placeholder="ədəd"
                             className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                           />
                         )}
@@ -619,7 +610,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                           className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 text-right">
-                          {fmtMoney(total)}
+                          {fmtMoney(price)}
                         </span>
                         <button
                           onClick={() => removeLine(idx)}
@@ -639,7 +630,9 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Qeyd</label>
                 <textarea
                   value={notes}
-                  onChange={e => setNotes(e.target.value)}
+                  onCompositionStart={() => { composingRef.current = true }}
+                  onCompositionEnd={e => { composingRef.current = false; setNotes(e.target.value) }}
+                  onChange={e => { if (!composingRef.current) setNotes(e.target.value) }}
                   rows={2}
                   placeholder="Əlavə qeydlər..."
                   className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -657,7 +650,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                   <span className="font-semibold text-gray-800 dark:text-gray-200">{fmtMoney(vatAmount)}</span>
                 </div>
                 <div className="flex justify-between text-base pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <span className="font-bold text-gray-700 dark:text-gray-300">YEKUNa:</span>
+                  <span className="font-bold text-gray-700 dark:text-gray-300">YEKUN:</span>
                   <span className="font-bold text-amber-600 text-lg">{fmtMoney(grandTotal)}</span>
                 </div>
               </div>

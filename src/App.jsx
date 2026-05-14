@@ -28,6 +28,14 @@ import ApprovalPage from './pages/approval/ApprovalPage'
 import TrashPage from './pages/trash/TrashPage'
 import AuditPage from './pages/audit/AuditPage'
 import ConfigPage from './pages/config/ConfigPage'
+import HrPage from './pages/hr/HrPage'
+import EmployeesPage from './pages/hr/EmployeesPage'
+import PayrollListPage from './pages/hr/PayrollListPage'
+import PayrollDetailPage from './pages/hr/PayrollDetailPage'
+import TaxConfigPage from './pages/hr/TaxConfigPage'
+import PositionsPage from './pages/hr/PositionsPage'
+import AttendancePage from './pages/hr/AttendancePage'
+import LeavesPage from './pages/hr/LeavesPage'
 
 export default function App() {
   return (
@@ -73,6 +81,14 @@ export default function App() {
             <Route path="trash" element={<TrashPage />} />
             <Route path="config" element={<ConfigPage />} />
             <Route path="audit" element={<AuditPage />} />
+            <Route path="hr" element={<HrPage />} />
+            <Route path="hr/employees" element={<EmployeesPage />} />
+            <Route path="hr/payroll" element={<PayrollListPage />} />
+            <Route path="hr/payroll/:id" element={<PayrollDetailPage />} />
+            <Route path="hr/tax-config" element={<TaxConfigPage />} />
+            <Route path="hr/positions" element={<PositionsPage />} />
+            <Route path="hr/attendance" element={<AttendancePage />} />
+            <Route path="hr/leaves" element={<LeavesPage />} />
           </Route>
         </Route>
 

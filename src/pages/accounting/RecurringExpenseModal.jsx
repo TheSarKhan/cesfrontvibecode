@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, RefreshCw } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
-import { configApi } from '../../api/config'
+import { expenseCategoryApi, expenseSourceApi } from '../../api/expenseConfig'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
@@ -29,8 +29,8 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
 
   useEffect(() => {
     Promise.all([
-      configApi.getActiveByCategory('EXPENSE_CATEGORY'),
-      configApi.getActiveByCategory('EXPENSE_SOURCE'),
+      expenseCategoryApi.getAllActive(),
+      expenseSourceApi.getAllActive(),
     ]).then(([catRes, srcRes]) => {
       setCategories(catRes.data?.data || [])
       setAllSources(srcRes.data?.data || [])
@@ -58,24 +58,24 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
 
-  // Sources filtered by selected category key
+  // Sources filtered by selected category code
   const filteredSources = allSources.filter(s =>
-    !form.categoryKey || s.description === form.categoryKey
+    !form.categoryKey || s.categoryCode === form.categoryKey
   )
 
-  const handleCategoryChange = (catKey) => {
-    const catItem = categories.find(c => c.key === catKey)
-    set('categoryKey', catKey)
-    set('categoryLabel', catItem?.value || catItem?.key || catKey)
+  const handleCategoryChange = (catCode) => {
+    const catItem = categories.find(c => c.code === catCode)
+    set('categoryKey', catCode)
+    set('categoryLabel', catItem?.name || catCode)
     // Reset source when category changes
     set('sourceKey', '')
     set('sourceLabel', '')
   }
 
-  const handleSourceChange = (srcKey) => {
-    const srcItem = allSources.find(s => s.key === srcKey)
-    set('sourceKey', srcKey)
-    set('sourceLabel', srcItem?.value || srcItem?.key || srcKey)
+  const handleSourceChange = (srcCode) => {
+    const srcItem = allSources.find(s => s.code === srcCode)
+    set('sourceKey', srcCode)
+    set('sourceLabel', srcItem?.name || srcCode)
   }
 
   const handleSubmit = async (e) => {
@@ -164,7 +164,7 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
               >
                 <option value="">Kateqoriya seçin</option>
                 {categories.map(c => (
-                  <option key={c.id} value={c.key}>{c.value || c.key}</option>
+                  <option key={c.id} value={c.code}>{c.name}</option>
                 ))}
               </select>
             )}
@@ -192,7 +192,7 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
               >
                 <option value="">Mənbə seçin</option>
                 {filteredSources.map(s => (
-                  <option key={s.id} value={s.key}>{s.value || s.key}</option>
+                  <option key={s.id} value={s.code}>{s.name}</option>
                 ))}
               </select>
             )}

@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { X, Pencil, Trash2, User, FileText, History, Phone, Mail, MapPin, CheckCircle, AlertCircle, Upload, Download, Eye } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, Pencil, Trash2, User, FileText, History, Phone, Mail, MapPin, CheckCircle, AlertCircle, Upload, Download, Eye, FolderKanban, Calendar, Banknote } from 'lucide-react'
 import { clsx } from 'clsx'
 import { operatorsApi } from '../../api/operators'
 import ActivityFeed from '../../components/common/ActivityFeed'
@@ -17,19 +17,39 @@ const DOC_TYPES = [
 ]
 
 const TABS = [
-  { id: 'info',      label: 'Məlumat',   icon: User },
-  { id: 'documents', label: 'Sənədlər', icon: FileText },
-  { id: 'history',   label: 'Tarixçə',  icon: History },
+  { id: 'info',     label: 'Məlumat',          icon: User },
+  { id: 'documents', label: 'Sənədlər',        icon: FileText },
+  { id: 'projects', label: 'Layihə Tarixçəsi', icon: FolderKanban },
+  { id: 'history',  label: 'Tarixçə',          icon: History },
 ]
+
+const PROJECT_STATUS = {
+  PENDING:   { label: 'Gözləyir',    cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  ACTIVE:    { label: 'Aktiv',       cls: 'bg-green-50 text-green-700 border-green-200' },
+  COMPLETED: { label: 'Tamamlandı',  cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  CANCELLED: { label: 'Ləğv edildi', cls: 'bg-gray-100 text-gray-500 border-gray-200' },
+  ON_HOLD:   { label: 'Dayandırıldı',cls: 'bg-red-50 text-red-600 border-red-200' },
+}
 
 export default function OperatorSlideOver({ operator: initial, onClose, onEdit, onDelete, onUpdated }) {
   const [tab, setTab] = useState('info')
   const [operator, setOperator] = useState(initial)
   const [uploading, setUploading] = useState(null)
   const [deleting, setDeleting] = useState(null)
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
   const fileRefs = useRef({})
   const { confirm, ConfirmDialog } = useConfirm()
   useEscapeKey(onClose)
+
+  useEffect(() => {
+    if (tab !== 'projects') return
+    setProjectsLoading(true)
+    operatorsApi.getProjectHistory(operator.id)
+      .then(r => setProjects(r.data?.data ?? r.data ?? []))
+      .catch(() => toast.error('Layihə tarixçəsi yüklənmədi'))
+      .finally(() => setProjectsLoading(false))
+  }, [tab, operator.id])
 
   const uploadedTypes = new Set((operator.documents || []).map(d => d.documentType))
   const getDoc = (type) => (operator.documents || []).find(d => d.documentType === type)
@@ -279,6 +299,83 @@ export default function OperatorSlideOver({ operator: initial, onClose, onEdit, 
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ── Layihə Tarixçəsi tab ── */}
+          {tab === 'projects' && (
+            <div className="p-4">
+              {projectsLoading ? (
+                <p className="text-center text-sm text-gray-400 py-8">Yüklənir...</p>
+              ) : projects.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                  <FolderKanban size={32} className="mb-2 opacity-30" />
+                  <p className="text-sm">Bu operator heç bir layihəyə təyin edilməyib</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    {projects.length} layihə tapıldı
+                  </p>
+                  {projects.map(p => {
+                    const s = PROJECT_STATUS[p.status] || { label: p.status, cls: 'bg-gray-100 text-gray-500 border-gray-200' }
+                    return (
+                      <div key={p.projectId} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+                              {p.companyName || '—'}
+                            </p>
+                            {p.projectName && (
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{p.projectName}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${s.cls}`}>
+                            {s.label}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                          {p.projectCode && (
+                            <span className="flex items-center gap-1 col-span-2">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">{p.projectCode}</span>
+                              {p.requestCode && <span className="text-gray-400">· {p.requestCode}</span>}
+                            </span>
+                          )}
+                          {p.equipmentName && (
+                            <span className="flex items-center gap-1 col-span-2 truncate">
+                              🔧 {p.equipmentName}
+                              {p.equipmentCode && <span className="text-gray-400">({p.equipmentCode})</span>}
+                            </span>
+                          )}
+                          {p.region && (
+                            <span className="flex items-center gap-1">
+                              <MapPin size={10} /> {p.region}
+                            </span>
+                          )}
+                          {p.dayCount && (
+                            <span className="flex items-center gap-1">
+                              <Calendar size={10} /> {p.dayCount} gün
+                            </span>
+                          )}
+                          {(p.startDate || p.endDate) && (
+                            <span className="flex items-center gap-1 col-span-2">
+                              <Calendar size={10} />
+                              {p.startDate || '?'} → {p.endDate || '?'}
+                            </span>
+                          )}
+                          {p.operatorPayment != null && (
+                            <span className="flex items-center gap-1 col-span-2 font-semibold text-amber-700 dark:text-amber-400">
+                              <Banknote size={10} />
+                              Operator haqqı: {Number(p.operatorPayment).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

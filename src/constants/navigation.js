@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   History,
   Settings,
+  Briefcase,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -103,11 +104,19 @@ export const NAV_ITEMS = [
     module: 'ACCOUNTING',
   },
   {
+    id: 'hr',
+    label: 'İnsan Resursları',
+    path: '/hr',
+    icon: Briefcase,
+    module: 'HR_MANAGEMENT',
+  },
+  {
     id: 'service',
     label: 'Texniki Servis',
     path: '/service',
     icon: Wrench,
     module: 'SERVICE_MANAGEMENT',
+    comingSoon: true,
   },
   {
     id: 'approval',

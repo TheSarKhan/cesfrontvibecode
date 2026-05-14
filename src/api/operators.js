@@ -9,6 +9,8 @@ export const operatorsApi = {
   delete: (id) => api.delete(`/operators/${id}`),
   deleteAll: (ids) => api.delete('/operators/bulk', { data: { ids } }),
 
+  getProjectHistory: (id) => api.get(`/operators/${id}/projects`),
+
   uploadDocument: (id, type, file) => {
     const form = new FormData()
     form.append('file', file)
