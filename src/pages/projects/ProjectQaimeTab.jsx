@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock, CheckCircle, Undo2, Eye, X, Calendar, Hash, Pencil, Trash2 } from 'lucide-react'
+import { Plus, FileText, ChevronDown, ChevronUp, Send, Lock, CheckCircle, Undo2, Eye, X, Calendar, Hash, Pencil, Trash2, Paperclip, Upload } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -246,6 +246,8 @@ export default function ProjectQaimeTab({ project }) {
   const [justCreatedId, setJustCreatedId] = useState(null)
   const [viewInvoice, setViewInvoice] = useState(null)
   const [editingInvoice, setEditingInvoice] = useState(null)
+  const [aktFile, setAktFile] = useState(null)
+  const [aktUploading, setAktUploading] = useState(false)
   const { confirm, ConfirmDialog } = useConfirm()
   const canCreate = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canPost'))
   const canSend = canCreate
@@ -379,8 +381,20 @@ export default function ProjectQaimeTab({ project }) {
         transportations: transports.length > 0 ? transports : null,
         transportationsTotal: transports.length > 0 ? parseFloat(transTotal.toFixed(2)) : null,
       })
-      toast.success('Qaimə yaradıldı')
-      setJustCreatedId(res.data?.data?.id)
+      const createdId = res.data?.data?.id
+      if (aktFile && createdId) {
+        try {
+          await accountingApi.uploadAkt(createdId, aktFile)
+          toast.success('Qaimə və Akt yükləndi')
+        } catch {
+          toast.success('Qaimə yaradıldı')
+          toast.error('Akt yüklənmədi — sonradan əlavə edə bilərsiniz')
+        }
+      } else {
+        toast.success('Qaimə yaradıldı')
+      }
+      setJustCreatedId(createdId)
+      setAktFile(null)
       setForm(getDefaultForm(project))
       setShowForm(false)
       load()
@@ -388,6 +402,34 @@ export default function ProjectQaimeTab({ project }) {
       toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleOpenAkt(invoiceId, fileName) {
+    try {
+      const res = await accountingApi.downloadAkt(invoiceId)
+      const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noreferrer'
+      a.download = fileName || 'akt'
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a) }, 1000)
+    } catch { toast.error('Fayl açıla bilmədi') }
+  }
+
+  async function handleUploadAkt(invoiceId, file) {
+    setAktUploading(true)
+    try {
+      await accountingApi.uploadAkt(invoiceId, file)
+      toast.success('Akt yükləndi')
+      load()
+    } catch {
+      toast.error('Akt yüklənmədi')
+    } finally {
+      setAktUploading(false)
     }
   }
 
@@ -743,6 +785,32 @@ export default function ProjectQaimeTab({ project }) {
             )}
           </div>
 
+          {/* Təhvil-Təslim Aktı — yalnız yaradılarkən */}
+          {!editingInvoice && (
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                <Paperclip size={10} /> Təhvil-Təslim Aktı <span className="font-normal normal-case">(opsional)</span>
+              </label>
+              {aktFile ? (
+                <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                  <Paperclip size={12} className="text-green-600 shrink-0" />
+                  <span className="text-xs text-green-700 font-medium truncate flex-1">{aktFile.name}</span>
+                  <button type="button" onClick={() => setAktFile(null)} className="text-red-400 hover:text-red-600">
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-dashed border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-colors">
+                  <Upload size={12} className="text-gray-400" />
+                  <span className="text-xs text-gray-400">Fayl seçin (PDF, şəkil)</span>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+                    onChange={e => e.target.files?.[0] && setAktFile(e.target.files[0])} />
+                </label>
+              )}
+              <p className="text-[10px] text-gray-400 mt-1.5">Yüklənməsə də qaimə yaradıla bilər — sonradan əlavə edə bilərsiniz.</p>
+            </div>
+          )}
+
           <button type="submit" disabled={saving || calc.total <= 0 || !canCreate}
             className={`w-full py-2 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
               editingInvoice ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
@@ -842,6 +910,23 @@ export default function ProjectQaimeTab({ project }) {
                   {fmtMoney(inv.amount)} ₼
                 </span>
                 <div className="flex items-center gap-0.5">
+                  {/* Akt fayl — yüklənibsə aç, yoxsa yüklə */}
+                  {inv.aktFileUploaded ? (
+                    <button onClick={() => handleOpenAkt(inv.id, inv.aktFileName)}
+                      className="p-1 rounded text-green-500 hover:text-green-700 hover:bg-green-50 transition-colors"
+                      title={`Akt: ${inv.aktFileName || 'Fayla bax'}`}>
+                      <Paperclip size={12} />
+                    </button>
+                  ) : (
+                    !isLocked && canCreate && (
+                      <label className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors" title="Akt yüklə">
+                        <Upload size={12} />
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
+                          disabled={aktUploading}
+                          onChange={e => { if (e.target.files?.[0]) handleUploadAkt(inv.id, e.target.files[0]) }} />
+                      </label>
+                    )
+                  )}
                   <button
                     onClick={() => setViewInvoice(inv)}
                     className="p-1 rounded text-gray-300 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
