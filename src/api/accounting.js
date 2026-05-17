@@ -16,6 +16,12 @@ export const accountingApi = {
   returnToProject: (id) => api.patch(`/accounting/invoices/${id}/return`),
   resubmit: (id, data) => api.post(`/accounting/invoices/${id}/resubmit`, data),
   returnToDraft: (id) => api.patch(`/accounting/invoices/${id}/draft`),
+  uploadAkt: (id, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/accounting/invoices/${id}/akt`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  downloadAkt: (id) => api.get(`/accounting/invoices/${id}/akt`, { responseType: 'blob' }),
 
   // ── Transactions (Əməliyyatlar) ──
   getTransactions: (params) => api.get('/accounting/transactions', { params }),
@@ -61,4 +67,22 @@ export const accountingApi = {
   addPayablePayment: (id, data) => api.post(`/accounting/payables/${id}/payments`, data),
   deletePayablePayment: (id, paymentId) => api.delete(`/accounting/payables/${id}/payments/${paymentId}`),
   completePayable: (id) => api.post(`/accounting/payables/${id}/complete`),
+
+  // ── Daimi Ödənişlər (Recurring Expenses) ──
+  getRecurring: ()           => api.get('/accounting/recurring'),
+  getRecurringActive: ()     => api.get('/accounting/recurring/active'),
+  createRecurring: (data)    => api.post('/accounting/recurring', data),
+  updateRecurring: (id, data)=> api.put(`/accounting/recurring/${id}`, data),
+  deleteRecurring: (id)      => api.delete(`/accounting/recurring/${id}`),
+  generateFromRecurring: (id, data) => api.post(`/accounting/recurring/${id}/generate`, data),
+
+  // ── Sənədlər (Generated Documents) ──
+  getDocumentsPaged: (params) => api.get('/accounting/documents/paged', { params }),
+  getDocument: (id) => api.get(`/accounting/documents/${id}`),
+  createDocument: (data) => api.post('/accounting/documents', data),
+  deleteDocument: (id) => api.delete(`/accounting/documents/${id}`),
+  previewDocumentLines: (data) => api.post('/accounting/documents/preview-lines', data),
+  downloadDocumentPdf: (id) => api.get(`/accounting/documents/${id}/download`, { responseType: 'blob' }),
+  regenerateDocumentPdf: (id) => api.post(`/accounting/documents/${id}/regenerate`),
 }
+

@@ -31,25 +31,7 @@ const ACTION_CONFIG = {
   'RƏDD EDİLDİ': { icon: Trash2,      color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
 }
 
-function fmtDateTime(str) {
-  if (!str) return '—'
-  const d = new Date(str)
-  return d.toLocaleString('az-AZ', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function timeAgo(str) {
-  const diff = Date.now() - new Date(str).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'İndicə'
-  if (mins < 60) return `${mins} dəq əvvəl`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs} saat əvvəl`
-  const days = Math.floor(hrs / 24)
-  return `${days} gün əvvəl`
-}
+import { fmtDateTime, timeAgo } from '../../utils/date'
 
 export default function AuditPage() {
   const [searchParams, setSearchParams] = useSearchParams()

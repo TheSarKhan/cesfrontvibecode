@@ -1,13 +1,13 @@
 import DateInput from '../../components/common/DateInput'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
-  X, Pencil, Trash2, Building2, Phone, MapPin,
-  CreditCard, AlertTriangle, FileText, ClipboardList,
-  History, Upload, Download, Loader2, User,
+  X, Pencil, Trash2, Building2,
+  FileText, History, Upload, Download, Loader2, FolderOpen,
+  CheckCircle, Clock, XCircle, PlayCircle, AlertCircle,
+  TrendingUp, Banknote, CheckCircle2,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { customersApi } from '../../api/customers'
-import { auditApi } from '../../api/audit'
 import ActivityFeed from '../../components/common/ActivityFeed'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -40,11 +40,23 @@ function formatDate(dt) {
   return new Date(dt).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+const PROJECT_STATUS_CONFIG = {
+  PENDING:   { label: 'Gözləyir',   icon: Clock,         cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+  ACTIVE:    { label: 'Aktiv',      icon: PlayCircle,    cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  COMPLETED: { label: 'Tamamlandı', icon: CheckCircle,   cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  CANCELLED: { label: 'Ləğv edildi',icon: XCircle,       cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  ON_HOLD:   { label: 'Dayandırıldı',icon: AlertCircle,  cls: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+}
+
+const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
+
 const TABS = [
-  { id: 'info',      label: 'Məlumat',     icon: Building2 },
-  { id: 'orders',    label: 'Sifarişlər',  icon: ClipboardList },
-  { id: 'documents', label: 'Sənədlər',    icon: FileText },
-  { id: 'history',   label: 'Tarixçə',     icon: History },
+  { id: 'info',      label: 'Məlumat',   icon: Building2 },
+  { id: 'projects',  label: 'Layihələr', icon: FolderOpen },
+  { id: 'invoices',  label: 'Qaimələr',  icon: TrendingUp },
+  { id: 'payments',  label: 'Alacaqlar', icon: Banknote },
+  { id: 'documents', label: 'Sənədlər',  icon: FileText },
+  { id: 'history',   label: 'Tarixçə',   icon: History },
 ]
 
 export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete, onUpdated }) {
@@ -53,9 +65,44 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
   const [uploading, setUploading] = useState(false)
   const [docName, setDocName] = useState('')
   const [docDate, setDocDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [projects, setProjects] = useState([])
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [invoices, setInvoices] = useState([])
+  const [invLoading, setInvLoading] = useState(false)
+  const [receivables, setReceivables] = useState([])
+  const [recLoading, setRecLoading] = useState(false)
   const fileRef = useRef()
   const { confirm, ConfirmDialog } = useConfirm()
   useEscapeKey(onClose)
+
+  useEffect(() => {
+    if (tab !== 'projects') return
+    setProjectsLoading(true)
+    customersApi.getProjects(customer.id)
+      .then(r => setProjects(r.data?.data || []))
+      .catch(() => setProjects([]))
+      .finally(() => setProjectsLoading(false))
+  }, [tab, customer.id])
+
+  useEffect(() => {
+    if (tab !== 'invoices') return
+    setInvLoading(true)
+    customersApi.getInvoices(customer.id)
+      .then(r => setInvoices(r.data?.data || []))
+      .catch(() => {})
+      .finally(() => setInvLoading(false))
+  }, [tab, customer.id])
+
+  useEffect(() => {
+    if (tab !== 'payments') return
+    setRecLoading(true)
+    customersApi.getReceivables(customer.id)
+      .then(r => setReceivables(r.data?.data || []))
+      .catch(() => {})
+      .finally(() => setRecLoading(false))
+  }, [tab, customer.id])
+
+  const fmtMoney = (v) => v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : '—'
 
   const risk   = RISK_CONFIG[customer.riskLevel]   || RISK_CONFIG.LOW
   const status = STATUS_CONFIG[customer.status]     || STATUS_CONFIG.ACTIVE
@@ -122,7 +169,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0.5 px-4 pt-3 pb-0 border-b border-gray-100 dark:border-gray-800 shrink-0">
+        <div className="flex gap-0.5 px-4 pt-3 pb-0 border-b border-gray-100 dark:border-gray-800 shrink-0 overflow-x-auto">
           {TABS.map(t => {
             const Icon = t.icon
             return (
@@ -154,6 +201,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
                 <Field label="Şirkət adı" value={customer.companyName} />
                 <Field label="VÖEN" value={customer.voen} />
                 <Field label="Ünvan" value={customer.address} />
+                <Field label="Direktor" value={customer.directorName} />
                 <div>
                   <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Ödəniş növü</p>
                   <div className="flex flex-wrap gap-1">
@@ -194,16 +242,189 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
             </div>
           )}
 
-          {/* ── Orders tab ── */}
-          {tab === 'orders' && (
-            <div className="py-16 flex flex-col items-center gap-3 text-center px-6">
-              <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <ClipboardList size={22} className="text-gray-400" />
-              </div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Sifariş tapılmadı</p>
-              <p className="text-xs text-gray-400 max-w-xs">
-                Bu müştəriyə aid sorğular və layihələr burada görünəcək.
-              </p>
+          {/* ── Projects tab ── */}
+          {tab === 'projects' && (
+            <div className="flex flex-col h-full">
+              {projectsLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-gray-400">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="text-sm">Yüklənir...</span>
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="py-16 flex flex-col items-center gap-3 text-center px-6">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <FolderOpen size={22} className="text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Layihə tapılmadı</p>
+                  <p className="text-xs text-gray-400 max-w-xs">Bu müştəriyə aid aktiv layihə yoxdur.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {projects.map(p => {
+                    const sc = PROJECT_STATUS_CONFIG[p.status] || PROJECT_STATUS_CONFIG.PENDING
+                    const StatusIcon = sc.icon
+                    return (
+                      <div key={p.id} className="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        {/* Header row */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-bold text-gray-800 dark:text-gray-100 shrink-0">{p.projectCode}</span>
+                            {p.requestCode && (
+                              <span className="text-xs text-gray-400">· {p.requestCode}</span>
+                            )}
+                          </div>
+                          <span className={clsx('flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0', sc.cls)}>
+                            <StatusIcon size={10} />
+                            {sc.label}
+                          </span>
+                        </div>
+
+                        {/* Project name & region */}
+                        {(p.projectName || p.region) && (
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 truncate">
+                            {[p.projectName, p.region].filter(Boolean).join(' — ')}
+                          </p>
+                        )}
+
+                        {/* Details grid */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                          {p.projectType && (
+                            <span className="text-gray-400">Növ: <span className="text-gray-600 dark:text-gray-300">{PROJECT_TYPE_LABEL[p.projectType] || p.projectType}</span></span>
+                          )}
+                          {p.equipmentName && (
+                            <span className="text-gray-400 truncate">Texnika: <span className="text-gray-600 dark:text-gray-300">{p.equipmentCode ? `${p.equipmentCode} – ${p.equipmentName}` : p.equipmentName}</span></span>
+                          )}
+                          {p.operatorName && (
+                            <span className="text-gray-400">Operator: <span className="text-gray-600 dark:text-gray-300">{p.operatorName}</span></span>
+                          )}
+                          {(p.planStartDate || p.startDate) && (
+                            <span className="text-gray-400">Başlanğıc: <span className="text-gray-600 dark:text-gray-300">{formatDate(p.startDate || p.planStartDate)}</span></span>
+                          )}
+                          {(p.planEndDate || p.endDate) && (
+                            <span className="text-gray-400">Bitmə: <span className="text-gray-600 dark:text-gray-300">{formatDate(p.endDate || p.planEndDate)}</span></span>
+                          )}
+                          {p.planDayCount != null && (
+                            <span className="text-gray-400">Gün sayı: <span className="text-gray-600 dark:text-gray-300">{p.planDayCount}</span></span>
+                          )}
+                        </div>
+
+                        {/* Finance row */}
+                        {(p.planEquipmentTotal != null || p.totalRevenue != null) && (
+                          <div className="flex items-center gap-4 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-[11px]">
+                            {p.planEquipmentTotal != null && (
+                              <span className="text-gray-400">Müqavilə məbləği: <span className="font-semibold text-gray-700 dark:text-gray-200">{Number(p.planEquipmentTotal).toLocaleString()} ₼</span></span>
+                            )}
+                            {p.netProfit != null && (
+                              <span className="text-gray-400">Mənfəət: <span className={clsx('font-semibold', Number(p.netProfit) >= 0 ? 'text-green-600' : 'text-red-500')}>{Number(p.netProfit).toLocaleString()} ₼</span></span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Qaimələr tab ── */}
+          {tab === 'invoices' && (
+            <div className="p-4">
+              {invLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />)}</div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <FileText size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Bu müştəri üçün hələ qaimə yoxdur</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {invoices.length} qaimə · {fmtMoney(invoices.reduce((s, i) => s + parseFloat(i.amount || 0), 0))}
+                  </p>
+                  {invoices.map(inv => (
+                    <div key={inv.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{inv.invoiceNumber || inv.accountingId || '—'}</span>
+                          <span className="text-[10px] text-gray-400">{inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('az-AZ') : '—'}</span>
+                          {inv.status === 'APPROVED' && <span className="text-[10px] font-medium text-green-600 dark:text-green-400">Təsdiqləndi</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {inv.equipmentName && <span className="text-[10px] text-gray-400 truncate">{inv.equipmentName}</span>}
+                          {inv.projectCode && <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400">{inv.projectCode}</span>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-green-600 dark:text-green-400">{fmtMoney(inv.amount)}</p>
+                        {inv.paidAmount != null && parseFloat(inv.paidAmount) > 0 && (
+                          <p className="text-[10px] text-gray-400">daxil oldu: {fmtMoney(inv.paidAmount)}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Alacaqlar tab ── */}
+          {tab === 'payments' && (
+            <div className="p-4">
+              {recLoading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-20 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}</div>
+              ) : receivables.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <Banknote size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs">Bu müştəri üçün hələ alacaq yoxdur</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                    {receivables.length} alacaq · daxil oldu: {fmtMoney(receivables.reduce((s, r) => s + parseFloat(r.paidAmount || 0), 0))}
+                  </p>
+                  {receivables.map(r => {
+                    const remaining = parseFloat(r.totalAmount || 0) - parseFloat(r.paidAmount || 0)
+                    const statusCfg = {
+                      PENDING:   { icon: Clock,         cls: 'text-amber-500', label: 'Gözləyir' },
+                      PARTIAL:   { icon: AlertCircle,   cls: 'text-blue-500',  label: 'Qismən' },
+                      COMPLETED: { icon: CheckCircle2,  cls: 'text-green-500', label: 'Tamamlandı' },
+                      OVERDUE:   { icon: AlertCircle,   cls: 'text-red-500',   label: 'Gecikmiş' },
+                    }[r.status] || { icon: Clock, cls: 'text-gray-400', label: r.status }
+                    const StatusIcon = statusCfg.icon
+                    return (
+                      <div key={r.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {r.projectCode && <p className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">{r.projectCode}</p>}
+                            {r.projectName && <p className="text-[10px] text-gray-400 truncate">{r.projectName}</p>}
+                            {r.equipmentName && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{r.equipmentName}</p>}
+                            {r.region && <p className="text-[10px] text-gray-400">{r.region}</p>}
+                          </div>
+                          <div className={clsx('flex items-center gap-1 text-[10px] font-medium shrink-0', statusCfg.cls)}>
+                            <StatusIcon size={11} />{statusCfg.label}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Cəmi</p><p className="font-semibold text-gray-700 dark:text-gray-300">{fmtMoney(r.totalAmount)}</p></div>
+                          <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Daxil oldu</p><p className="font-semibold text-green-600 dark:text-green-400">{fmtMoney(r.paidAmount)}</p></div>
+                          {remaining > 0.01 && <div><p className="text-[9px] text-gray-400 uppercase tracking-wider">Qalıq</p><p className="font-semibold text-red-500">{fmtMoney(remaining)}</p></div>}
+                        </div>
+                        {r.payments && r.payments.length > 0 && (
+                          <div className="pt-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                            {r.payments.map((pay, pi) => (
+                              <div key={pi} className="flex items-center justify-between text-[10px]">
+                                <span className="text-gray-400">{pay.paymentDate ? new Date(pay.paymentDate).toLocaleDateString('az-AZ') : '—'}{pay.note ? ` · ${pay.note}` : ''}</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">{fmtMoney(pay.amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 

@@ -2,9 +2,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { X, Eye, EyeOff, UserPlus, Pencil } from 'lucide-react'
 import { usersApi } from '../../api/users'
 import { rolesApi } from '../../api/roles'
+import { useAuthStore } from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+
+const SUPER_ADMIN_ROLE = 'Super Admin'
 
 function getPasswordStrength(pw) {
   if (!pw) return null
@@ -21,6 +24,8 @@ function getPasswordStrength(pw) {
 
 export default function UserModal({ editing, departments, onClose, onSaved }) {
   useEscapeKey(onClose)
+  const currentUser  = useAuthStore((s) => s.user)
+  const isSuperAdmin = currentUser?.roleName === SUPER_ADMIN_ROLE
   const [form, setForm] = useState({
     fullName: editing?.fullName || '',
     email: editing?.email || '',
@@ -29,6 +34,13 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
     departmentId: editing?.departmentId ?? '',
     roleId: editing?.roleId ?? '',
   })
+  const initialForm = editing ? {
+    fullName: editing.fullName || '',
+    email: editing.email || '',
+    phone: editing.phone || '',
+    departmentId: editing.departmentId ?? '',
+    roleId: editing.roleId ?? '',
+  } : null
   const [roles, setRoles] = useState([])
   const [rolesLoading, setRolesLoading] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -44,7 +56,10 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
     }
     setRolesLoading(true)
     rolesApi.getByDepartment(form.departmentId)
-      .then((res) => setRoles(res.data.data || []))
+      .then((res) => {
+        const all = res.data.data || []
+        setRoles(isSuperAdmin ? all : all.filter((r) => r.name !== SUPER_ADMIN_ROLE))
+      })
       .catch(() => {})
       .finally(() => setRolesLoading(false))
   }, [form.departmentId])
@@ -55,11 +70,27 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
     if (errors.departmentId) setErrors((prev) => ({ ...prev, departmentId: undefined }))
   }
 
+  const validatePassword = (pw) => {
+    if (!pw) return null
+    if (pw.length < 8) return 'Şifrə minimum 8 simvol olmalıdır'
+    if (!/[A-Z]/.test(pw)) return 'Şifrə minimum 1 böyük hərf olmalıdır'
+    if (!/[a-z]/.test(pw)) return 'Şifrə minimum 1 kiçik hərf olmalıdır'
+    if (!/[0-9]/.test(pw)) return 'Şifrə minimum 1 rəqəm olmalıdır'
+    return null
+  }
+
   const validate = () => {
     const errs = {}
     if (!form.fullName?.trim()) errs.fullName = 'Ad Soyad mütləqdir'
+    else if (form.fullName.trim().length < 2) errs.fullName = 'Minimum 2 simvol olmalıdır'
+    else if (!/[a-zA-ZÀ-žА-яёƏəÇçĞğİıÖöŞşÜü]/.test(form.fullName)) errs.fullName = 'Yalnız xüsusi simvol qəbul edilmir'
     if (!form.email?.trim()) errs.email = 'Email mütləqdir'
-    if (!editing && !form.password?.trim()) errs.password = 'Şifrə mütləqdir'
+    if (!editing && !form.password?.trim()) {
+      errs.password = 'Şifrə mütləqdir'
+    } else if (form.password?.trim()) {
+      const pwErr = validatePassword(form.password)
+      if (pwErr) errs.password = pwErr
+    }
     if (!form.departmentId) errs.departmentId = 'Şöbə seçin'
     if (!form.roleId) errs.roleId = 'Rol seçin'
     setErrors(errs)
@@ -68,6 +99,13 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
 
   const handleSave = async () => {
     if (!validate()) return
+    if (editing && initialForm) {
+      const currentComparable = { fullName: form.fullName, email: form.email, phone: form.phone, departmentId: form.departmentId, roleId: form.roleId }
+      if (!form.password.trim() && JSON.stringify(currentComparable) === JSON.stringify(initialForm)) {
+        toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+        return
+      }
+    }
 
     setLoading(true)
     try {

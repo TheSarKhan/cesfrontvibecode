@@ -27,5 +27,5 @@ export const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:bo
 export const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
 export const sectionCls = 'text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1'
 
-export const fmtDate = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+export { fmtDate } from '../utils/date'
 export const dash = (v) => (v != null && v !== '') ? v : '—'

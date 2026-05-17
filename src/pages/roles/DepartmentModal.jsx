@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { X, Layers, Pencil } from 'lucide-react'
 import { departmentsApi } from '../../api/departments'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { v } from '../../utils/validation'
 
 export default function DepartmentModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
@@ -10,21 +11,48 @@ export default function DepartmentModal({ editing, onClose, onSaved }) {
     name: editing?.name || '',
     description: editing?.description || '',
   })
+  const initialForm = useRef({ name: editing?.name || '', description: editing?.description || '' })
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({})
+
+  const validate = () => {
+    const errs = {}
+    const e = (field, ...rules) => { const err = v.chain(form[field] || '', ...rules); if (err) errs[field] = err }
+    e('name', v.required, v.minLen(2), v.realContent, v.maxLen(100))
+    if (form.description?.trim()) {
+      const descErr = v.maxLen(form.description, 500)
+      if (descErr) errs.description = descErr
+    }
+    setErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
+  const set = (field, val) => {
+    setForm(prev => ({ ...prev, [field]: val }))
+    if (errors[field]) setErrors(prev => { const n = { ...prev }; delete n[field]; return n })
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!validate()) return
+    if (editing && JSON.stringify(form) === JSON.stringify(initialForm.current)) {
+      toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+      return
+    }
     setLoading(true)
     try {
       if (editing) {
         await departmentsApi.update(editing.id, form)
         toast.success('Şöbə yeniləndi')
+        onSaved(null)
       } else {
-        await departmentsApi.create(form)
+        const res = await departmentsApi.create(form)
+        const newDept = res.data?.data || res.data
         toast.success('Şöbə yaradıldı')
+        onSaved(newDept)
       }
-      onSaved()
-    } catch {
+    } catch (err) {
+      if (err?.isPending) onSaved(null)
     } finally {
       setLoading(false)
     }
@@ -48,24 +76,27 @@ export default function DepartmentModal({ editing, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Şöbənin adı</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Şöbənin adı <span className="text-red-500">*</span>
+            </label>
             <input
-              required
               value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              onChange={(e) => set('name', e.target.value)}
+              className={`w-full border rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:border-transparent ${errors.name ? 'border-red-400 dark:border-red-500 focus:ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-amber-500'}`}
               placeholder="Şöbənin adı"
             />
+            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Təsvir</label>
             <textarea
               rows={3}
               value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="w-full border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+              onChange={(e) => set('description', e.target.value)}
+              className={`w-full border border-dashed rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:border-transparent resize-none ${errors.description ? 'border-red-400 dark:border-red-500 focus:ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-amber-500'}`}
               placeholder="Şöbəni təsvir edin"
             />
+            {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
           </div>
 
           <div className="flex gap-3 pt-2">

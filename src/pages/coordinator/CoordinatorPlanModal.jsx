@@ -116,34 +116,29 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
             <p className="py-10 text-center text-sm text-gray-400">Texnika tapılmadı</p>
           ) : (
             filtered.map((eq) => {
-              const isRented = eq.status === 'RENTED'
+              const isAvailable = eq.status === 'AVAILABLE'
               return (
-              <button key={eq.id} onClick={() => !isRented && handleSelect(eq)} disabled={selecting || isRented}
+              <button key={eq.id} onClick={() => isAvailable && handleSelect(eq)} disabled={selecting || !isAvailable}
                 className={clsx(
                   'w-full text-left p-4 border rounded-xl transition-all group',
-                  isRented
-                    ? 'border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10 opacity-70 cursor-not-allowed'
+                  !isAvailable
+                    ? 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 opacity-60 cursor-not-allowed'
                     : 'border-gray-200 dark:border-gray-600 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50'
                 )}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <span className={clsx('text-sm font-semibold transition-colors',
-                      isRented ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200 group-hover:text-purple-700 dark:group-hover:text-purple-300'
+                      !isAvailable ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200 group-hover:text-purple-700 dark:group-hover:text-purple-300'
                     )}>
                       {eq.name}
                     </span>
                     <span className={clsx('text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0', EQ_OWNERSHIP_CLS[eq.ownershipType])}>
                       {EQ_OWNERSHIP_LABEL[eq.ownershipType]}
                     </span>
-                    {isRented && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-700">
-                        🔒 İcarədədir
-                      </span>
-                    )}
                   </div>
-                  {eq.status && !isRented && (
+                  {eq.status && (
                     <span className={clsx('text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0', EQ_STATUS_CLS[eq.status] || 'bg-gray-100 text-gray-500')}>
-                      {EQ_STATUS_LABEL[eq.status] || eq.status}
+                      {!isAvailable && '🔒 '}{EQ_STATUS_LABEL[eq.status] || eq.status}
                     </span>
                   )}
                 </div>

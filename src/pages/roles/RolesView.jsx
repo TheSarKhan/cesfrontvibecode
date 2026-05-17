@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { useAuthStore } from '../../store/authStore'
+
+const SUPER_ADMIN_ROLE = 'Super Admin'
 import RoleModal from './RoleModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -152,6 +154,8 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
 
 export default function RolesView({ dept, users, departments, onBack }) {
   const hasPermission = useAuthStore((s) => s.hasPermission)
+  const currentUser   = useAuthStore((s) => s.user)
+  const isSuperAdmin  = currentUser?.roleName === SUPER_ADMIN_ROLE
   const canCreate = hasPermission('ROLE_PERMISSION', 'canPost')
   const canEdit   = hasPermission('ROLE_PERMISSION', 'canPut')
   const canDelete = hasPermission('ROLE_PERMISSION', 'canDelete')
@@ -207,7 +211,9 @@ export default function RolesView({ dept, users, departments, onBack }) {
     }
   }
 
-  const roles = data.content
+  const roles = isSuperAdmin
+    ? data.content
+    : data.content.filter((r) => r.name !== SUPER_ADMIN_ROLE)
 
   return (
     <div>

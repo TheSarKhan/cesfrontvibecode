@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, TrendingUp, Pencil } from 'lucide-react'
 import { investorsApi } from '../../api/investors'
+import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -37,12 +38,13 @@ const EMPTY = {
 export default function InvestorModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
   const [form, setForm] = useState(EMPTY)
+  const [initialForm, setInitialForm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
     if (editing) {
-      setForm({
+      const data = {
         companyName: editing.companyName || '',
         voen: editing.voen || '',
         contactPerson: editing.contactPerson || '',
@@ -53,9 +55,12 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
         riskLevel: editing.riskLevel || 'LOW',
         rating: editing.rating ?? '',
         notes: editing.notes || '',
-      })
+      }
+      setForm(data)
+      setInitialForm(data)
     } else {
       setForm(EMPTY)
+      setInitialForm(null)
     }
   }, [editing])
 
@@ -66,7 +71,30 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
 
   const validate = () => {
     const errs = {}
-    if (!form.companyName?.trim()) errs.companyName = 'Şirkət adı tələb olunur'
+    const e = (field, ...rules) => { const err = v.chain(form[field], ...rules); if (err) errs[field] = err }
+
+    e('companyName',
+      (val) => v.required(val, 'Şirkət adı tələb olunur'),
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 150))
+
+    e('voen', v.voen)
+
+    e('contactPerson',
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
+
+    e('contactPhone', v.phone)
+
+    e('address',
+      (val) => v.minLen(val, 3, 'Minimum 3 simvol olmalıdır'),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 200))
+
+    e('notes', (val) => v.maxLen(val, 500))
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -74,6 +102,10 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+    if (editing && initialForm && JSON.stringify(form) === JSON.stringify(initialForm)) {
+      toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+      return
+    }
 
     const payload = {
       ...form,
@@ -140,23 +172,27 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
 
             <div>
               <label className={labelCls}>VÖEN</label>
-              <input type="text" value={form.voen} onChange={(e) => set('voen', e.target.value)} placeholder="1234567890" className={inputCls('')} />
+              <input type="text" value={form.voen} onChange={(e) => set('voen', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="1234567890" className={inputCls('voen')} />
+              {errors.voen && <p className="mt-1 text-xs text-red-500">{errors.voen}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Əlaqə şəxsi</label>
-                <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls('')} />
+                <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls('contactPerson')} />
+                {errors.contactPerson && <p className="mt-1 text-xs text-red-500">{errors.contactPerson}</p>}
               </div>
               <div>
                 <label className={labelCls}>Telefon</label>
-                <input type="text" value={form.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} placeholder="+994501234567" className={inputCls('')} />
+                <input type="text" value={form.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} placeholder="+994501234567" className={inputCls('contactPhone')} />
+                {errors.contactPhone && <p className="mt-1 text-xs text-red-500">{errors.contactPhone}</p>}
               </div>
             </div>
 
             <div>
               <label className={labelCls}>Ünvan</label>
-              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('')} />
+              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('address')} />
+              {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
             </div>
 
             <div>
@@ -208,7 +244,8 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
 
             <div>
               <label className={labelCls}>Qeydlər</label>
-              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls('')} resize-none`} />
+              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls('notes')} resize-none`} />
+              {errors.notes && <p className="mt-1 text-xs text-red-500">{errors.notes}</p>}
             </div>
           </div>
 

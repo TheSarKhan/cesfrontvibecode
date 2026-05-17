@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Receipt, BarChart3, TrendingDown, TrendingUp } from 'lucide-react'
+import { Receipt, BarChart3, TrendingDown, TrendingUp, Wrench } from 'lucide-react'
 
 const CARDS = [
   {
@@ -34,6 +34,15 @@ const CARDS = [
     color: 'rose',
     path: '/accounting/kreditor',
   },
+  {
+    id: 'service-accounting',
+    title: 'Texniki Servis Mühasibatı',
+    description: 'Texniki servis və baxış xərclərinin mühasibat uçotu',
+    icon: Wrench,
+    color: 'orange',
+    path: null,
+    disabled: true,
+  },
 ]
 
 const COLOR_MAP = {
@@ -64,6 +73,13 @@ const COLOR_MAP = {
     hover: 'hover:border-rose-400 hover:shadow-lg hover:shadow-rose-100/50',
     icon: 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400',
     title: 'text-rose-900 dark:text-rose-200',
+  },
+  orange: {
+    bg: 'bg-orange-50 dark:bg-orange-900/20',
+    border: 'border-orange-200 dark:border-orange-800',
+    hover: 'hover:border-orange-400 hover:shadow-lg hover:shadow-orange-100/50',
+    icon: 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400',
+    title: 'text-orange-900 dark:text-orange-200',
   },
 }
 
@@ -102,7 +118,7 @@ export default function AccountingPage() {
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{card.description}</p>
               {card.disabled && (
                 <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full">
-                  Tezliklə
+                  Soon
                 </span>
               )}
             </button>

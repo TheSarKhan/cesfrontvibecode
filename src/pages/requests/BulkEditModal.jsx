@@ -10,14 +10,38 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
   const [loading, setLoading] = useState(false)
   const [fields, setFields] = useState({ region: false, notes: false })
   const [values, setValues] = useState({ region: '', notes: '' })
+  const [errors, setErrors] = useState({})
+
+  const toggleField = (name, checked) => {
+    setFields(f => ({ ...f, [name]: checked }))
+    if (!checked) setErrors(e => { const n = { ...e }; delete n[name]; return n })
+  }
+
+  const setValue = (name, val) => {
+    setValues(v => ({ ...v, [name]: val }))
+    if (errors[name]) setErrors(e => { const n = { ...e }; delete n[name]; return n })
+  }
 
   const handleSubmit = async () => {
     if (!fields.region && !fields.notes) return toast.error('Ən azı bir sahə seçin')
+
+    const errs = {}
+    if (fields.region) {
+      if (!values.region.trim()) errs.region = 'Bölgə boş ola bilməz'
+      else if (values.region.trim().length < 2) errs.region = 'Minimum 2 simvol olmalıdır'
+      else if (values.region.length > 100) errs.region = 'Maksimum 100 simvol ola bilər'
+    }
+    if (fields.notes) {
+      if (!values.notes.trim()) errs.notes = 'Qeyd boş ola bilməz'
+      else if (values.notes.length > 500) errs.notes = `Maksimum 500 simvol ola bilər (${values.notes.length}/500)`
+    }
+    if (Object.keys(errs).length) { setErrors(errs); return }
+
     setLoading(true)
     try {
       const promises = []
-      if (fields.region) promises.push(requestsApi.bulkUpdateRegion(selectedIds, values.region))
-      if (fields.notes) promises.push(requestsApi.bulkUpdateNotes(selectedIds, values.notes))
+      if (fields.region) promises.push(requestsApi.bulkUpdateRegion(selectedIds, values.region.trim()))
+      if (fields.notes) promises.push(requestsApi.bulkUpdateNotes(selectedIds, values.notes.trim()))
       await Promise.all(promises)
       toast.success(`${selectedIds.length} sorğu yeniləndi`)
       onSaved()
@@ -44,22 +68,40 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
           {/* Region */}
           <div>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input type="checkbox" checked={fields.region} onChange={(e) => setFields(f => ({ ...f, region: e.target.checked }))} className="accent-amber-600 w-4 h-4" />
+              <input type="checkbox" checked={fields.region} onChange={(e) => toggleField('region', e.target.checked)} className="accent-amber-600 w-4 h-4" />
               <span className={labelCls + ' !mb-0'}>Bölgə</span>
             </label>
             {fields.region && (
-              <input type="text" value={values.region} onChange={(e) => setValues(v => ({ ...v, region: e.target.value }))} placeholder="Yeni bölgə..." className={inputCls} />
+              <>
+                <input
+                  type="text"
+                  value={values.region}
+                  onChange={(e) => setValue('region', e.target.value)}
+                  placeholder="Yeni bölgə..."
+                  className={`${inputCls}${errors.region ? ' border-red-400 focus:ring-red-400' : ''}`}
+                />
+                {errors.region && <p className="text-[11px] text-red-500 mt-1">{errors.region}</p>}
+              </>
             )}
           </div>
 
           {/* Notes */}
           <div>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input type="checkbox" checked={fields.notes} onChange={(e) => setFields(f => ({ ...f, notes: e.target.checked }))} className="accent-amber-600 w-4 h-4" />
+              <input type="checkbox" checked={fields.notes} onChange={(e) => toggleField('notes', e.target.checked)} className="accent-amber-600 w-4 h-4" />
               <span className={labelCls + ' !mb-0'}>Qeyd</span>
             </label>
             {fields.notes && (
-              <textarea value={values.notes} onChange={(e) => setValues(v => ({ ...v, notes: e.target.value }))} rows={3} placeholder="Yeni qeyd..." className={`${inputCls} resize-none`} />
+              <>
+                <textarea
+                  value={values.notes}
+                  onChange={(e) => setValue('notes', e.target.value)}
+                  rows={3}
+                  placeholder="Yeni qeyd..."
+                  className={`${inputCls} resize-none${errors.notes ? ' border-red-400 focus:ring-red-400' : ''}`}
+                />
+                {errors.notes && <p className="text-[11px] text-red-500 mt-1">{errors.notes}</p>}
+              </>
             )}
           </div>
         </div>

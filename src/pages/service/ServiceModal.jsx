@@ -1,5 +1,5 @@
 import DateInput from '../../components/common/DateInput'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, CheckSquare, Square, Eye, Wrench, Pencil } from 'lucide-react'
 import { serviceApi } from '../../api/service'
 import { garageApi } from '../../api/garage'
@@ -68,6 +68,15 @@ export default function ServiceModal({ editing, initialEquipmentId, recordType =
     }
     return new Set()
   })
+  const initialForm = useRef(editing ? {
+    equipmentId: editing.equipmentId || '',
+    serviceType: editing.serviceType ?? '',
+    cost:        editing.cost        ?? '',
+    serviceDate: editing.serviceDate ?? '',
+    odometer:    editing.odometer    ?? '',
+    notes:       editing.notes       ?? '',
+  } : null)
+  const initialItems = useRef(editing ? new Set((editing.checklistItems || []).map(i => i.itemName)) : null)
   const [saving, setSaving] = useState(false)
   const [equipment, setEquipment] = useState([])
 
@@ -135,6 +144,15 @@ export default function ServiceModal({ editing, initialEquipmentId, recordType =
     if (!form.equipmentId) return toast.error('Texnika seçin')
     if (!form.serviceType) return toast.error('Növ seçin')
     if (!form.serviceDate) return toast.error('Tarix seçin')
+
+    if (editing && initialForm.current) {
+      const formDirty = JSON.stringify(form) !== JSON.stringify(initialForm.current)
+      const itemsDirty = JSON.stringify([...selectedItems].sort()) !== JSON.stringify([...initialItems.current].sort())
+      if (!formDirty && !itemsDirty) {
+        toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+        return
+      }
+    }
 
     setSaving(true)
     const checklistItems = templates

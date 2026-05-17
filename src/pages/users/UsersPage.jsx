@@ -5,6 +5,7 @@ import { clsx } from 'clsx'
 import { usersApi } from '../../api/users'
 import { useAuthStore } from '../../store/authStore'
 import { departmentsApi } from '../../api/departments'
+import { fmtDate, fmtDateTime } from '../../utils/date'
 import UserModal from './UserModal'
 import UserSlideOver from './UserSlideOver'
 import toast from 'react-hot-toast'
@@ -125,8 +126,14 @@ export default function UsersPage() {
     }
   }
 
-  const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
-  const fmtFull = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'
+  const currentUser = useAuthStore((s) => s.user)
+
+  const fmt = fmtDate
+  const fmtFull = fmtDateTime
+  const formatLastLogin = (user) => {
+    if (currentUser?.id === user.id) return null // "Hal-hazırda aktiv" badge göstər
+    return user.lastLoginAt ? fmtFull(user.lastLoginAt) : '—'
+  }
 
   const exportExcel = () => {
     const rows = filtered.map(u => ({
@@ -137,13 +144,13 @@ export default function UsersPage() {
       'Rol':        u.roleName || '',
       'Status':     u.active ? 'Aktiv' : 'Deaktiv',
       'Yaradılma':  fmt(u.createdAt),
-      'Son giriş':  u.lastLoginAt ? fmtFull(u.lastLoginAt) : '',
+      'Son giriş':  currentUser?.id === u.id ? 'Hal-hazırda aktiv' : (u.lastLoginAt ? fmtFull(u.lastLoginAt) : ''),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     ws['!cols'] = [28, 28, 18, 22, 22, 12, 16, 16].map(w => ({ wch: w }))
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'İstifadəçilər')
-    XLSX.writeFile(wb, 'istifadeciler.xlsx')
+    XLSX.writeFile(wb, 'isciler.xlsx')
   }
 
   return (
@@ -331,7 +338,16 @@ export default function UsersPage() {
                       ) : <span className="text-gray-400 text-sm">—</span>}
                     </td>
                     <td className="py-3 px-4 text-xs text-gray-500 dark:text-gray-400">{fmt(user.createdAt)}</td>
-                    <td className="py-3 px-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{user.lastLoginAt ? fmtFull(user.lastLoginAt) : '—'}</td>
+                    <td className="py-3 px-4 text-xs whitespace-nowrap">
+                      {currentUser?.id === user.id ? (
+                        <span className="inline-flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                          Hal-hazırda aktiv
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 dark:text-gray-400">{formatLastLogin(user)}</span>
+                      )}
+                    </td>
                     <td className="py-3 px-4">
                       <span className={clsx(
                         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
@@ -347,8 +363,9 @@ export default function UsersPage() {
                         {canEdit && (
                           <button
                             onClick={() => setModal({ open: true, editing: user })}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                            title="Redaktə et"
+                            disabled={!user.active}
+                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                            title={user.active ? 'Redaktə et' : 'Deaktiv istifadəçi redaktə edilə bilməz'}
                           >
                             <Pencil size={15} />
                           </button>
@@ -407,7 +424,7 @@ export default function UsersPage() {
         <UserSlideOver
           user={slideOver}
           onClose={() => setSlideOver(null)}
-          onEdit={canEdit ? () => { setSlideOver(null); setModal({ open: true, editing: slideOver }) } : undefined}
+          onEdit={canEdit && slideOver?.active ? () => { setSlideOver(null); setModal({ open: true, editing: slideOver }) } : undefined}
           onDelete={canDelete ? () => { setSlideOver(null); handleDelete(slideOver) } : undefined}
           onToggleActive={canEdit ? () => handleToggleActive(slideOver) : undefined}
         />

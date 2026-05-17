@@ -86,6 +86,16 @@ export default function ContractorsPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Search command palette-dən gələn ?open=id param-ı idarə et
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    contractorsApi.getById(Number(openId))
+      .then(res => setSelected(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleSelect = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allSelected = data.content.length > 0 && data.content.every(x => selectedIds.has(x.id))
   const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(data.content.map(x => x.id)))
@@ -123,15 +133,15 @@ export default function ContractorsPage() {
       'VÖEN':          c.voen || '',
       'Əlaqə şəxsi':   c.contactPerson || '',
       'Telefon':        c.phone || '',
-      'E-poçt':         c.email || '',
+      'Ünvan':          c.address || '',
       'Ödəniş növü':   PAYMENT_LABEL[c.paymentType] || c.paymentType || '',
-      'Bank':           c.bankName || '',
       'Reytinq':        c.rating != null ? parseFloat(c.rating).toFixed(1) : '',
       'Risk':           RISK_LABELS[c.riskLevel] || c.riskLevel || '',
       'Status':         STATUS_LABELS[c.status] || c.status || '',
+      'Qeyd':           c.notes || '',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
-    ws['!cols'] = [22,15,20,15,22,14,18,10,12,12].map(w => ({ wch: w }))
+    ws['!cols'] = [22,15,20,15,25,14,10,12,12,30].map(w => ({ wch: w }))
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Podratçılar')
     XLSX.writeFile(wb, 'podratcilar.xlsx')
