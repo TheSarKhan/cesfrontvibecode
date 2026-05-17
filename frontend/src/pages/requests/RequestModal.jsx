@@ -162,10 +162,13 @@ export default function RequestModal({ editing, onClose, onSaved }) {
       if (form.notes && form.notes.length > 500)
         errs.notes = `Maksimum 500 simvol ola bilər (${form.notes.length}/500)`
       form.params.forEach((p, i) => {
-        if (p.paramKey.trim() && !p.paramValue.trim())
-          errs[`param_${i}`] = 'Dəyər tələb olunur'
+        const key = p.paramKey.trim()
+        const val = p.paramValue.trim()
+        if (!key && val) errs[`paramKey_${i}`] = 'Parametr adı tələb olunur'
+        if (key && !val) errs[`param_${i}`] = 'Dəyər tələb olunur'
+        if (key && val && !/^\d+(\.\d+)?$/.test(val)) errs[`param_${i}`] = 'Dəyər müsbət rəqəm olmalıdır'
         if (p.paramKey.length > 100) errs[`paramKey_${i}`] = 'Maksimum 100 simvol'
-        if (p.paramValue.length > 200) errs[`param_${i}`] = 'Maksimum 200 simvol'
+        if (val.length > 200) errs[`param_${i}`] = 'Maksimum 200 simvol'
       })
     }
     return errs
@@ -208,10 +211,14 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   // Texniki parametrlər
   const addParam = () => setForm((p) => ({ ...p, params: [...p.params, { paramKey: '', paramValue: '' }] }))
   const removeParam = (i) => setForm((p) => ({ ...p, params: p.params.filter((_, idx) => idx !== i) }))
-  const setParamField = (i, field, val) => setForm((p) => ({
-    ...p,
-    params: p.params.map((param, idx) => idx === i ? { ...param, [field]: val } : param),
-  }))
+  const setParamField = (i, field, val) => {
+    setForm((p) => ({
+      ...p,
+      params: p.params.map((param, idx) => idx === i ? { ...param, [field]: val } : param),
+    }))
+    const errKey = field === 'paramKey' ? `paramKey_${i}` : `param_${i}`
+    if (errors[errKey]) setErrors((e) => { const n = { ...e }; delete n[errKey]; return n })
+  }
 
   const goNext = () => {
     const errs = validate(step)
@@ -486,23 +493,32 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                 <label className={labelCls}>Texniki parametrlər</label>
                 <div className="space-y-2 mt-1">
                   {form.params.map((p, i) => (
-                    <div key={i} className="flex gap-2 items-center">
+                    <div key={i} className="flex gap-2 items-start">
                       <div className="flex-1">
                         <ComboInput
                           category="TECH_PARAM"
                           value={p.paramKey}
                           onChange={(v) => setParamField(i, 'paramKey', v)}
                           placeholder="Parametr adı"
+                          className={errors[`paramKey_${i}`] ? 'border-red-400 focus:ring-red-400' : ''}
                         />
+                        {errors[`paramKey_${i}`] && (
+                          <p className="text-[11px] text-red-500 mt-0.5">{errors[`paramKey_${i}`]}</p>
+                        )}
                       </div>
-                      <input
-                        type="text"
-                        value={p.paramValue}
-                        onChange={(e) => setParamField(i, 'paramValue', e.target.value)}
-                        placeholder="Dəyər"
-                        className={clsx(inputCls, 'flex-1')}
-                      />
-                      <button type="button" onClick={() => removeParam(i)} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={p.paramValue}
+                          onChange={(e) => setParamField(i, 'paramValue', e.target.value)}
+                          placeholder="Rəqəm daxil edin"
+                          className={clsx(inputCls, errors[`param_${i}`] && 'border-red-400 focus:ring-red-400')}
+                        />
+                        {errors[`param_${i}`] && (
+                          <p className="text-[11px] text-red-500 mt-0.5">{errors[`param_${i}`]}</p>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => removeParam(i)} className="p-2 mt-0.5 text-gray-400 hover:text-red-500 transition-colors">
                         <Trash2 size={15} />
                       </button>
                     </div>

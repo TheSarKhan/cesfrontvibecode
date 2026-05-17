@@ -2,9 +2,6 @@ import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
 import { X, ChevronLeft, ChevronRight, Check, Truck, Copy, Pencil, Plus } from 'lucide-react'
 import { garageApi } from '../../api/garage'
-import { configApi } from '../../api/config'
-import { contractorsApi } from '../../api/contractors'
-import { investorsApi } from '../../api/investors'
 import ComboInput from '../../components/common/ComboInput'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -77,16 +74,13 @@ function StepIndicator({ steps, current }) {
   )
 }
 
-export default function EquipmentModal({ editing, onClose, onSaved }) {
+export default function EquipmentModal({ editing, onClose, onSaved, contractors = [], investors = [], safetyTypes = [] }) {
   const isClone = editing?._clone
   const isEditing = editing && !isClone
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(EMPTY)
   const [initialForm, setInitialForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
-  const [contractors, setContractors] = useState([])
-  const [investors, setInvestors] = useState([])
-  const [safetyTypes, setSafetyTypes] = useState([])
   const [errors, setErrors] = useState({})
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
@@ -99,18 +93,6 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
   }
 
   useEscapeKey(handleClose)
-
-  useEffect(() => {
-    contractorsApi.getAll()
-      .then((res) => setContractors(res.data.data || res.data || []))
-      .catch(() => {})
-    investorsApi.getAll()
-      .then((res) => setInvestors(res.data.data || res.data || []))
-      .catch(() => {})
-    configApi.getActiveByCategory('SAFETY_EQUIPMENT')
-      .then((res) => setSafetyTypes(res.data.data || []))
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (editing) {
@@ -161,13 +143,66 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
       : 'border-gray-200 dark:border-gray-600 focus:ring-amber-500'
   )
 
+  const hasLetter = (v) => /\p{L}/u.test(v ?? '')
+  const hasLetterOrDigit = (v) => /[\p{L}\d]/u.test(v ?? '')
+  const currentYear = new Date().getFullYear()
+
   const validateStep = (s) => {
     const errs = {}
+
     if (s === 1) {
-      if (!form.name?.trim()) errs.name = 'Texnika adı tələb olunur'
-      if (!form.equipmentCode?.trim()) errs.equipmentCode = 'Texnika kodu tələb olunur'
-      if (!form.type?.trim()) errs.type = 'Növ tələb olunur'
+      const name = form.name?.trim() ?? ''
+      if (!name) errs.name = 'Texnika adı tələb olunur'
+      else if (name.length < 2) errs.name = 'Ad minimum 2 simvol olmalıdır'
+      else if (!hasLetter(name)) errs.name = 'Ad ən azı bir hərf içərməlidir'
+
+      const code = form.equipmentCode?.trim() ?? ''
+      if (!code) errs.equipmentCode = 'Texnika kodu tələb olunur'
+      else if (code.length < 2) errs.equipmentCode = 'Kod minimum 2 simvol olmalıdır'
+      else if (!hasLetterOrDigit(code)) errs.equipmentCode = 'Kod ən azı bir hərf və ya rəqəm içərməlidir'
+
+      const type = form.type?.trim() ?? ''
+      if (!type) errs.type = 'Növ tələb olunur'
+      else if (type.length < 2) errs.type = 'Növ minimum 2 simvol olmalıdır'
+      else if (!hasLetter(type)) errs.type = 'Növ ən azı bir hərf içərməlidir'
+
+      if (form.manufactureYear !== '' && form.manufactureYear != null) {
+        const y = parseInt(form.manufactureYear)
+        if (isNaN(y) || y < 1900 || y > currentYear + 1)
+          errs.manufactureYear = `İstehsal ili 1900 - ${currentYear + 1} arasında olmalıdır`
+      }
     }
+
+    if (s === 2) {
+      if (form.purchasePrice !== '' && form.purchasePrice != null) {
+        const p = parseFloat(form.purchasePrice)
+        if (isNaN(p) || p < 0) errs.purchasePrice = 'Alış qiyməti mənfi ola bilməz'
+      }
+      if (form.currentMarketValue !== '' && form.currentMarketValue != null) {
+        const v = parseFloat(form.currentMarketValue)
+        if (isNaN(v) || v < 0) errs.currentMarketValue = 'Bazar dəyəri mənfi ola bilməz'
+      }
+      if (form.depreciationRate !== '' && form.depreciationRate != null) {
+        const d = parseFloat(form.depreciationRate)
+        if (isNaN(d) || d < 0 || d > 100) errs.depreciationRate = 'Amortizasiya 0-100% arasında olmalıdır'
+      }
+      if (form.motoHours !== '' && form.motoHours != null) {
+        const m = parseFloat(form.motoHours)
+        if (isNaN(m) || m < 0) errs.motoHours = 'Moto saatlar mənfi ola bilməz'
+      }
+      if (form.hourKmCounter !== '' && form.hourKmCounter != null) {
+        const h = parseFloat(form.hourKmCounter)
+        if (isNaN(h) || h < 0) errs.hourKmCounter = 'Saat/KM göstəricisi mənfi ola bilməz'
+      }
+    }
+
+    if (s === 3) {
+      if (form.ownershipType === 'INVESTOR' && !form.ownerInvestorId)
+        errs.ownerInvestorId = 'İnvestor seçilməlidir'
+      if (form.ownershipType === 'CONTRACTOR' && !form.ownerContractorId)
+        errs.ownerContractorId = 'Podratçı seçilməlidir'
+    }
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -179,6 +214,10 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
 
   const handleSubmit = async () => {
     if (!validateStep(step)) return
+    if (isEditing && !isDirty) {
+      toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+      return
+    }
 
     const payload = {
       equipmentCode: form.equipmentCode,
@@ -292,9 +331,9 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                   <input type="text" value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)}
                     placeholder="SN-12345" className={inputCls('')} />
                 </Field>
-                <Field label="İstehsal ili">
-                  <input type="number" min="1900" max={new Date().getFullYear()} value={form.manufactureYear}
-                    onChange={(e) => set('manufactureYear', e.target.value)} placeholder="2020" className={inputCls('')} />
+                <Field label="İstehsal ili" error={errors.manufactureYear}>
+                  <input type="number" min="1900" max={new Date().getFullYear() + 1} value={form.manufactureYear}
+                    onChange={(e) => set('manufactureYear', e.target.value)} placeholder="2020" className={inputCls('manufactureYear')} />
                 </Field>
               </div>
 
@@ -309,31 +348,31 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
                   <DateInput value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)}
                     className={inputCls('')} />
                 </Field>
-                <Field label="Alış qiyməti (AZN)">
+                <Field label="Alış qiyməti (AZN)" error={errors.purchasePrice}>
                   <input type="number" min="0" step="0.01" value={form.purchasePrice}
-                    onChange={(e) => set('purchasePrice', e.target.value)} placeholder="0.00" className={inputCls('')} />
+                    onChange={(e) => set('purchasePrice', e.target.value)} placeholder="0.00" className={inputCls('purchasePrice')} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Cari bazar dəyəri (AZN)">
+                <Field label="Cari bazar dəyəri (AZN)" error={errors.currentMarketValue}>
                   <input type="number" min="0" step="0.01" value={form.currentMarketValue}
-                    onChange={(e) => set('currentMarketValue', e.target.value)} placeholder="0.00" className={inputCls('')} />
+                    onChange={(e) => set('currentMarketValue', e.target.value)} placeholder="0.00" className={inputCls('currentMarketValue')} />
                 </Field>
-                <Field label="Amortizasiya faizi (%)">
+                <Field label="Amortizasiya faizi (%)" error={errors.depreciationRate}>
                   <input type="number" min="0" max="100" step="0.01" value={form.depreciationRate}
-                    onChange={(e) => set('depreciationRate', e.target.value)} placeholder="0.00" className={inputCls('')} />
+                    onChange={(e) => set('depreciationRate', e.target.value)} placeholder="0.00" className={inputCls('depreciationRate')} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Saat / KM göstəricisi">
+                <Field label="Saat / KM göstəricisi" error={errors.hourKmCounter}>
                   <input type="number" min="0" step="0.01" value={form.hourKmCounter}
-                    onChange={(e) => set('hourKmCounter', e.target.value)} placeholder="0.00" className={inputCls('')} />
+                    onChange={(e) => set('hourKmCounter', e.target.value)} placeholder="0.00" className={inputCls('hourKmCounter')} />
                 </Field>
-                <Field label="Moto saatlar">
+                <Field label="Moto saatlar" error={errors.motoHours}>
                   <input type="number" min="0" step="0.01" value={form.motoHours}
-                    onChange={(e) => set('motoHours', e.target.value)} placeholder="0.00" className={inputCls('')} />
+                    onChange={(e) => set('motoHours', e.target.value)} placeholder="0.00" className={inputCls('motoHours')} />
                 </Field>
                 <Field label="Saxlanma yeri">
                   <ComboInput category="STORAGE_LOCATION" value={form.storageLocation} onChange={(v) => set('storageLocation', v)}
@@ -402,9 +441,9 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
               {form.ownershipType === 'INVESTOR' && (
                 <div className="p-4 rounded-xl border border-amber-100 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-900/10 space-y-3">
                   <p className="text-xs font-semibold text-amber-600">İnvestor məlumatları</p>
-                  <Field label="İnvestor seçin">
+                  <Field label="İnvestor seçin" error={errors.ownerInvestorId}>
                     <select value={form.ownerInvestorId}
-                      onChange={(e) => set('ownerInvestorId', e.target.value)} className={inputCls('')}>
+                      onChange={(e) => { set('ownerInvestorId', e.target.value); if (errors.ownerInvestorId) setErrors(p => ({ ...p, ownerInvestorId: undefined })) }} className={inputCls('ownerInvestorId')}>
                       <option value="">İnvestor seçin</option>
                       {investors.map((inv) => (
                         <option key={inv.id} value={inv.id}>
@@ -431,9 +470,9 @@ export default function EquipmentModal({ editing, onClose, onSaved }) {
               {form.ownershipType === 'CONTRACTOR' && (
                 <div className="p-4 rounded-xl border border-amber-100 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-900/10 space-y-3">
                   <p className="text-xs font-semibold text-amber-600">Podratçı məlumatları</p>
-                  <Field label="Podratçı seçin">
+                  <Field label="Podratçı seçin" error={errors.ownerContractorId}>
                     <select value={form.ownerContractorId}
-                      onChange={(e) => set('ownerContractorId', e.target.value)} className={inputCls('')}>
+                      onChange={(e) => { set('ownerContractorId', e.target.value); if (errors.ownerContractorId) setErrors(p => ({ ...p, ownerContractorId: undefined })) }} className={inputCls('ownerContractorId')}>
                       <option value="">Podratçı seçin</option>
                       {contractors.map((c) => (
                         <option key={c.id} value={c.id}>

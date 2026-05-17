@@ -1,8 +1,10 @@
 import { X, Printer, CheckCircle } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { clsx } from 'clsx'
+import cesLogoUrl from '../../assets/filelogo.png'
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ') : '—'
+import { fmtDate } from '../../utils/date'
+const fmt = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'
@@ -17,69 +19,142 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
 
     const checklistRows = (record.checklistItems || []).map(item => `
       <tr>
-        <td style="padding:6px 12px; border-bottom:1px solid #f3f4f6; font-size:12px; color:${item.checked ? '#6b7280' : '#111827'}; ${item.checked ? 'text-decoration:line-through;' : ''}">
+        <td style="padding:6px 12px; border-bottom:1px solid #e5e7eb; font-size:12px; color:#111827; ${item.checked ? 'text-decoration:line-through; color:#6b7280;' : ''}">
           ${item.itemName}
         </td>
-        <td style="padding:6px 12px; border-bottom:1px solid #f3f4f6; text-align:center; font-size:12px;">
+        <td style="padding:6px 12px; border-bottom:1px solid #e5e7eb; text-align:center; font-size:12px;">
           ${item.checked
-            ? '<span style="color:#16a34a; font-weight:bold;">✓ Yoxlandı</span>'
-            : '<span style="color:#9ca3af;">— </span>'}
+            ? '<span style="font-weight:bold; color:#111827;">&#10003; Yoxlandı</span>'
+            : '<span style="color:#9ca3af;">—</span>'}
         </td>
-        <td style="padding:6px 12px; border-bottom:1px solid #f3f4f6; font-size:11px; color:#6b7280; font-style:italic;">
+        <td style="padding:6px 12px; border-bottom:1px solid #e5e7eb; font-size:11px; color:#374151; font-style:italic;">
           ${item.note || ''}
         </td>
       </tr>
     `).join('')
+
+    const statusLabel = {
+      AVAILABLE:     'Mövcud',
+      UNDER_CHECK:   'Yoxlanılır',
+      DEFECTIVE:     'Nasaz',
+      IN_REPAIR:     'Təmirdə',
+      IN_INSPECTION: 'Müayinədə',
+    }
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html lang="az">
       <head>
         <meta charset="UTF-8" />
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <title>Servis Qaiməsi — ${record.equipmentName}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Arial', sans-serif; color: #111827; background: #fff; padding: 32px; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; border-bottom: 2px solid #d97706; padding-bottom: 16px; }
-          .company { font-size: 22px; font-weight: bold; color: #d97706; }
-          .company-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+          body {
+            font-family: 'Noto Sans', 'Arial Unicode MS', Arial, sans-serif;
+            color: #111827;
+            background: #fff;
+            padding: 32px;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #111827;
+            padding-bottom: 14px;
+          }
+          .logo-img { height: 46px; display: block; }
+          .company-sub { font-size: 10px; color: #6b7280; margin-top: 3px; }
           .doc-title { text-align: right; }
-          .doc-title h1 { font-size: 16px; font-weight: bold; color: #111827; }
-          .doc-title .doc-no { font-size: 11px; color: #6b7280; margin-top: 3px; }
+          .doc-title h1 { font-size: 16px; font-weight: 700; color: #111827; }
+          .doc-title .doc-no { font-size: 11px; color: #374151; margin-top: 4px; }
           .section { margin-bottom: 20px; }
-          .section-title { font-size: 11px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+          .section-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #111827;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 4px;
+          }
           .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-          .info-item label { font-size: 10px; color: #9ca3af; display: block; margin-bottom: 2px; }
+          .info-item label { font-size: 10px; color: #6b7280; display: block; margin-bottom: 2px; }
           .info-item span { font-size: 13px; font-weight: 600; color: #111827; }
           table { width: 100%; border-collapse: collapse; margin-top: 6px; }
-          thead tr { background: #f9fafb; }
-          th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb; }
-          .cost-box { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
-          .cost-label { font-size: 13px; font-weight: bold; color: #92400e; }
-          .cost-amount { font-size: 22px; font-weight: bold; color: #b45309; }
-          .status-badge { display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: bold; }
-          .status-AVAILABLE   { background:#dcfce7; color:#15803d; }
-          .status-UNDER_CHECK { background:#e0e7ff; color:#4338ca; }
-          .status-DEFECTIVE   { background:#fee2e2; color:#dc2626; }
-          .status-IN_REPAIR   { background:#ffedd5; color:#c2410c; }
-          .status-IN_INSPECTION { background:#fef3c7; color:#d97706; }
-          .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-          .sig-line { border-bottom: 1px solid #374151; padding-bottom: 4px; margin-bottom: 4px; height: 30px; }
-          .sig-label { font-size: 10px; color: #9ca3af; }
-          .footer { margin-top: 28px; padding-top: 12px; border-top: 1px dashed #d1d5db; text-align: center; font-size: 10px; color: #9ca3af; }
-          .progress { font-size: 11px; color: #6b7280; margin-top: 6px; }
-          @media print { body { padding: 16px; } }
+          thead tr { background: #f3f4f6; }
+          th {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            color: #374151;
+            text-transform: uppercase;
+            border-bottom: 2px solid #374151;
+          }
+          .cost-box {
+            border: 2px solid #374151;
+            border-radius: 6px;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+          }
+          .cost-label { font-size: 13px; font-weight: 700; color: #111827; }
+          .cost-amount { font-size: 22px; font-weight: 700; color: #111827; }
+          .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid #374151;
+            color: #111827;
+            background: #f9fafb;
+          }
+          .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #374151;
+          }
+          .sig-line {
+            border-bottom: 1px solid #374151;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+            height: 30px;
+          }
+          .sig-label { font-size: 10px; color: #6b7280; }
+          .footer {
+            margin-top: 28px;
+            padding-top: 12px;
+            border-top: 1px dashed #d1d5db;
+            text-align: center;
+            font-size: 10px;
+            color: #9ca3af;
+          }
+          .progress { font-size: 11px; color: #374151; margin-top: 4px; }
+          @media print {
+            body { padding: 16px; }
+          }
         </style>
       </head>
       <body>
         <div class="header">
           <div>
-            <div class="company">CES MMC</div>
-            <div class="company-sub">Construction Equipment Service</div>
+            <img src="${cesLogoUrl}" alt="CES Logo" class="logo-img" />
+            <div class="company-sub">Construction Equipment Service LLC</div>
           </div>
           <div class="doc-title">
             <h1>Servis Qaiməsi</h1>
-            <div class="doc-no">№ SRV-${String(record.id).padStart(5, '0')} &nbsp;|&nbsp; ${fmt(record.serviceDate)}</div>
+            <div class="doc-no">&#8470; SRV-${String(record.id).padStart(5, '0')} &nbsp;|&nbsp; ${fmt(record.serviceDate)}</div>
           </div>
         </div>
 
@@ -104,11 +179,11 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
             </div>
             <div class="info-item">
               <label>Status (əvvəl)</label>
-              <span class="status-badge status-${record.statusBefore}">${record.statusBefore || '—'}</span>
+              <span class="status-badge">${statusLabel[record.statusBefore] || record.statusBefore || '—'}</span>
             </div>
             <div class="info-item">
               <label>Status (sonra)</label>
-              <span class="status-badge status-${record.statusAfter}">${record.statusAfter || '—'}</span>
+              <span class="status-badge">${statusLabel[record.statusAfter] || record.statusAfter || '—'}</span>
             </div>
             ${record.notes ? `
             <div class="info-item" style="grid-column:1/-1;">
@@ -122,7 +197,7 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
         <div class="section">
           <div class="section-title">
             Yoxlama Vərəqəsi
-            <span class="progress">(${checkedCount}/${totalCount} tamamlandı)</span>
+            <span class="progress">&nbsp;(${checkedCount}/${totalCount} tamamlandı)</span>
           </div>
           <table>
             <thead>
@@ -158,7 +233,11 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
           Bu qaimə CES ERP sistemi tərəfindən yaradılıb &nbsp;|&nbsp; ${new Date().toLocaleString('az-AZ')}
         </div>
 
-        <script>window.onload = () => { window.print() }</script>
+        <script>
+          window.onload = function() {
+            setTimeout(function() { window.print(); }, 400);
+          };
+        </script>
       </body>
       </html>
     `)
@@ -177,19 +256,19 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
             <Printer size={16} className="text-amber-500" />
             Servis Qaiməsi
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <div className="px-6 py-5 space-y-4">
           {/* Texnika info */}
-          <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{record.equipmentName}</p>
                 {record.plateNumber && <p className="text-[10px] text-gray-400">{record.plateNumber}</p>}
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">{record.serviceType}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mt-1">{record.serviceType}</p>
               </div>
               <div className="text-right">
                 <p className="text-[10px] text-gray-400">Tarix</p>
@@ -200,9 +279,9 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
 
           {/* Xərc */}
           {record.cost != null && (
-            <div className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 rounded-xl px-4 py-3 border border-red-100 dark:border-red-800">
+            <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700">
               <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Servis Xərci</span>
-              <span className="text-base font-bold text-red-600">−{fmtMoney(record.cost)}</span>
+              <span className="text-base font-bold text-gray-800 dark:text-gray-100">−{fmtMoney(record.cost)}</span>
             </div>
           )}
 
@@ -217,7 +296,7 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
                   <div key={item.id} className="flex items-center gap-2.5 py-1">
                     <div className={clsx(
                       "w-4 h-4 rounded border flex items-center justify-center shrink-0",
-                      item.checked ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-600"
+                      item.checked ? "bg-gray-700 border-gray-700" : "border-gray-300 dark:border-gray-600"
                     )}>
                       {item.checked && <CheckCircle size={10} className="text-white" />}
                     </div>
@@ -236,12 +315,13 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
         </div>
 
         <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700">
-          <button onClick={onClose} className="flex-1 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+          <button onClick={onClose}
+            className="flex-1 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
             Bağla
           </button>
           <button
             onClick={handlePrint}
-            className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-2 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <Printer size={14} />
             Çap et

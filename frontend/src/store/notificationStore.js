@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export const useNotificationStore = create((set) => ({
   notifications: [],
   unreadCount: 0,
+  approvalQueueVersion: 0,
 
   addNotification: (n) =>
     set((s) => ({
@@ -15,6 +16,8 @@ export const useNotificationStore = create((set) => ({
       notifications: s.notifications.map((n) => ({ ...n, read: true })),
       unreadCount: 0,
     })),
+
+  bumpApprovalQueue: () => set((s) => ({ approvalQueueVersion: s.approvalQueueVersion + 1 })),
 
   clear: () => set({ notifications: [], unreadCount: 0 }),
 }))

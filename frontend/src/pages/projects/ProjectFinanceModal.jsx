@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, TrendingUp, TrendingDown } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
+import { fmtDate } from '../../utils/date'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -15,7 +16,7 @@ function EntryRow({ entry, onDelete, readOnly }) {
         {parseFloat(entry.value || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
       </div>
       <div className="text-xs text-gray-400 whitespace-nowrap w-24 text-right">
-        {entry.date ? new Date(entry.date).toLocaleDateString('az-AZ') : '—'}
+        {fmtDate(entry.date)}
       </div>
       {!readOnly && (
         <button

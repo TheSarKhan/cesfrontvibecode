@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useAuthStore } from '../../store/authStore'
 import { clsx } from 'clsx'
+import { fmtDate } from '../../utils/date'
 
 const MONTHS = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
@@ -35,7 +36,15 @@ function getDefaultForm(project) {
     workingHoursPerDay: 9,
     invoiceDate: new Date().toISOString().slice(0, 10),
     notes: '',
+    hasTransport: false,
+    transportations: [],
   }
+}
+
+function parseTransportations(val) {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  try { return JSON.parse(val) } catch { return [] }
 }
 
 const STATUS_CFG = {
@@ -122,7 +131,7 @@ function InvoiceDetailModal({ inv, onClose }) {
             <Calendar size={13} className="text-gray-400" />
             <span>Tarix:</span>
             <span className="font-medium text-gray-700 dark:text-gray-300">
-              {inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('az-AZ') : '—'}
+              {inv.invoiceDate ? fmtDate(inv.invoiceDate) : '—'}
             </span>
             {inv.invoiceNumber && (
               <>
@@ -185,6 +194,35 @@ function InvoiceDetailModal({ inv, onClose }) {
             </div>
           </div>
 
+          {/* Daşınmalar */}
+          {(() => {
+            const transports = parseTransportations(inv.transportations)
+            if (transports.length === 0) return null
+            const total = transports.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+            return (
+              <div className="rounded-xl border border-blue-100 dark:border-blue-800/40 overflow-hidden">
+                <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/40">
+                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Texnika daşınmaları</p>
+                </div>
+                <div className="divide-y divide-gray-50 dark:divide-gray-700">
+                  {transports.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-2 text-xs">
+                      <div className="flex flex-col gap-0.5">
+                        {t.date && <span className="text-[10px] text-gray-400">{fmtDate(t.date)}</span>}
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{t.direction || '—'}</span>
+                      </div>
+                      <span className="font-semibold text-blue-600">{fmtMoney(parseFloat(t.amount) || 0)} ₼</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-t border-blue-100 dark:border-blue-800/40">
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-400">Daşınma cəmi</span>
+                  <span className="text-sm font-bold text-blue-700 dark:text-blue-400">{fmtMoney(total)} ₼</span>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Qeydlər */}
           {inv.notes && (
             <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl px-3 py-2.5">
@@ -213,6 +251,7 @@ export default function ProjectQaimeTab({ project }) {
   const canSend = canCreate
   const canDelete = useAuthStore(s => s.hasPermission('ACCOUNTING', 'canDelete'))
   const isDaily = project?.projectType === 'DAILY'
+  const isLocked = project?.status !== 'ACTIVE'
 
   useEffect(() => {
     load()
@@ -233,6 +272,31 @@ export default function ProjectQaimeTab({ project }) {
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
+
+  function addTransport() {
+    setForm(f => ({
+      ...f,
+      transportations: [...f.transportations, { date: f.invoiceDate, direction: '', amount: '' }],
+    }))
+  }
+
+  function removeTransport(idx) {
+    setForm(f => ({
+      ...f,
+      transportations: f.transportations.filter((_, i) => i !== idx),
+    }))
+  }
+
+  function updateTransport(idx, field, value) {
+    setForm(f => ({
+      ...f,
+      transportations: f.transportations.map((tr, i) => i === idx ? { ...tr, [field]: value } : tr),
+    }))
+  }
+
+  const transTotal = form.hasTransport
+    ? form.transportations.reduce((s, tr) => s + (parseFloat(tr.amount) || 0), 0)
+    : 0
 
   const contractorDailyRate = parseFloat(project?.contractorDailyRate || 0)
   const hasContractorRate = contractorDailyRate > 0 &&
@@ -271,7 +335,8 @@ export default function ProjectQaimeTab({ project }) {
         perDay = contractorDailyRate / workDays
       }
       const daysAmt = perDay * totalDays
-      const extHAmt = workHours > 0 ? (perDay / workHours) * extH * rate : 0
+      // Podratçı/investora yalnız 1x tarif — overtime artımı şirkətin qazancıdır
+      const extHAmt = workHours > 0 ? (perDay / workHours) * extH : 0
       contractorAmt = daysAmt + extHAmt
     }
     return { daily, stdAmt, extDAmt, extHAmt, total: stdAmt + extDAmt + extHAmt, contractorAmt }
@@ -292,6 +357,7 @@ export default function ProjectQaimeTab({ project }) {
     const d = new Date(form.invoiceDate)
     setSaving(true)
     try {
+      const transports = form.hasTransport ? form.transportations.filter(t => t.direction || t.amount) : []
       const res = await accountingApi.create({
         type: 'INCOME',
         projectId: project.id,
@@ -310,6 +376,8 @@ export default function ProjectQaimeTab({ project }) {
         workingHoursPerDay: parseInt(form.workingHoursPerDay),
         overtimeRate: parseFloat(form.overtimeRate) || 1,
         status: 'DRAFT',
+        transportations: transports.length > 0 ? transports : null,
+        transportationsTotal: transports.length > 0 ? parseFloat(transTotal.toFixed(2)) : null,
       })
       toast.success('Qaimə yaradıldı')
       setJustCreatedId(res.data?.data?.id)
@@ -325,6 +393,7 @@ export default function ProjectQaimeTab({ project }) {
 
   function handleEdit(inv) {
     setEditingInvoice(inv)
+    const existingTransports = parseTransportations(inv.transportations)
     setForm({
       standardDays:       inv.standardDays ?? '',
       extraDays:          inv.extraDays ?? '',
@@ -335,6 +404,8 @@ export default function ProjectQaimeTab({ project }) {
       workingHoursPerDay: inv.workingHoursPerDay ?? 9,
       invoiceDate:        inv.invoiceDate ? inv.invoiceDate.slice(0, 10) : new Date().toISOString().slice(0, 10),
       notes:              inv.notes ?? '',
+      hasTransport:       existingTransports.length > 0,
+      transportations:    existingTransports,
     })
     setShowForm(true)
   }
@@ -355,18 +426,21 @@ export default function ProjectQaimeTab({ project }) {
     const d = new Date(form.invoiceDate)
     setSaving(true)
     try {
+      const transports = form.hasTransport ? form.transportations.filter(t => t.direction || t.amount) : []
       await accountingApi.resubmit(editingInvoice.id, {
-        invoiceDate:        form.invoiceDate,
-        notes:              form.notes || null,
-        standardDays:       form.standardDays !== '' ? parseInt(form.standardDays) : null,
-        extraDays:          form.extraDays !== '' ? parseInt(form.extraDays) : null,
-        extraHours:         form.extraHours !== '' ? parseFloat(form.extraHours) : null,
-        monthlyRate:        parseFloat(form.monthlyRate),
-        workingDaysInMonth: parseInt(form.workingDaysInMonth),
-        workingHoursPerDay: parseInt(form.workingHoursPerDay),
-        overtimeRate:       parseFloat(form.overtimeRate) || 1,
-        periodMonth:        d.getMonth() + 1,
-        periodYear:         d.getFullYear(),
+        invoiceDate:          form.invoiceDate,
+        notes:                form.notes || null,
+        standardDays:         form.standardDays !== '' ? parseInt(form.standardDays) : null,
+        extraDays:            form.extraDays !== '' ? parseInt(form.extraDays) : null,
+        extraHours:           form.extraHours !== '' ? parseFloat(form.extraHours) : null,
+        monthlyRate:          parseFloat(form.monthlyRate),
+        workingDaysInMonth:   parseInt(form.workingDaysInMonth),
+        workingHoursPerDay:   parseInt(form.workingHoursPerDay),
+        overtimeRate:         parseFloat(form.overtimeRate) || 1,
+        periodMonth:          d.getMonth() + 1,
+        periodYear:           d.getFullYear(),
+        transportations:      transports.length > 0 ? transports : null,
+        transportationsTotal: transports.length > 0 ? parseFloat(transTotal.toFixed(2)) : null,
       })
       toast.success('Qaimə yenidən göndərildi')
       setEditingInvoice(null)
@@ -422,6 +496,28 @@ export default function ProjectQaimeTab({ project }) {
 
   return (
     <div className="space-y-4">
+      {/* Locked banner — shown when project is not ACTIVE */}
+      {isLocked && (
+        <div className={clsx(
+          'flex items-start gap-3 px-4 py-3 rounded-xl border text-xs',
+          project?.status === 'PENDING'
+            ? 'bg-blue-50 border-blue-200 text-blue-700'
+            : 'bg-gray-100 border-gray-300 text-gray-600'
+        )}>
+          <Lock size={14} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">
+              {project?.status === 'PENDING' ? 'Layihə hələ aktiv deyil' : 'Layihə bağlanmışdır'}
+            </p>
+            <p className="opacity-70 mt-0.5">
+              {project?.status === 'PENDING'
+                ? 'Müqavilə yüklənib layihə aktiv edildikdən sonra qaimə yaratmaq mümkün olacaq.'
+                : 'Bu layihə üzrə yeni qaimə yaratmaq mümkün deyil.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -433,7 +529,7 @@ export default function ProjectQaimeTab({ project }) {
             </span>
           )}
         </div>
-        {!editingInvoice && (
+        {!editingInvoice && !isLocked && (
           <button
             onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors"
@@ -444,8 +540,8 @@ export default function ProjectQaimeTab({ project }) {
         )}
       </div>
 
-      {/* Form */}
-      {showForm && (
+      {/* Form — only when not locked */}
+      {showForm && !isLocked && (
         <form onSubmit={editingInvoice ? handleResubmit : handleSubmit}
           className={`rounded-xl border p-4 space-y-3 ${editingInvoice ? 'border-red-200 bg-red-50/40' : 'border-amber-200 bg-amber-50/60'}`}>
           <div className="flex items-center justify-between">
@@ -588,6 +684,65 @@ export default function ProjectQaimeTab({ project }) {
               rows={2} placeholder="İstəyə bağlı qeyd..." className={inputCls + ' resize-none'} />
           </div>
 
+          {/* Texnika daşınıb? */}
+          <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.hasTransport}
+                onChange={e => {
+                  const checked = e.target.checked
+                  setForm(f => ({
+                    ...f,
+                    hasTransport: checked,
+                    transportations: checked && f.transportations.length === 0
+                      ? [{ date: f.invoiceDate, direction: '', amount: '' }]
+                      : f.transportations,
+                  }))
+                }}
+                className="w-4 h-4 accent-amber-500"
+              />
+              <span className="text-xs font-semibold text-gray-700">Texnika daşınıb?</span>
+            </label>
+
+            {form.hasTransport && (
+              <div className="space-y-2">
+                {form.transportations.map((tr, idx) => (
+                  <div key={idx} className="flex gap-2 items-end">
+                    <div className="w-28 shrink-0">
+                      <label className={labelCls}>Daşınma tarixi</label>
+                      <DateInput value={tr.date} onChange={e => updateTransport(idx, 'date', e.target.value)} className={inputCls} />
+                    </div>
+                    <div className="flex-1">
+                      <label className={labelCls}>Daşınma istiqaməti</label>
+                      <input type="text" value={tr.direction} onChange={e => updateTransport(idx, 'direction', e.target.value)}
+                        placeholder="Bakı → Sumqayıt" className={inputCls} />
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <label className={labelCls}>Məbləğ (₼)</label>
+                      <input type="number" value={tr.amount} onChange={e => updateTransport(idx, 'amount', e.target.value)}
+                        min="0" step="0.01" placeholder="0.00" className={inputCls} />
+                    </div>
+                    <button type="button" onClick={() => removeTransport(idx)}
+                      className="mb-0.5 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={addTransport}
+                  className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors">
+                  <Plus size={12} /> Daşınma əlavə et
+                </button>
+                {transTotal > 0 && (
+                  <div className="flex justify-between text-xs font-semibold text-amber-700 border-t border-amber-200 pt-2 mt-1">
+                    <span>Daşınma cəmi</span>
+                    <span>{fmtMoney(transTotal)} ₼</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button type="submit" disabled={saving || calc.total <= 0 || !canCreate}
             className={`w-full py-2 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
               editingInvoice ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
@@ -675,7 +830,12 @@ export default function ProjectQaimeTab({ project }) {
                     {inv.standardDays != null && <span>Std: {inv.standardDays} gün</span>}
                     {inv.extraDays != null && inv.extraDays > 0 && <span>Əl: {inv.extraDays} gün</span>}
                     {inv.extraHours != null && inv.extraHours > 0 && <span>Əl: {inv.extraHours} saat</span>}
-                    <span>{new Date(inv.invoiceDate).toLocaleDateString('az-AZ')}</span>
+                    <span>{fmtDate(inv.invoiceDate)}</span>
+                    {parseTransportations(inv.transportations).length > 0 && (
+                      <span className="text-blue-500 font-medium">
+                        • Daşınma: {fmtMoney(inv.transportationsTotal || 0)} ₼
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="text-sm font-bold text-green-600 whitespace-nowrap">
@@ -689,7 +849,7 @@ export default function ProjectQaimeTab({ project }) {
                   >
                     <Eye size={12} />
                   </button>
-                  {inv.status === 'RETURNED' && canSend && (
+                  {!isLocked && inv.status === 'RETURNED' && canSend && (
                     <button
                       onClick={() => handleEdit(inv)}
                       className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -698,7 +858,7 @@ export default function ProjectQaimeTab({ project }) {
                       <Pencil size={12} />
                     </button>
                   )}
-                  {inv.status === 'DRAFT' && canSend && (
+                  {!isLocked && inv.status === 'DRAFT' && canSend && (
                     <button
                       onClick={() => handleSend(inv.id, periodLbl)}
                       disabled={sendingId === inv.id}
@@ -708,7 +868,7 @@ export default function ProjectQaimeTab({ project }) {
                       <Send size={12} />
                     </button>
                   )}
-                  {(inv.status === 'DRAFT' || inv.status === 'RETURNED') && canDelete && (
+                  {!isLocked && (inv.status === 'DRAFT' || inv.status === 'RETURNED') && canDelete && (
                     <button
                       onClick={() => handleDelete(inv.id)}
                       className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"

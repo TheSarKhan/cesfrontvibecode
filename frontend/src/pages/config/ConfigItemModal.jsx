@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { v } from '../../utils/validation'
 
 const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
 const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
@@ -14,6 +15,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
   const [initialForm, setInitialForm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [customCategory, setCustomCategory] = useState(false)
+  const [errors, setErrors] = useState({})
 
   const isDirty = useMemo(() => {
     if (!initialForm) return false
@@ -46,12 +48,31 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
     }
   }, [editing, currentCategory])
 
-  const set = (field, val) => setForm(prev => ({ ...prev, [field]: val }))
+  const set = (field, val) => {
+    setForm(prev => ({ ...prev, [field]: val }))
+    if (errors[field]) setErrors(prev => { const n = { ...prev }; delete n[field]; return n })
+  }
+
+  const validate = () => {
+    const errs = {}
+    const e = (field, ...rules) => { const err = v.chain(form[field] || '', ...rules); if (err) errs[field] = err }
+    e('category', v.required, v.minLen(2), v.realContent, v.maxLen(50))
+    e('key', v.required, v.minLen(1), v.realContent, v.maxLen(100))
+    if (form.value?.trim()) {
+      const valErr = v.maxLen(form.value, 200)
+      if (valErr) errs.value = valErr
+    }
+    if (form.description?.trim()) {
+      const descErr = v.maxLen(form.description, 500)
+      if (descErr) errs.description = descErr
+    }
+    setErrors(errs)
+    return Object.keys(errs).length === 0
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.category.trim()) return toast.error('Kateqoriya tələb olunur')
-    if (!form.key.trim()) return toast.error('Açar / Ad tələb olunur')
+    if (!validate()) return
 
     setLoading(true)
     try {
@@ -98,7 +119,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                   <select
                     value={form.category}
                     onChange={(e) => set('category', e.target.value)}
-                    className={inputCls}
+                    className={`${inputCls} ${errors.category ? 'border-red-400 focus:ring-red-400' : ''}`}
                   >
                     <option value="">Seçin</option>
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -118,7 +139,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                     value={form.category}
                     onChange={(e) => set('category', e.target.value.toUpperCase())}
                     placeholder="Məsələn: EQUIPMENT_COLOR"
-                    className={inputCls}
+                    className={`${inputCls} ${errors.category ? 'border-red-400 focus:ring-red-400' : ''}`}
                   />
                   {categories.length > 0 && (
                     <button
@@ -131,6 +152,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                   )}
                 </div>
               )}
+              {errors.category && <p className="text-xs text-red-500 mt-1">{errors.category}</p>}
             </div>
 
             {/* Key */}
@@ -141,8 +163,9 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                 value={form.key}
                 onChange={(e) => set('key', e.target.value)}
                 placeholder="Məsələn: Komatsu"
-                className={inputCls}
+                className={`${inputCls} ${errors.key ? 'border-red-400 focus:ring-red-400' : ''}`}
               />
+              {errors.key && <p className="text-xs text-red-500 mt-1">{errors.key}</p>}
             </div>
 
             {/* Value */}
@@ -153,8 +176,9 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                 value={form.value}
                 onChange={(e) => set('value', e.target.value)}
                 placeholder="Görünən ad (ixtiyari)"
-                className={inputCls}
+                className={`${inputCls} ${errors.value ? 'border-red-400 focus:ring-red-400' : ''}`}
               />
+              {errors.value && <p className="text-xs text-red-500 mt-1">{errors.value}</p>}
             </div>
 
             {/* Description */}
@@ -165,8 +189,9 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                 onChange={(e) => set('description', e.target.value)}
                 rows={2}
                 placeholder="Əlavə məlumat..."
-                className={`${inputCls} resize-none`}
+                className={`${inputCls} resize-none ${errors.description ? 'border-red-400 focus:ring-red-400' : ''}`}
               />
+              {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

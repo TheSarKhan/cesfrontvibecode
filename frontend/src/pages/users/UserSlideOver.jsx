@@ -3,6 +3,7 @@ import { X, Pencil, Trash2, User, Shield, History, Phone, Mail, Building2, Calen
 import { clsx } from 'clsx'
 import ActivityFeed from '../../components/common/ActivityFeed'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useAuthStore } from '../../store/authStore'
 
 const AVATAR_COLORS = [
   '#3b82f6', '#8b5cf6', '#10b981', '#ec4899',
@@ -28,10 +29,18 @@ function InfoRow({ icon: Icon, label, value }) {
   )
 }
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null
+const parseUTC = (d) => {
+  if (!d) return null
+  return new Date(d.includes('Z') || d.includes('+') ? d : d + 'Z')
+}
+const fmt = (d) => {
+  const date = parseUTC(d)
+  return date ? date.toLocaleString('az-AZ', { timeZone: 'Asia/Baku', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null
+}
 
 export default function UserSlideOver({ user, onClose, onEdit, onDelete, onToggleActive }) {
   const [tab, setTab] = useState('info')
+  const currentUser = useAuthStore((s) => s.user)
   useEscapeKey(onClose)
 
   const permissions = user.permissions || user.rolePermissions || []
@@ -131,7 +140,20 @@ export default function UserSlideOver({ user, onClose, onEdit, onDelete, onToggl
               <InfoRow icon={Building2} label="Şöbə"      value={user.departmentName} />
               <InfoRow icon={Shield}    label="Rol"       value={user.roleName} />
               <InfoRow icon={Calendar}  label="Yaradılma" value={fmt(user.createdAt)} />
-              <InfoRow icon={Clock}     label="Son giriş" value={fmt(user.lastLoginAt)} />
+              {currentUser?.id === user.id ? (
+                <div className="flex items-center gap-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                  <Clock size={14} className="text-gray-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Son giriş</p>
+                    <span className="inline-flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Hal-hazırda aktiv
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <InfoRow icon={Clock} label="Son giriş" value={fmt(user.lastLoginAt)} />
+              )}
             </div>
           )}
 

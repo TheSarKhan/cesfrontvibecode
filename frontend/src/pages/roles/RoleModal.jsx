@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, ChevronLeft, ChevronDown, ChevronRight, Shield, Pencil } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { modulesApi } from '../../api/modules'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { v } from '../../utils/validation'
 
 const PERM_COLS = [
   { key: 'canGet', label: 'Oxumaq' },
@@ -39,9 +40,12 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
   })
   const [modules, setModules] = useState([])
   const [permMap, setPermMap] = useState({})
+  const [initialPermMap, setInitialPermMap] = useState(null)
   const [approvalDeptIds, setApprovalDeptIds] = useState(
     () => editing?.approvalDepartments?.map((d) => d.id) || []
   )
+  const initialApprovalDeptIds = useRef(editing?.approvalDepartments?.map((d) => d.id) || [])
+  const initialRoleForm = useRef({ name: editing?.name || '', description: editing?.description || '', departmentId: editing?.departmentId ?? currentDept?.id ?? '' })
   const [approvalExpanded, setApprovalExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [modulesLoading, setModulesLoading] = useState(true)
@@ -68,6 +72,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
           }
         })
         setPermMap(map)
+        setInitialPermMap(map)
         // Auto-expand if editing and already has approval depts
         if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
       })
@@ -84,8 +89,13 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
 
   const validateStep1 = () => {
     const errs = {}
-    if (!form.name?.trim()) errs.name = 'Rol adı mütləqdir'
-    if (!form.departmentId) errs.departmentId = 'Departament seçin'
+    const nameErr = v.chain(form.name || '', v.required, v.minLen(2), v.realContent, v.maxLen(100))
+    if (nameErr) errs.name = nameErr
+    if (!form.departmentId) errs.departmentId = 'Şöbə seçilməlidir'
+    if (form.description?.trim()) {
+      const descErr = v.maxLen(form.description, 500)
+      if (descErr) errs.description = descErr
+    }
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -118,6 +128,24 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
   const hasApprovalPerm = approvalModuleId && PERM_COLS.some((c) => permMap[approvalModuleId]?.[c.key])
 
   const handleSave = async () => {
+    // Minimum bir modul üçün icazə seçilməlidir
+    const hasAnyPerm = Object.values(permMap).some(p =>
+      p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator || p.canSubmitOffer || p.canSendToAccounting || p.canReturnToProject
+    )
+    if (!hasAnyPerm) {
+      toast.error('Ən azı bir modul üçün icazə seçilməlidir')
+      return
+    }
+
+    if (editing && initialPermMap) {
+      const formDirty = JSON.stringify(form) !== JSON.stringify(initialRoleForm.current)
+      const permDirty = JSON.stringify(permMap) !== JSON.stringify(initialPermMap)
+      const approvalDirty = JSON.stringify([...approvalDeptIds].sort()) !== JSON.stringify([...initialApprovalDeptIds.current].sort())
+      if (!formDirty && !permDirty && !approvalDirty) {
+        toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
+        return
+      }
+    }
     setLoading(true)
     try {
       const permissions = Object.entries(permMap)
