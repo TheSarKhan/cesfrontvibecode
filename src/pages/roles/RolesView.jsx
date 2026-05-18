@@ -82,15 +82,13 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
         </td>
         <td className="py-3 px-4">
           <div className="flex items-center gap-1 justify-end">
-            {canEdit && (
-              <button
-                onClick={onEdit}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                title="Redaktə et"
-              >
-                <Pencil size={15} />
-              </button>
-            )}
+            <button
+              onClick={onEdit}
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+              title="Redaktə et"
+            >
+              <Pencil size={15} />
+            </button>
             {canDelete && (
               <button
                 onClick={onDelete}
@@ -187,8 +185,8 @@ export default function RolesView({ dept, users, departments, onBack }) {
       if (search) params.q = search
       const res = await rolesApi.getAllPaged(params)
       setData(res.data.data || res.data)
-    } catch {
-      toast.error('Rollar yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Rollar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -206,8 +204,8 @@ export default function RolesView({ dept, users, departments, onBack }) {
       await rolesApi.delete(role.id)
       toast.success('Rol silindi')
       loadRoles()
-    } catch {
-      toast.error('Silmə əməliyyatı uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silmə əməliyyatı uğursuz oldu')
     }
   }
 
@@ -235,15 +233,16 @@ export default function RolesView({ dept, users, departments, onBack }) {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">İcazələrin tənzimlənməsi</h1>
           <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} rol</p>
         </div>
-        {canCreate && (
-          <button
-            onClick={() => setRoleModal({ open: true, editing: null })}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <Plus size={16} />
-            Yeni rol əlavə et
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (!canCreate) { toast.error('Bu əməliyyat üçün icazəniz yoxdur'); return }
+            setRoleModal({ open: true, editing: null })
+          }}
+          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+        >
+          <Plus size={16} />
+          Yeni rol əlavə et
+        </button>
       </div>
 
       {/* Search */}
@@ -296,7 +295,10 @@ export default function RolesView({ dept, users, departments, onBack }) {
                     users={users}
                     canEdit={canEdit}
                     canDelete={canDelete}
-                    onEdit={() => setRoleModal({ open: true, editing: role })}
+                    onEdit={() => {
+                      if (!canEdit) { toast.error('Redaktə icazəniz yoxdur'); return }
+                      setRoleModal({ open: true, editing: role })
+                    }}
                     onDelete={() => handleDelete(role)}
                   />
                 ))

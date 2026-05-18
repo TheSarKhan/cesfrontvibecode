@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent'
 const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
@@ -83,7 +84,8 @@ function EquipmentPicker({ requestId, onSelected, onClose }) {
       const res = await coordinatorApi.selectEquipment(requestId, eq.id)
       toast.success(`${eq.name} seçildi`)
       onSelected(res.data.data, eq)
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Texnika seçilə bilmədi')
     } finally {
       setSelecting(false)
     }
@@ -310,7 +312,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       await doSave()
       toast.success('Plan yadda saxlandı')
       onSaved()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Plan yadda saxlanıla bilmədi')
     } finally {
       setSaving(false)
     }
@@ -335,6 +338,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
   const handleUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); e.target.value = ''; return }
     if (!plan?.planId) {
       toast.error('Əvvəlcə planı yadda saxlayın')
       e.target.value = ''
@@ -349,7 +354,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       const res = await coordinatorApi.uploadDocument(request.requestId, fd)
       setPlan((prev) => ({ ...prev, documents: [...(prev.documents || []), res.data.data] }))
       toast.success('Sənəd əlavə edildi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -362,7 +368,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       await coordinatorApi.deleteDocument(request.requestId, docId)
       setPlan((prev) => ({ ...prev, documents: prev.documents.filter((d) => d.id !== docId) }))
       toast.success('Sənəd silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi')
     }
   }
 
@@ -381,8 +388,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
       link.download = fileName
       link.click()
       URL.revokeObjectURL(link.href)
-    } catch {
-      toast.error('Fayl yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl yüklənə bilmədi')
     }
   }
 

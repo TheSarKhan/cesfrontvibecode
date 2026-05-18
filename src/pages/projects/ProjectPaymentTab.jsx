@@ -87,8 +87,8 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
       await projectsApi.deletePaymentEntry(project.id, entry.id)
       toast.success('Ödəniş silindi')
       load()
-    } catch {
-      toast.error('Silinmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silinmədi')
     }
   }
 

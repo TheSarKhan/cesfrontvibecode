@@ -104,7 +104,8 @@ export default function CoordinatorPage() {
       await coordinatorApi.acceptOffer(r.requestId)
       toast.success('Təklif təsdiq edildi — layihə yaradıldı')
       load()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Təklif təsdiq edilə bilmədi')
     } finally {
       setActionLoading(null)
     }
@@ -118,7 +119,8 @@ export default function CoordinatorPage() {
       await coordinatorApi.rejectOffer(r.requestId)
       toast.success('Təklif ləğv edildi')
       load()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Təklif ləğv edilə bilmədi')
     } finally {
       setActionLoading(null)
     }

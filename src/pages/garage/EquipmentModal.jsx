@@ -174,25 +174,50 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
     }
 
     if (s === 2) {
-      if (form.purchasePrice !== '' && form.purchasePrice != null) {
+      // Alış qiyməti — required
+      if (form.purchasePrice === '' || form.purchasePrice == null) {
+        errs.purchasePrice = 'Alış qiyməti tələb olunur'
+      } else {
         const p = parseFloat(form.purchasePrice)
-        if (isNaN(p) || p < 0) errs.purchasePrice = 'Alış qiyməti mənfi ola bilməz'
+        if (isNaN(p)) errs.purchasePrice = 'Düzgün rəqəm daxil edin'
+        else if (p < 0) errs.purchasePrice = 'Alış qiyməti mənfi ola bilməz'
+        else if (p > 99999999) errs.purchasePrice = 'Alış qiyməti çox böyükdür'
       }
+
+      // Alınma tarixi — required
+      if (!form.purchaseDate) {
+        errs.purchaseDate = 'Alınma tarixi tələb olunur'
+      }
+
+      // Cari bazar dəyəri
       if (form.currentMarketValue !== '' && form.currentMarketValue != null) {
         const v = parseFloat(form.currentMarketValue)
-        if (isNaN(v) || v < 0) errs.currentMarketValue = 'Bazar dəyəri mənfi ola bilməz'
+        if (isNaN(v)) errs.currentMarketValue = 'Düzgün rəqəm daxil edin'
+        else if (v < 0) errs.currentMarketValue = 'Bazar dəyəri mənfi ola bilməz'
+        else if (v > 99999999) errs.currentMarketValue = 'Bazar dəyəri çox böyükdür'
       }
+
+      // Amortizasiya faizi
       if (form.depreciationRate !== '' && form.depreciationRate != null) {
         const d = parseFloat(form.depreciationRate)
-        if (isNaN(d) || d < 0 || d > 100) errs.depreciationRate = 'Amortizasiya 0-100% arasında olmalıdır'
+        if (isNaN(d)) errs.depreciationRate = 'Düzgün rəqəm daxil edin'
+        else if (d < 0 || d > 100) errs.depreciationRate = 'Amortizasiya 0-100% arasında olmalıdır'
       }
+
+      // Moto saatlar
       if (form.motoHours !== '' && form.motoHours != null) {
         const m = parseFloat(form.motoHours)
-        if (isNaN(m) || m < 0) errs.motoHours = 'Moto saatlar mənfi ola bilməz'
+        if (isNaN(m)) errs.motoHours = 'Düzgün rəqəm daxil edin'
+        else if (m < 0) errs.motoHours = 'Moto saatlar mənfi ola bilməz'
+        else if (m > 999999) errs.motoHours = 'Moto saatlar çox böyükdür'
       }
+
+      // Saat/KM göstəricisi
       if (form.hourKmCounter !== '' && form.hourKmCounter != null) {
         const h = parseFloat(form.hourKmCounter)
-        if (isNaN(h) || h < 0) errs.hourKmCounter = 'Saat/KM göstəricisi mənfi ola bilməz'
+        if (isNaN(h)) errs.hourKmCounter = 'Düzgün rəqəm daxil edin'
+        else if (h < 0) errs.hourKmCounter = 'Saat/KM göstəricisi mənfi ola bilməz'
+        else if (h > 999999) errs.hourKmCounter = 'Saat/KM göstəricisi çox böyükdür'
       }
     }
 
@@ -344,11 +369,11 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
           {step === 2 && (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Alınma tarixi">
+                <Field label="Alınma tarixi" required error={errors.purchaseDate}>
                   <DateInput value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)}
-                    className={inputCls('')} />
+                    className={inputCls('purchaseDate')} />
                 </Field>
-                <Field label="Alış qiyməti (AZN)" error={errors.purchasePrice}>
+                <Field label="Alış qiyməti (AZN)" required error={errors.purchasePrice}>
                   <input type="number" min="0" step="0.01" value={form.purchasePrice}
                     onChange={(e) => set('purchasePrice', e.target.value)} placeholder="0.00" className={inputCls('purchasePrice')} />
                 </Field>

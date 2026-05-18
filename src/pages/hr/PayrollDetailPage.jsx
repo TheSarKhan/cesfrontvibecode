@@ -36,7 +36,7 @@ export default function PayrollDetailPage() {
     try {
       const res = await hrApi.getPeriod(id)
       setPeriod(res.data?.data ?? res.data)
-    } catch { toast.error('Yüklənmədi') } finally { setLoading(false) }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənmədi') } finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [id])
@@ -83,14 +83,14 @@ export default function PayrollDetailPage() {
       const res = await hrApi.downloadPeriodPdf(id)
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
       window.open(url, '_blank')
-    } catch { toast.error('PDF endirilə bilmədi') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'PDF endirilə bilmədi') }
   }
   const downloadPayslip = async (entryId) => {
     try {
       const res = await hrApi.downloadPayslip(entryId)
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
       window.open(url, '_blank')
-    } catch { toast.error('Pay slip endirilə bilmədi') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Pay slip endirilə bilmədi') }
   }
 
   if (loading || !period) {

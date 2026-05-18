@@ -22,7 +22,7 @@ export default function TaxConfigPage() {
   const load = async () => {
     setLoading(true)
     try { setList((await hrApi.getTaxRates()).data?.data ?? []) }
-    catch { toast.error('Yüklənmədi') } finally { setLoading(false) }
+    catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənmədi') } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
 

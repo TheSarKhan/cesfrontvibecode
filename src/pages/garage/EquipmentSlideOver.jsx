@@ -6,7 +6,8 @@ import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, inspectionCountdown, validateFileUpload } from '../../constants/garage'
+import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, inspectionCountdown } from '../../constants/garage'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
@@ -118,7 +119,8 @@ function InspectionsTab({ equipmentId }) {
 
       cancelForm()
       toast.success(editingIns ? 'Baxış yeniləndi' : 'Baxış əlavə edildi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Baxış əlavə edilə bilmədi')
     } finally {
       setSaving(false)
     }
@@ -128,7 +130,8 @@ function InspectionsTab({ equipmentId }) {
     setDownloading(ins.id)
     try {
       await garageApi.downloadInspectionDoc(equipmentId, ins.id, ins.documentName || `baxis-${ins.id}`)
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd endirilə bilmədi')
     } finally {
       setDownloading(null)
     }
@@ -141,7 +144,8 @@ function InspectionsTab({ equipmentId }) {
       await garageApi.deleteInspection(equipmentId, ins.id)
       setInspections((prev) => prev.filter((i) => i.id !== ins.id))
       toast.success('Baxış silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Baxış silinə bilmədi')
     } finally {
       setDeleting(null)
     }
@@ -364,7 +368,8 @@ function DocumentsTab({ equipmentId }) {
       await garageApi.deleteDocument(equipmentId, doc.id)
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
       toast.success('Sənəd silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi')
     } finally {
       setDeleting(null)
     }
@@ -381,7 +386,8 @@ function DocumentsTab({ equipmentId }) {
       const res = await garageApi.addDocument(equipmentId, file, label, docType)
       setDocuments((prev) => [...prev, res.data.data || res.data])
       toast.success('Sənəd yükləndi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(null)
       e.target.value = ''
@@ -410,7 +416,8 @@ function DocumentsTab({ equipmentId }) {
       setDocName('')
       setSelectedFile(null)
       if (extraRef.current) extraRef.current.value = ''
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(null)
     }
@@ -420,7 +427,8 @@ function DocumentsTab({ equipmentId }) {
     setDownloading(doc.id)
     try {
       await garageApi.downloadDocument(equipmentId, doc.id, doc.documentName || `sened-${doc.id}`)
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd endirilə bilmədi')
     } finally {
       setDownloading(null)
     }
@@ -683,7 +691,8 @@ function ImagesTab({ equipmentId }) {
       const res = await garageApi.addImage(equipmentId, file)
       setImages((prev) => [...prev, res.data.data || res.data])
       toast.success('Şəkil yükləndi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Şəkil yüklənə bilmədi')
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -708,7 +717,8 @@ function ImagesTab({ equipmentId }) {
       await garageApi.deleteImage(equipmentId, img.id)
       setImages((prev) => prev.filter((i) => i.id !== img.id))
       toast.success('Şəkil silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Şəkil silinə bilmədi')
     } finally {
       setDeleting(null)
     }
@@ -908,7 +918,8 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
       })
       toast.success('Təhlükəsizlik avadanlıqları yadda saxlandı')
       onSaved?.()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Yadda saxlanıla bilmədi')
     } finally {
       setSavingSafety(false)
     }

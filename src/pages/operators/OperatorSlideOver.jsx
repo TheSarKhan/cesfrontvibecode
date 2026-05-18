@@ -6,6 +6,7 @@ import ActivityFeed from '../../components/common/ActivityFeed'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import toast from 'react-hot-toast'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 const DOC_TYPES = [
   { key: 'DRIVING_LICENSE',    label: 'Sürücülük vəsiqəsi' },
@@ -58,6 +59,8 @@ export default function OperatorSlideOver({ operator: initial, onClose, onEdit, 
 
   const handleUpload = async (type, file) => {
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); if (fileRefs.current[type]) fileRefs.current[type].value = ''; return }
     setUploading(type)
     try {
       const res = await operatorsApi.uploadDocument(operator.id, type, file)

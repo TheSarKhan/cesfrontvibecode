@@ -77,14 +77,24 @@ export default function InvestorsPage() {
       const res = await investorsApi.getAllPaged(params)
       setData(res.data.data || res.data)
       setSelectedIds(new Set())
-    } catch {
-      toast.error('İnvestorlar yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'İnvestorlar yüklənmədi')
     } finally {
       setLoading(false)
     }
   }, [page, size, search, statusFilter, riskFilter])
 
   useEffect(() => { load() }, [load])
+
+  // Search command palette-dən gələn ?open=id param-ı idarə et
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    investorsApi.getById(Number(openId))
+      .then(res => setSelected(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bulk selection
   const toggleSelect  = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -100,8 +110,8 @@ export default function InvestorsPage() {
       toast.success(`${selectedIds.size} investor silindi`)
       setSelectedIds(new Set())
       load()
-    } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }

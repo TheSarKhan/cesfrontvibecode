@@ -58,6 +58,8 @@ export const useAuthStore = create((set, get) => ({
   hasPermission: (moduleCode, action = 'canGet') => {
     const { user } = get()
     if (!user) return false
+    // Super Admin — bütün icazələr açıqdır
+    if (user.roleName === 'Super Admin') return true
     // No permissions data → show all (fallback for legacy sessions)
     if (!user.permissions) return true
     return user.permissions.some((p) => p.moduleCode === moduleCode && p[action])

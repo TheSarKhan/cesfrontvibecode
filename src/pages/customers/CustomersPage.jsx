@@ -84,8 +84,8 @@ export default function CustomersPage() {
       const res = await customersApi.getAllPaged(params)
       setData(res.data.data || res.data)
       setSelectedIds(new Set())
-    } catch {
-      toast.error('Müştərilər yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Müştərilər yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -115,8 +115,8 @@ export default function CustomersPage() {
       toast.success(`${selectedIds.size} element silindi`)
       setSelectedIds(new Set())
       load()
-    } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }

@@ -225,7 +225,8 @@ export default function ApprovalDiffModal({ operationId, onClose, onActionDone }
       await approvalApi.approve(detail.id)
       toast.success('Əməliyyat təsdiqləndi')
       onActionDone()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Təsdiq edilə bilmədi')
     } finally {
       setActing(false)
     }
@@ -237,7 +238,8 @@ export default function ApprovalDiffModal({ operationId, onClose, onActionDone }
       await approvalApi.reject(detail.id, rejectReason.trim())
       toast.success('Əməliyyat rədd edildi')
       onActionDone()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Rədd edilə bilmədi')
     } finally {
       setActing(false)
     }

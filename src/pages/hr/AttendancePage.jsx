@@ -52,7 +52,7 @@ export default function AttendancePage() {
         map[r.employeeId][r.date] = { status: r.status, hoursWorked: r.hoursWorked, id: r.id }
       }
       setRecords(map)
-    } catch { toast.error('Yüklənmədi') } finally { setLoading(false) }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənmədi') } finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [year, month])
@@ -62,7 +62,7 @@ export default function AttendancePage() {
     try {
       await hrApi.upsertAttendance({ employeeId: empId, date, status, hoursWorked: status === 'PRESENT' ? 8 : 0 })
       setRecords(prev => ({ ...prev, [empId]: { ...(prev[empId] || {}), [date]: { status, hoursWorked: status === 'PRESENT' ? 8 : 0 } } }))
-    } catch { toast.error('Qeyd edilə bilmədi') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Qeyd edilə bilmədi') }
   }
 
   const cellColor = (status) => {

@@ -39,7 +39,7 @@ export default function PayrollListPage() {
     try {
       const res = await hrApi.getPeriods()
       setPeriods(res.data?.data ?? res.data ?? [])
-    } catch { toast.error('Dövrlər yüklənmədi') } finally { setLoading(false) }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Dövrlər yüklənmədi') } finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
@@ -77,7 +77,7 @@ export default function PayrollListPage() {
       const res = await hrApi.downloadPeriodPdf(p.id)
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
       window.open(url, '_blank')
-    } catch { toast.error('PDF endirilə bilmədi') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'PDF endirilə bilmədi') }
   }
 
   return (

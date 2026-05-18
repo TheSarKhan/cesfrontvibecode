@@ -262,8 +262,8 @@ export default function ProjectQaimeTab({ project }) {
     try {
       const res = await accountingApi.getByProject(project.id)
       setInvoices((res.data?.data || []).filter(inv => inv.type === 'INCOME'))
-    } catch {
-      toast.error('Qaimələr yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Qaimələr yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -466,8 +466,8 @@ export default function ProjectQaimeTab({ project }) {
       await accountingApi.delete(id)
       toast.success('Qaimə silindi')
       load()
-    } catch {
-      toast.error('Silmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silmə uğursuz oldu')
     }
   }
 
@@ -484,8 +484,8 @@ export default function ProjectQaimeTab({ project }) {
       toast.success('Qaimə mühasibatlığa göndərildi')
       setJustCreatedId(null)
       load()
-    } catch {
-      toast.error('Göndərmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Göndərmə uğursuz oldu')
     } finally {
       setSendingId(null)
     }

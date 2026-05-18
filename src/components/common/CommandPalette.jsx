@@ -24,6 +24,16 @@ const TYPE_COLORS = {
   'LAYİHƏ': 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
 }
 
+const TYPE_ROUTES = {
+  'MÜŞTƏRİ': '/customers',
+  'PODRATÇI': '/contractors',
+  'İNVESTOR': '/investors',
+  'OPERATOR': '/operators',
+  'TEXNİKA': '/garage',
+  'SORĞU': '/requests',
+  'LAYİHƏ': '/projects',
+}
+
 export default function CommandPalette({ open, onClose }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -56,7 +66,9 @@ export default function CommandPalette({ open, onClose }) {
   }, [query])
 
   const go = (item) => {
-    navigate(item.path)
+    const base = TYPE_ROUTES[item.type] || '/'
+    const path = item.id ? `${base}?open=${item.id}` : base
+    navigate(path)
     onClose()
   }
 

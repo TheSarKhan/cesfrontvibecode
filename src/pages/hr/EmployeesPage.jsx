@@ -51,8 +51,8 @@ export default function EmployeesPage() {
       const params = { page, size, ...(search && { q: search }), ...(statusFilter && { status: statusFilter }) }
       const res = await hrApi.getEmployeesPaged(params)
       setData(res.data.data || res.data)
-    } catch {
-      toast.error('İşçilər yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'İşçilər yüklənmədi')
     } finally { setLoading(false) }
   }, [page, size, search, statusFilter])
 
@@ -69,7 +69,7 @@ export default function EmployeesPage() {
       await hrApi.deleteEmployee(e.id)
       toast.success('İşçi silindi')
       load()
-    } catch { toast.error('Silmə uğursuz oldu') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Silmə uğursuz oldu') }
   }
 
   const handleTerminate = async (e) => {
@@ -79,7 +79,7 @@ export default function EmployeesPage() {
       await hrApi.terminateEmployee(e.id, { reason, terminationDate: new Date().toISOString().slice(0, 10) })
       toast.success('İşçi işdən çıxarıldı')
       load()
-    } catch { toast.error('Əməliyyat uğursuz oldu') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Əməliyyat uğursuz oldu') }
   }
 
   const exportExcel = () => {
@@ -99,7 +99,7 @@ export default function EmployeesPage() {
     ws['!cols'] = [12, 25, 14, 18, 18, 14, 14, 22, 12, 14].map(w => ({ wch: w }))
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'İşçilər')
-    XLSX.writeFile(wb, 'iscilier.xlsx')
+    XLSX.writeFile(wb, 'isciler.xlsx')
   }
 
   return (

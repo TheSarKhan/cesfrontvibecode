@@ -91,8 +91,8 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
       a.download = `${safeName}-${doc.documentNumber}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      toast.error('PDF yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'PDF yüklənə bilmədi')
     } finally {
       setDownloading(null)
     }

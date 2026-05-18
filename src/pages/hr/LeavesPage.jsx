@@ -40,7 +40,7 @@ export default function LeavesPage() {
     try {
       const res = await hrApi.getLeavesPaged({ page: 0, size: 30, ...(statusFilter && { status: statusFilter }) })
       setData(res.data?.data ?? res.data)
-    } catch { toast.error('Yüklənmədi') } finally { setLoading(false) }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənmədi') } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [statusFilter])
   useEffect(() => { hrApi.getEmployees().then(r => setEmployees((r.data?.data ?? r.data ?? []).filter(e => e.status !== 'TERMINATED'))).catch(() => {}) }, [])

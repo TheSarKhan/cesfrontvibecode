@@ -4,6 +4,7 @@ import { operatorsApi } from '../../api/operators'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 const DOC_TYPES = [
   { key: 'DRIVING_LICENSE',    label: 'Sürücülük vəsiqəsi' },
@@ -27,6 +28,8 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
 
   const handleUpload = async (type, file) => {
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); if (fileRefs.current[type]) fileRefs.current[type].value = ''; return }
     setLoading(type)
     try {
       const res = await operatorsApi.uploadDocument(operator.id, type, file)
@@ -34,7 +37,8 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
       setOperator(updated)
       onUpdated(updated)
       toast.success('Sənəd yükləndi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setLoading(null)
       if (fileRefs.current[type]) fileRefs.current[type].value = ''
@@ -52,7 +56,8 @@ export default function OperatorDocumentsModal({ operator: initial, onClose, onU
       setOperator(updated)
       onUpdated(updated)
       toast.success('Sənəd silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi')
     } finally {
       setDeleting(null)
     }

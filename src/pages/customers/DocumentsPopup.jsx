@@ -3,6 +3,7 @@ import { X, Upload, Download, Trash2, FileText, Loader2 } from 'lucide-react'
 import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 function formatDate(dt) {
   if (!dt) return '—'
@@ -19,6 +20,8 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
   const handleUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); fileRef.current.value = ''; return }
     setUploading(true)
     try {
       const res = await customersApi.uploadDocument(customer.id, file, docName.trim() || file.name)
@@ -26,8 +29,8 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
       setDocName('')
       toast.success('Sənəd yükləndi')
       onUpdated?.()
-    } catch {
-      toast.error('Yükləmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(false)
       fileRef.current.value = ''
@@ -41,8 +44,8 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
       setDocs((prev) => prev.filter((d) => d.id !== docId))
       toast.success('Sənəd silindi')
       onUpdated?.()
-    } catch {
-      toast.error('Silmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi')
     }
   }
 

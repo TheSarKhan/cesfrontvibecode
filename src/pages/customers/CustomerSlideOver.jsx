@@ -12,6 +12,7 @@ import ActivityFeed from '../../components/common/ActivityFeed'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import toast from 'react-hot-toast'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 const RISK_CONFIG = {
   LOW:    { label: 'Aşağı',   cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
@@ -110,6 +111,8 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
   const handleUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); fileRef.current.value = ''; return }
     setUploading(true)
     try {
       const res = await customersApi.uploadDocument(customer.id, file, docName.trim() || file.name, docDate)
@@ -118,7 +121,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
       setDocDate(new Date().toISOString().slice(0, 10))
       toast.success('Sənəd yükləndi')
       onUpdated?.()
-    } catch { toast.error('Yükləmə uğursuz oldu') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi') }
     finally { setUploading(false); fileRef.current.value = '' }
   }
 
@@ -129,7 +132,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
       setDocs(prev => prev.filter(d => d.id !== docId))
       toast.success('Sənəd silindi')
       onUpdated?.()
-    } catch { toast.error('Silmə uğursuz oldu') }
+    } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi') }
   }
 
   return (

@@ -26,7 +26,7 @@ export default function PositionsPage() {
   const load = async () => {
     setLoading(true)
     try { setList((await hrApi.getPositions()).data?.data ?? []) }
-    catch { toast.error('Yüklənmədi') } finally { setLoading(false) }
+    catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənmədi') } finally { setLoading(false) }
   }
   useEffect(() => {
     load()
@@ -40,6 +40,7 @@ export default function PositionsPage() {
 
   const save = async () => {
     if (!form.name?.trim()) { toast.error('Ad mütləqdir'); return }
+    if (!form.departmentId) { toast.error('Şöbə seçilməlidir'); return }
     try {
       const payload = {
         ...form,
@@ -125,7 +126,7 @@ export default function PositionsPage() {
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Şöbə</label>
+                <label className="block text-xs text-gray-500 mb-1">Şöbə *</label>
                 <select value={form.departmentId} onChange={e => setForm({ ...form, departmentId: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700">
                   <option value="">—</option>
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}

@@ -108,15 +108,16 @@ export default function RolesPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Rolların idarə edilməsi</h1>
           <p className="text-xs text-gray-400 mt-0.5">{departments.length} şöbə</p>
         </div>
-        {canCreate && (
-          <button
-            onClick={() => setDeptModal({ open: true, editing: null })}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <Plus size={16} />
-            Yeni şöbə
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (!canCreate) { toast.error('Bu əməliyyat üçün icazəniz yoxdur'); return }
+            setDeptModal({ open: true, editing: null })
+          }}
+          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+        >
+          <Plus size={16} />
+          Yeni şöbə
+        </button>
       </div>
 
       {/* Search */}
@@ -161,7 +162,10 @@ export default function RolesPage() {
               users={users.filter((u) => u.departmentId === dept.id)}
               roleCount={roleCounts[dept.id]}
               onSelect={() => setSelectedDept(dept)}
-              onEdit={canEdit ? () => setDeptModal({ open: true, editing: dept }) : null}
+              onEdit={() => {
+                if (!canEdit) { toast.error('Redaktə icazəniz yoxdur'); return }
+                setDeptModal({ open: true, editing: dept })
+              }}
               onDelete={canDelete ? () => handleDeleteDept(dept) : null}
             />
           ))}

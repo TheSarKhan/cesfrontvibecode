@@ -75,14 +75,24 @@ export default function ProjectsPage() {
       const paged = res.data.data || res.data
       setData(paged)
       setSelected(prev => prev ? (paged.content.find(p => p.id === prev.id) ?? prev) : null)
-    } catch {
-      toast.error('Layihələr yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Layihələr yüklənmədi')
     } finally {
       setLoading(false)
     }
   }, [page, pageSize, search, statusFilter])
 
   useEffect(() => { load() }, [load])
+
+  // Search command palette-dən gələn ?open=id param-ı idarə et
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    projectsApi.getById(Number(openId))
+      .then(res => setSelected(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load all projects for stats cards
   useEffect(() => {

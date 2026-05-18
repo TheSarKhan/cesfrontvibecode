@@ -101,8 +101,8 @@ export default function DocumentSettingsPage() {
       setItems(map)
       setValues(vals)
       setBanks(newBanks)
-    } catch {
-      toast.error('Məlumatlar yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Məlumatlar yüklənə bilmədi')
     } finally {
       setLoading(false)
     }
@@ -149,8 +149,8 @@ export default function DocumentSettingsPage() {
       await Promise.all(updates)
       toast.success('Saxlandı')
       load()
-    } catch {
-      toast.error('Xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setSaving(false)
     }

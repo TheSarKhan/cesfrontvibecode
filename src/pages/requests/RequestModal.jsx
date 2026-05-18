@@ -138,20 +138,27 @@ export default function RequestModal({ editing, onClose, onSaved }) {
       else if (name.length < 2) errs.companyName = 'Minimum 2 simvol olmalıdır'
       else if (name.length > 100) errs.companyName = 'Maksimum 100 simvol ola bilər'
 
-      if (form.contactPerson && form.contactPerson.length > 100)
-        errs.contactPerson = 'Maksimum 100 simvol ola bilər'
+      if (!form.contactPerson?.trim()) errs.contactPerson = 'Əlaqə şəxsi tələb olunur'
+      else if (form.contactPerson.length > 100) errs.contactPerson = 'Maksimum 100 simvol ola bilər'
 
-      if (form.phoneLocal) {
+      if (!form.phoneLocal?.trim()) errs.phoneLocal = 'Əlaqə nömrəsi tələb olunur'
+      else {
         const digits = form.phoneLocal.replace(/\D/g, '')
         if (digits.length < 4) errs.phoneLocal = 'Nömrə çox qısadır'
         else if (digits.length > 15) errs.phoneLocal = 'Nömrə çox uzundur (maks. 15 rəqəm)'
       }
     }
     if (s === 1) {
-      if (form.projectName && form.projectName.length > 200)
-        errs.projectName = 'Maksimum 200 simvol ola bilər'
-      if (form.region && form.region.length > 100)
-        errs.region = 'Maksimum 100 simvol ola bilər'
+      if (!form.projectName?.trim()) errs.projectName = 'Layihə adı tələb olunur'
+      else if (form.projectName.length > 200) errs.projectName = 'Maksimum 200 simvol ola bilər'
+
+      if (!form.region?.trim()) errs.region = 'Bölgə tələb olunur'
+      else if (form.region.length > 100) errs.region = 'Maksimum 100 simvol ola bilər'
+
+      if (!form.requestDate) errs.requestDate = 'Sorğu tarixi tələb olunur'
+
+      if (!form.projectType) errs.projectType = 'Layihə tipi seçilməlidir'
+
       if (form.dayCount !== '' && form.dayCount !== null) {
         const n = parseInt(form.dayCount)
         if (isNaN(n) || n < 1) errs.dayCount = 'Müddət müsbət tam rəqəm olmalıdır'
@@ -279,9 +286,9 @@ export default function RequestModal({ editing, onClose, onSaved }) {
 
   // Step completion indicators
   const stepComplete = [
-    !!form.companyName.trim(),
-    !!(form.projectName || form.region || form.projectType),
-    true, // details step is always "ok" (optional)
+    !!(form.companyName.trim() && form.contactPerson?.trim() && form.phoneLocal?.trim()),
+    !!(form.projectName?.trim() && form.region?.trim() && form.requestDate && form.projectType),
+    true,
   ]
 
   return (
@@ -391,12 +398,12 @@ export default function RequestModal({ editing, onClose, onSaved }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Əlaqə şəxsi</label>
+                  <label className={labelCls}>Əlaqə şəxsi <span className="text-red-500">*</span></label>
                   <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={clsx(inputCls, errors.contactPerson && 'border-red-400')} />
                   <FieldError msg={errors.contactPerson} />
                 </div>
                 <div>
-                  <label className={labelCls}>Əlaqə nömrəsi</label>
+                  <label className={labelCls}>Əlaqə nömrəsi <span className="text-red-500">*</span></label>
                   <div className="flex gap-1.5">
                     <select
                       value={form.phonePrefix}
@@ -432,13 +439,13 @@ export default function RequestModal({ editing, onClose, onSaved }) {
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
               <div>
-                <label className={labelCls}>Layihə adı</label>
+                <label className={labelCls}>Layihə adı <span className="text-red-500">*</span></label>
                 <input type="text" value={form.projectName} onChange={(e) => set('projectName', e.target.value)} placeholder="Layihənin adı" className={clsx(inputCls, errors.projectName && 'border-red-400')} autoFocus />
                 <FieldError msg={errors.projectName} />
               </div>
 
               <div>
-                <label className={labelCls}>Bölgə</label>
+                <label className={labelCls}>Bölgə <span className="text-red-500">*</span></label>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <ComboInput category="REGION" value={form.region} onChange={(v) => set('region', v)} placeholder="Bakı, Sumqayıt..." />
@@ -452,21 +459,24 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                     <MapPin size={16} />
                   </button>
                 </div>
+                <FieldError msg={errors.region} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Sorğu tarixi</label>
-                  <DateInput value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={inputCls} />
+                  <label className={labelCls}>Sorğu tarixi <span className="text-red-500">*</span></label>
+                  <DateInput value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={clsx(inputCls, errors.requestDate && 'border-red-400')} />
+                  <FieldError msg={errors.requestDate} />
                 </div>
                 <div>
-                  <label className={labelCls}>Layihə tipi</label>
-                  <select value={form.projectType} onChange={(e) => set('projectType', e.target.value)} className={inputCls}>
+                  <label className={labelCls}>Layihə tipi <span className="text-red-500">*</span></label>
+                  <select value={form.projectType} onChange={(e) => set('projectType', e.target.value)} className={clsx(inputCls, errors.projectType && 'border-red-400')}>
                     <option value="">Seçin</option>
                     {PROJECT_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
+                  <FieldError msg={errors.projectType} />
                 </div>
               </div>
 

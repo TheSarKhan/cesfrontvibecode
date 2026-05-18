@@ -15,7 +15,7 @@ import EmptyState from '../../components/common/EmptyState'
 import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
-const CATEGORY_LABELS = {
+export const CATEGORY_LABELS = {
   EQUIPMENT_BRAND:   'Texnika brendləri',
   EQUIPMENT_TYPE:    'Texnika növləri',
   REGION:            'Bölgələr',
@@ -140,8 +140,8 @@ export default function ConfigPage() {
       setDocItems(map)
       setDocValues(vals)
       setBanks(banksRes.data?.data || banksRes.data || [])
-    } catch {
-      toast.error('Məlumatlar yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Məlumatlar yüklənə bilmədi')
     } finally {
       setDocLoading(false)
     }
@@ -192,8 +192,8 @@ export default function ConfigPage() {
       await Promise.all(updates)
       toast.success('Saxlandı')
       loadDocSettings()
-    } catch {
-      toast.error('Xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setDocSaving(false)
     }
@@ -208,8 +208,8 @@ export default function ConfigPage() {
       ])
       setExpCats(catRes.data?.data || [])
       setExpSrcs(srcRes.data?.data || [])
-    } catch {
-      toast.error('Yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənə bilmədi')
     } finally {
       setExpLoading(false)
     }
@@ -229,7 +229,7 @@ export default function ConfigPage() {
   const handleDeleteCat = async (item) => {
     if (!(await confirm({ title: 'Kateqoriyanı sil', message: `"${item.name}" silinsin?` }))) return
     try { await expenseCategoryApi.delete(item.id); toast.success('Silindi'); loadExpenseConfig() }
-    catch { toast.error('Xəta baş verdi') }
+    catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
   }
 
   const handleSaveSrc = async () => {
@@ -247,15 +247,15 @@ export default function ConfigPage() {
   const handleDeleteSrc = async (item) => {
     if (!(await confirm({ title: 'Mənbəni sil', message: `"${item.name}" silinsin?` }))) return
     try { await expenseSourceApi.delete(item.id); toast.success('Silindi'); loadExpenseConfig() }
-    catch { toast.error('Xəta baş verdi') }
+    catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
   }
 
   const loadBanks = async () => {
     try {
       const res = await banksApi.getAll()
       setBanks(res.data?.data || res.data || [])
-    } catch {
-      toast.error('Banklar yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Banklar yüklənə bilmədi')
     }
   }
 
@@ -293,8 +293,8 @@ export default function ConfigPage() {
       setEditingBankIdx(null)
       setBankForm({})
       await loadBanks()
-    } catch {
-      toast.error('Xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setDocSaving(false)
     }
@@ -306,8 +306,8 @@ export default function ConfigPage() {
       await banksApi.delete(bank.id)
       toast.success('Bank silindi')
       await loadBanks()
-    } catch {
-      toast.error('Xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setDocSaving(false)
     }
@@ -504,15 +504,16 @@ export default function ConfigPage() {
                       </p>
                     )}
                   </div>
-                  {canCreate && (
-                    <button
-                      onClick={() => setModal({ open: true, editing: null })}
-                      className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                    >
-                      <Plus size={16} />
-                      Yeni element
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (!canCreate) { toast.error('Bu əməliyyat üçün icazəniz yoxdur'); return }
+                      setModal({ open: true, editing: null })
+                    }}
+                    className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <Plus size={16} />
+                    Yeni element
+                  </button>
                 </div>
               )}
               {!activeCategory ? (
@@ -544,8 +545,11 @@ export default function ConfigPage() {
                             icon={Settings}
                             title="Element tapılmadı"
                             description={search ? 'Axtarış şərtlərini dəyişin' : 'Bu kateqoriyada element yoxdur'}
-                            action={canCreate ? () => setModal({ open: true, editing: null }) : undefined}
-                            actionLabel={canCreate ? 'Yeni Element' : undefined}
+                            action={() => {
+                              if (!canCreate) { toast.error('Bu əməliyyat üçün icazəniz yoxdur'); return }
+                              setModal({ open: true, editing: null })
+                            }}
+                            actionLabel="Yeni Element"
                           />
                         ) : (
                           tableData.content.map((item, idx) => (
@@ -578,11 +582,12 @@ export default function ConfigPage() {
                               </td>
                               <td className="py-2.5 px-4">
                                 <div className="flex items-center gap-1 justify-end">
-                                  {canEdit && (
-                                    <button onClick={() => setModal({ open: true, editing: item })} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Redaktə et">
-                                      <Pencil size={14} />
-                                    </button>
-                                  )}
+                                  <button onClick={() => {
+                                    if (!canEdit) { toast.error('Redaktə icazəniz yoxdur'); return }
+                                    setModal({ open: true, editing: item })
+                                  }} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Redaktə et">
+                                    <Pencil size={14} />
+                                  </button>
                                   {canDelete && (
                                     <button onClick={() => handleDelete(item)} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors" title="Sil">
                                       <Trash2 size={14} />

@@ -15,6 +15,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { validateFileUpload } from '../../utils/fileValidation'
 import PrintButton from '../../components/common/PrintButton'
 
 const STATUS_CONFIG = {
@@ -127,14 +128,16 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       link.download = fileName
       link.click()
       URL.revokeObjectURL(link.href)
-    } catch {
-      toast.error('Fayl yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl yüklənə bilmədi')
     }
   }
 
   const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); e.target.value = ''; return }
     setPendingFile(file)
     setShowStartDateDialog(true)
     e.target.value = ''
@@ -150,7 +153,8 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       await projectsApi.uploadContract(project.id, fd, startDate)
       toast.success('Müqavilə yükləndi. Layihə aktiv oldu.')
       onContractUploaded()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Müqavilə yüklənə bilmədi')
     } finally {
       setUploading(false)
       setPendingFile(null)
@@ -165,7 +169,8 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       toast.success('Bitmə tarixi yeniləndi')
       setEditingDate(false)
       onEndDateUpdated()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Tarix yenilənə bilmədi')
     } finally {
       setSavingDate(false)
     }

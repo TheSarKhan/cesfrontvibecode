@@ -54,14 +54,24 @@ export default function OperatorsPage() {
       const res = await operatorsApi.getAllPaged(params)
       setData(res.data.data || res.data)
       setSelectedIds(new Set())
-    } catch {
-      toast.error('Operatorlar yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Operatorlar yüklənmədi')
     } finally {
       setLoading(false)
     }
   }, [page, size, search])
 
   useEffect(() => { load() }, [load])
+
+  // Search command palette-dən gələn ?open=id param-ı idarə et
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    operatorsApi.getById(Number(openId))
+      .then(res => setSelected(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Client-side docFilter applied on data.content
   const filtered = data.content.filter(o => {

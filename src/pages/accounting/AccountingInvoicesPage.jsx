@@ -26,6 +26,7 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 /* ─── Sabitlər ─────────────────────────────────────────────────────────────── */
 const fmtMoney = (v) => v != null
@@ -746,7 +747,7 @@ const filteredTransactions = useMemo(() => {
                                 const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
                                 window.open(url, '_blank')
                                 setTimeout(() => URL.revokeObjectURL(url), 5000)
-                              } catch { toast.error('Fayl açıla bilmədi') }
+                              } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl açıla bilmədi') }
                             }}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-800 transition-colors"
                             title={inv.aktFileName}
@@ -760,11 +761,13 @@ const filteredTransactions = useMemo(() => {
                               onChange={async e => {
                                 const file = e.target.files?.[0]
                                 if (!file) return
+                                const fileError = validateFileUpload(file)
+                                if (fileError) { toast.error(fileError); e.target.value = ''; return }
                                 try {
                                   await accountingApi.uploadAkt(inv.id, file)
                                   toast.success('Akt yükləndi')
                                   loadInvoices()
-                                } catch { toast.error('Akt yüklənmədi') }
+                                } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Akt yüklənmədi') }
                               }} />
                           </label>
                         )}
@@ -1288,7 +1291,7 @@ const filteredTransactions = useMemo(() => {
                                             const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
                                             window.open(url, '_blank')
                                             setTimeout(() => URL.revokeObjectURL(url), 5000)
-                                          } catch { toast.error('Fayl açıla bilmədi') }
+                                          } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl açıla bilmədi') }
                                         }}
                                         className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 transition-colors">
                                         <Paperclip size={10} /> {inv.aktFileName || 'Fayla bax'}
@@ -1301,11 +1304,13 @@ const filteredTransactions = useMemo(() => {
                                           onChange={async e => {
                                             const file = e.target.files?.[0]
                                             if (!file) return
+                                            const fileError = validateFileUpload(file)
+                                            if (fileError) { toast.error(fileError); e.target.value = ''; return }
                                             try {
                                               await accountingApi.uploadAkt(inv.id, file)
                                               toast.success('Akt yükləndi')
                                               loadInvoices()
-                                            } catch { toast.error('Akt yüklənmədi') }
+                                            } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Akt yüklənmədi') }
                                           }} />
                                       </label>
                                     )}

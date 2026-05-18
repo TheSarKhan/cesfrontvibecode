@@ -378,6 +378,16 @@ export default function GaragePage() {
   useEffect(() => { load() }, [load])
   useEffect(() => { loadStats() }, [loadStats])
 
+  // Search command palette-dən gələn ?open=id param-ı idarə et
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    garageApi.getById(Number(openId))
+      .then(res => setSlideOver(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // WebSocket — auto-reload on changes from other users
   useGarageWebSocket(useCallback((msg) => {
     load()

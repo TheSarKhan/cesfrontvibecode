@@ -35,8 +35,8 @@ export const INSPECTION_THRESHOLDS = {
 }
 
 export const FILE_UPLOAD = {
-  MAX_SIZE_MB: 50,
-  MAX_SIZE_BYTES: 50 * 1024 * 1024,
+  MAX_SIZE_MB: 1,
+  MAX_SIZE_BYTES: 1 * 1024 * 1024,
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   ALLOWED_DOC_TYPES: ['application/pdf', 'image/jpeg', 'image/png', 'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
