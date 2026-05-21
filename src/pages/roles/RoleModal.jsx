@@ -89,7 +89,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
 
   const validateStep1 = () => {
     const errs = {}
-    const nameErr = v.chain(form.name || '', v.required, v.minLen(2), v.realContent, v.maxLen(100))
+    const nameErr = v.chain(form.name || '', v.required, (val) => v.minLen(val, 2), v.realContent, (val) => v.maxLen(val, 100))
     if (nameErr) errs.name = nameErr
     if (!form.departmentId) errs.departmentId = 'Şöbə seçilməlidir'
     if (form.description?.trim()) {
