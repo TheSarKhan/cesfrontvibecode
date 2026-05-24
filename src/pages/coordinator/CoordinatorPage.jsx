@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react'
+import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Truck, PackageCheck, UserPlus } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import { useAuthStore } from '../../store/authStore'
 import CoordinatorPlanModal from './CoordinatorPlanModal'
@@ -11,39 +11,44 @@ import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
 const STATUS_CONFIG = {
-  SENT_TO_COORDINATOR: { label: 'Koordinatorda',     pill: 'ces-p-solid' },
-  OFFER_SENT:          { label: 'Gözdən keçirilir',  pill: 'ces-p-warn' },
-  ACCEPTED:            { label: 'Qəbul edildi',      pill: 'ces-p-ok' },
-  REJECTED:            { label: 'Rədd edildi',       pill: 'ces-p-danger' },
+  COORDINATOR_NEGOTIATING: { label: 'Danışıq mərhələsi', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
+  COORDINATOR_PROPOSED:    { label: 'Təklif göndərildi', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+  EXECUTION_READY:         { label: 'İcraya hazır',     cls: 'bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-900/20 dark:text-lime-400 dark:border-lime-800' },
+  OPERATOR_ASSIGNED:       { label: 'Operator təyin',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
+  EQUIPMENT_DISPATCHED:    { label: 'Yüklənib',         cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  DELIVERED:               { label: 'Təhvil-təslim',    cls: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' },
+  REJECTED:                { label: 'Rədd edildi',      cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
 }
 
 const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 
+// Mərhələ A — danışıq, Mərhələ B — icra
 const STAT_CARDS = [
-  { id: 'ALL',                  label: 'Hamısı',         icon: FileText,     iconCls: '' },
-  { id: 'SENT_TO_COORDINATOR',  label: 'Koordinatorda',  icon: Send,         iconCls: 'gold' },
-  { id: 'OFFER_SENT',           label: 'Gözdən keçirilir', icon: AlertCircle, iconCls: 'warn' },
-  { id: 'ACCEPTED',             label: 'Qəbul',          icon: CheckCircle,  iconCls: 'ok' },
-  { id: 'REJECTED',             label: 'Rədd',           icon: XCircle,      iconCls: 'danger' },
+  { id: 'ALL', label: 'Hamısı', icon: FileText, color: 'text-gray-500' },
+  { id: 'COORDINATOR_NEGOTIATING', label: 'Danışıq', icon: Send, color: 'text-purple-500' },
+  { id: 'COORDINATOR_PROPOSED', label: 'Təklif göndərildi', icon: AlertCircle, color: 'text-amber-500' },
+  { id: 'EXECUTION_READY', label: 'İcraya hazır', icon: UserPlus, color: 'text-lime-500' },
+  { id: 'OPERATOR_ASSIGNED', label: 'Operator təyin', icon: PackageCheck, color: 'text-emerald-500' },
+  { id: 'EQUIPMENT_DISPATCHED', label: 'Yüklənib', icon: Truck, color: 'text-green-500' },
+  { id: 'DELIVERED', label: 'Təhvil-təslim', icon: CheckCircle, color: 'text-green-600' },
+  { id: 'REJECTED', label: 'Rədd', icon: XCircle, color: 'text-red-500' },
 ]
 
 const OWN_LABELS = { COMPANY: 'Şirkət', CONTRACTOR: 'Podratçı', INVESTOR: 'İnvestor' }
-const OWN_PILL   = { COMPANY: 'ces-p-ok', CONTRACTOR: 'ces-p-warn', INVESTOR: 'ces-p-info' }
 
-function SortHeader({ label, field, sortBy, sortDir, onSort, className }) {
+function SortHeader({ label, field, sortBy, sortDir, onSort, className = '' }) {
   const active = sortBy === field
   return (
     <th
-      className={className}
-      style={{ cursor: 'pointer', userSelect: 'none' }}
+      className={clsx('text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors', className)}
       onClick={() => onSort(field)}
     >
-      <span className="inline-flex items-center gap-1">
+      <div className="flex items-center gap-1">
         {label}
         {active
-          ? sortDir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />
-          : <ArrowUpDown size={10} style={{ color: 'var(--ces-mute2)' }} />}
-      </span>
+          ? sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+          : <ArrowUpDown size={11} className="text-gray-300" />}
+      </div>
     </th>
   )
 }
@@ -90,6 +95,7 @@ export default function CoordinatorPage() {
 
   usePageShortcuts({ searchRef })
 
+  // Click outside filter
   useEffect(() => {
     if (!filterOpen) return
     const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false) }
@@ -97,32 +103,53 @@ export default function CoordinatorPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [filterOpen])
 
-  const handleAccept = async (r, e) => {
+  const handleReject = async (r, e) => {
     e.stopPropagation()
-    if (!(await confirm({ title: 'Təklifi təsdiq et', message: `"${r.companyName}" üçün təklif təsdiq edilsin? Layihələr moduluna göndəriləcək.`, danger: false }))) return
+    if (!(await confirm({ title: 'Sorğunu ləğv et', message: `"${r.companyName}" üçün sorğu ləğv edilsin?` }))) return
     setActionLoading(r.requestId)
     try {
-      await coordinatorApi.acceptOffer(r.requestId)
-      toast.success('Təklif təsdiq edildi — layihə yaradıldı')
+      await coordinatorApi.rejectOffer(r.requestId)
+      toast.success('Sorğu ləğv edildi')
       load()
-    } catch (err) {
-      if (!err._toasted) toast.error(err?.response?.data?.message || 'Təklif təsdiq edilə bilmədi')
-    } finally {
+    } catch {} finally {
       setActionLoading(null)
     }
   }
 
-  const handleReject = async (r, e) => {
+  const handleVerifyDocs = async (r, e) => {
     e.stopPropagation()
-    if (!(await confirm({ title: 'Təklifi ləğv et', message: `"${r.companyName}" üçün təklif ləğv edilsin?` }))) return
     setActionLoading(r.requestId)
     try {
-      await coordinatorApi.rejectOffer(r.requestId)
-      toast.success('Təklif ləğv edildi')
+      await coordinatorApi.verifyEquipmentDocs(r.requestId)
+      toast.success('Texnika sənədləri yoxlanıldı')
       load()
-    } catch (err) {
-      if (!err._toasted) toast.error(err?.response?.data?.message || 'Təklif ləğv edilə bilmədi')
-    } finally {
+    } catch {} finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDispatch = async (r, e) => {
+    e.stopPropagation()
+    if (!(await confirm({ title: 'Yükləmə və göndərmə', message: `"${r.companyName}" üçün texnika yüklənib göndərildi?` }))) return
+    setActionLoading(r.requestId)
+    try {
+      await coordinatorApi.dispatch(r.requestId)
+      toast.success('Texnika göndərildi')
+      load()
+    } catch {} finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeliver = async (r, e) => {
+    e.stopPropagation()
+    if (!(await confirm({ title: 'Təhvil-təslim', message: `"${r.companyName}" üçün təhvil-təslim tamamlandı?` }))) return
+    setActionLoading(r.requestId)
+    try {
+      await coordinatorApi.deliver(r.requestId, null)
+      toast.success('Təhvil-təslim tamamlandı — layihə aktivdir')
+      load()
+    } catch {} finally {
       setActionLoading(null)
     }
   }
@@ -144,18 +171,22 @@ export default function CoordinatorPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Load all requests for stats + region filter
   useEffect(() => {
     coordinatorApi.getRequests().then(res => setAllRequests(res.data.data || [])).catch(() => {})
   }, [data])
 
+  // Stats
   const stats = useMemo(() => {
     const s = { ALL: allRequests.length }
     Object.keys(STATUS_CONFIG).forEach(k => { s[k] = allRequests.filter(r => r.requestStatus === k).length })
     return s
   }, [allRequests])
 
+  // Unique values for filters (from all requests)
   const uniqueRegions = useMemo(() => [...new Set(allRequests.map(r => r.region).filter(Boolean))].sort(), [allRequests])
 
+  // Filter helpers
   const activeFilterCount = [statusFilter, regionFilter, sourceFilter].filter(Boolean).length
   const clearFilters = () => {
     setSearch('')
@@ -166,347 +197,283 @@ export default function CoordinatorPage() {
     setFilterOpen(false)
   }
 
-  const filteredRows = data.content.filter(r =>
-    (!regionFilter || r.region === regionFilter) &&
-    (!sourceFilter || r.ownershipType === sourceFilter)
-  )
+  const selectCls = "w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+  const filterLabelCls = "block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="ces-page-title">Koordinator</h1>
-          <p className="ces-page-sub">
-            {data.totalElements} sorğu · {stats.OFFER_SENT || 0} gözdən keçirilir
-          </p>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Koordinator</h1>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} sorğu</p>
         </div>
       </div>
 
-      {/* KPI cards (clickable as quick filter) */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-5">
+      {/* ── Stat cards ── */}
+      <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none">
         {STAT_CARDS.map(s => {
           const Icon = s.icon
-          const active = quickFilter === s.id
           return (
             <button
               key={s.id}
               onClick={() => setQuickFilter(s.id)}
-              className="ces-kpi-card text-left"
-              style={active ? { borderColor: 'var(--ces-graphite)', boxShadow: 'var(--ces-shadow)' } : undefined}
+              className={clsx(
+                'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[90px]',
+                quickFilter === s.id
+                  ? 'bg-purple-50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-700'
+              )}
             >
-              <div className="ces-kpi-top">
-                <span className="ces-kpi-lab">{s.label}</span>
-                <span className={clsx('ces-kpi-ic', s.iconCls)}>
-                  <Icon size={16} />
-                </span>
-              </div>
-              <div className="ces-kpi-val">{stats[s.id] ?? 0}</div>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Icon size={10} className={s.color} />
+                {s.label}
+              </p>
+              <p className={clsx('text-lg font-bold mt-0.5', s.color)}>{stats[s.id] ?? 0}</p>
             </button>
           )
         })}
       </div>
 
-      {/* Search + Filter row */}
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
-        <div className="ces-input has-icon sm flex-1 min-w-[260px]">
-          <Search size={15} />
+      {/* ── Search + Filter popover ── */}
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1 min-w-0">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Sorğu ID, şirkət, layihə, bölgə..."
+            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
         <div className="relative" ref={filterRef}>
           <button
             onClick={() => setFilterOpen(p => !p)}
-            className={clsx('ces-btn ces-btn-sm', activeFilterCount > 0 ? 'ces-btn-primary' : 'ces-btn-outline')}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-1.5 text-xs border rounded-lg transition-colors',
+              activeFilterCount > 0
+                ? 'border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            )}
           >
-            <SlidersHorizontal size={14} />
+            <SlidersHorizontal size={13} />
             Filtrlər
             {activeFilterCount > 0 && (
-              <span
-                className="inline-grid place-items-center rounded-full text-[10px] font-bold mono"
-                style={{
-                  minWidth: 18,
-                  height: 18,
-                  padding: '0 5px',
-                  background: 'var(--ces-gold)',
-                  color: 'var(--ces-on-gold)',
-                }}
-              >
-                {activeFilterCount}
-              </span>
+              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-purple-600 text-white text-[9px] font-bold">{activeFilterCount}</span>
             )}
           </button>
           {filterOpen && (
-            <div
-              className="absolute right-0 top-full mt-2 z-30"
-              style={{
-                width: 320,
-                background: 'var(--ces-surface)',
-                border: '1px solid var(--ces-line)',
-                borderRadius: 14,
-                boxShadow: 'var(--ces-shadow-lg)',
-                padding: 18,
-              }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <p className="ces-sec-label m-0">Filtrlər</p>
-                <button onClick={() => setFilterOpen(false)} className="ces-row-act">
-                  <X size={14} />
-                </button>
-              </div>
-
-              <div className="ces-field" style={{ marginBottom: 12 }}>
-                <label>Status</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="ces-select sm">
+            <div className="absolute right-0 top-full mt-1.5 z-30 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 space-y-3">
+              {/* Status */}
+              <div>
+                <label className={filterLabelCls}>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
                   <option value="">Hamısı</option>
                   {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
-
+              {/* Bölgə + Mənbə */}
               <div className="grid grid-cols-2 gap-2">
                 {uniqueRegions.length > 0 && (
-                  <div className="ces-field" style={{ marginBottom: 12 }}>
-                    <label>Bölgə</label>
-                    <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="ces-select sm">
+                  <div>
+                    <label className={filterLabelCls}>Bölgə</label>
+                    <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className={selectCls}>
                       <option value="">Hamısı</option>
                       {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                 )}
-                <div className="ces-field" style={{ marginBottom: 12 }}>
-                  <label>Mənbə</label>
-                  <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="ces-select sm">
+                <div>
+                  <label className={filterLabelCls}>Mənbə</label>
+                  <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className={selectCls}>
                     <option value="">Hamısı</option>
                     {Object.entries(OWN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--ces-line)' }}>
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
                 {activeFilterCount > 0 ? (
-                  <button onClick={clearFilters} className="ces-btn ces-btn-ghost ces-btn-xs" style={{ color: 'var(--ces-danger)' }}>
-                    Təmizlə
+                  <button onClick={clearFilters} className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
+                    Filtrləri təmizlə
                   </button>
                 ) : <span />}
-                <button onClick={() => setFilterOpen(false)} className="ces-btn ces-btn-primary ces-btn-xs">
-                  Tətbiq et
+                <button onClick={() => setFilterOpen(false)} className="text-[11px] text-purple-600 hover:text-purple-700 font-semibold transition-colors">
+                  Bağla
                 </button>
               </div>
             </div>
           )}
         </div>
-        <button onClick={load} className="ces-btn ces-btn-outline ces-btn-sm" title="Yenilə">
-          <RefreshCw size={14} />
+        <button onClick={load} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-600 transition-colors" title="Yenilə">
+          <RefreshCw size={13} />
         </button>
       </div>
 
       {/* Table */}
-      <div className="ces-table-wrap">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="ces-tbl" style={{ minWidth: 900 }}>
+          <table className="w-full min-w-[860px]">
             <thead>
-              <tr>
-                <SortHeader label="ID"              field="requestCode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+                <SortHeader label="ID" field="requestCode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Şirkət / Layihə" field="companyName" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th>Texnika</th>
-                <th>Mənbə</th>
-                <SortHeader label="Müddət"          field="dayCount"    sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th>Ümumi / Xeyir</th>
-                <SortHeader label="Status"          field="status"      sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th className="r" style={{ width: 140 }}>Əməliyyat</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Mənbə</th>
+                <SortHeader label="Müddət" field="dayCount" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ümumi / Xeyir</th>
+                <SortHeader label="Status" field="status" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i}>
+                  <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
                     {Array.from({ length: 8 }).map((_, j) => (
-                      <td key={j}>
-                        <div className="h-3.5 rounded" style={{ background: 'var(--ces-graphite-100)' }} />
-                      </td>
+                      <td key={j} className="py-3 px-4"><div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
-              ) : filteredRows.length === 0 ? (
+                      ) : data.content.filter(r => (!regionFilter || r.region === regionFilter) && (!sourceFilter || r.ownershipType === sourceFilter)).length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-sm" style={{ color: 'var(--ces-muted)' }}>
+                  <td colSpan={8} className="py-10 text-center text-sm text-gray-400">
                     {data.totalElements === 0 ? 'Koordinatora hələ sorğu gəlməyib' : 'Filtrlərə uyğun nəticə tapılmadı'}
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((r) => {
-                  const status = r.hasPendingSubmit && r.requestStatus === 'SENT_TO_COORDINATOR'
-                    ? { label: 'Təklif dəyərləndirilir', pill: 'ces-p-info' }
-                    : STATUS_CONFIG[r.requestStatus] || STATUS_CONFIG.SENT_TO_COORDINATOR
+                data.content.filter(r => (!regionFilter || r.region === regionFilter) && (!sourceFilter || r.ownershipType === sourceFilter)).map((r) => {
+                  const status = r.hasPendingSubmit && r.requestStatus === 'COORDINATOR_NEGOTIATING'
+                    ? { label: 'Təklif təsdiqlənir', cls: 'bg-violet-50 text-violet-700 border-violet-200' }
+                    : STATUS_CONFIG[r.requestStatus] || { label: r.requestStatus, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
                   const total = parseFloat(r.totalAmount || 0)
                   const profit = parseFloat(r.companyProfit || 0)
                   const hasPlan = !!r.planId
                   return (
-                    <tr key={r.requestId}>
-                      <td>
-                        <span className="mono font-semibold text-xs" style={{ color: 'var(--ces-gold-700)' }}>
-                          {r.requestCode}
-                        </span>
+                    <tr key={r.requestId} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                      <td className="py-3 px-4">
+                        <span className="text-xs font-mono font-semibold text-purple-600 dark:text-purple-400">{r.requestCode}</span>
                       </td>
-                      <td>
-                        <div className="font-semibold text-[var(--ces-ink)] truncate" style={{ maxWidth: 220 }} title={r.companyName}>
-                          {r.companyName}
-                        </div>
-                        {r.projectName && (
-                          <div className="text-xs truncate" style={{ color: 'var(--ces-muted)', maxWidth: 220 }} title={r.projectName}>
-                            {r.projectName}
-                          </div>
-                        )}
-                        {r.region && (
-                          <div className="text-xs" style={{ color: 'var(--ces-mute2)' }}>{r.region}</div>
-                        )}
+                      <td className="py-3 px-4">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{r.companyName}</p>
+                        {r.projectName && <p className="text-xs text-gray-400">{r.projectName}</p>}
+                        {r.region && <p className="text-xs text-gray-400">{r.region}</p>}
                       </td>
-                      <td>
+                      <td className="py-3 px-4">
                         {r.equipmentName ? (
-                          <>
-                            <div className="text-[var(--ces-ink)]">{r.equipmentName}</div>
-                            {r.equipmentCode && (
-                              <div className="mono text-xs" style={{ color: 'var(--ces-muted)' }}>{r.equipmentCode}</div>
-                            )}
-                          </>
-                        ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
+                          <div>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{r.equipmentName}</p>
+                            <p className="text-xs text-gray-400">{r.equipmentCode}</p>
+                          </div>
+                        ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
-                      <td>
-                        <span className={clsx('ces-pill sm', OWN_PILL[r.ownershipType] || 'ces-p-mute')}>
-                          {r.ownershipType === 'CONTRACTOR'
-                            ? (r.contractorName || 'Podratçı')
-                            : (OWN_LABELS[r.ownershipType] || '—')}
-                        </span>
+                      <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                        {r.ownershipType === 'CONTRACTOR' ? (
+                          <span className="text-xs text-orange-600">{r.contractorName || 'Podratçı'}</span>
+                        ) : r.ownershipType === 'INVESTOR' ? (
+                          <span className="text-xs text-blue-600">İnvestor</span>
+                        ) : (
+                          <span className="text-xs text-green-600">Şirkət</span>
+                        )}
                       </td>
-                      <td style={{ color: 'var(--ces-muted)' }}>
-                        {r.projectType
-                          ? (r.dayCount
-                              ? `${r.dayCount} ${r.projectType === 'DAILY' ? 'gün' : 'ay'}`
-                              : PROJECT_TYPE_LABEL[r.projectType])
-                          : '—'}
+                      <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                        {r.projectType ? `${r.dayCount ? `${r.dayCount} ${r.projectType === 'DAILY' ? 'gün' : 'ay'}` : PROJECT_TYPE_LABEL[r.projectType]}` : '—'}
                       </td>
-                      <td>
+                      <td className="py-3 px-4">
                         {hasPlan ? (
-                          <>
-                            <div className="num font-semibold text-[var(--ces-ink)]">
-                              {total.toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-                            </div>
-                            <div className="num text-xs" style={{ color: profit >= 0 ? 'var(--ces-ok)' : 'var(--ces-danger)' }}>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{total.toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼</p>
+                            <p className={clsx('text-xs', profit >= 0 ? 'text-green-600' : 'text-red-500')}>
                               Xeyir: {profit.toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-                            </div>
-                          </>
-                        ) : <span className="text-xs" style={{ color: 'var(--ces-mute2)' }}>Plan yoxdur</span>}
+                            </p>
+                          </div>
+                        ) : <span className="text-xs text-gray-400">Plan yoxdur</span>}
                       </td>
-                      <td>
-                        <span className={clsx('ces-pill sm', status.pill)}>
-                          <span className="d" />
+                      <td className="py-3 px-4">
+                        <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', status.cls)}>
                           {status.label}
                         </span>
                       </td>
-                      <td>
-                        <div className="flex items-center gap-1.5 justify-end">
-                          {!['ACCEPTED', 'REJECTED'].includes(r.requestStatus) && canGet && (
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                          {!['REJECTED', 'DELIVERED'].includes(r.requestStatus) && canGet && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelected(r) }}
-                              title={hasPlan ? 'Planı aç' : 'Plan yarat'}
-                              className="coord-pill-btn"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                height: 28,
-                                padding: '0 10px',
-                                borderRadius: 999,
-                                fontSize: 11.5,
-                                fontWeight: 700,
-                                letterSpacing: '.02em',
-                                background: hasPlan ? 'var(--ces-gold-100)' : 'var(--ces-surface)',
-                                color: hasPlan ? 'var(--ces-gold-700)' : 'var(--ces-graphite)',
-                                border: `1px solid ${hasPlan ? 'var(--ces-gold)' : 'var(--ces-line)'}`,
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap',
-                                transition: 'all .15s',
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ces-gold)'; e.currentTarget.style.borderColor = 'var(--ces-gold)'; e.currentTarget.style.color = 'var(--ces-on-gold)' }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = hasPlan ? 'var(--ces-gold-100)' : 'var(--ces-surface)'; e.currentTarget.style.borderColor = hasPlan ? 'var(--ces-gold)' : 'var(--ces-line)'; e.currentTarget.style.color = hasPlan ? 'var(--ces-gold-700)' : 'var(--ces-ink)' }}
+                              className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 px-2.5 py-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors whitespace-nowrap"
                             >
-                              <ClipboardList size={12} />
-                              {hasPlan ? 'Plan' : 'Yarat'}
+                              <ClipboardList size={13} />
+                              {hasPlan ? 'Planı aç' : 'Plan yarat'}
                             </button>
                           )}
 
-                          {r.requestStatus === 'OFFER_SENT' && canPut && (
-                            <span
-                              className="inline-flex"
-                              style={{
-                                background: 'var(--ces-surface)',
-                                border: '1px solid var(--ces-line)',
-                                borderRadius: 999,
-                                padding: 2,
-                                gap: 2,
-                                boxShadow: '0 1px 3px rgba(58,58,58,.08)',
-                              }}
+                          {r.requestStatus === 'EXECUTION_READY' && canPut && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelected(r) }}
+                              className="flex items-center gap-1 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                              title="Operator təyin et"
                             >
-                              <button
-                                disabled={actionLoading === r.requestId}
-                                onClick={(e) => handleAccept(r, e)}
-                                title="Təklifi təsdiq et — Layihələrə göndər"
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 999,
-                                  display: 'inline-grid',
-                                  placeItems: 'center',
-                                  background: 'var(--ces-ok)',
-                                  color: '#fff',
-                                  border: 'none',
-                                  cursor: actionLoading === r.requestId ? 'not-allowed' : 'pointer',
-                                  opacity: actionLoading === r.requestId ? 0.5 : 1,
-                                  transition: 'transform .12s, background .15s',
-                                }}
-                                onMouseEnter={(e) => { if (actionLoading !== r.requestId) { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.background = '#0c855a' } }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'var(--ces-ok)' }}
-                              >
-                                <CheckCircle size={14} />
-                              </button>
-                              <button
-                                disabled={actionLoading === r.requestId}
-                                onClick={(e) => handleReject(r, e)}
-                                title="Təklifi ləğv et"
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 999,
-                                  display: 'inline-grid',
-                                  placeItems: 'center',
-                                  background: 'var(--ces-danger)',
-                                  color: '#fff',
-                                  border: 'none',
-                                  cursor: actionLoading === r.requestId ? 'not-allowed' : 'pointer',
-                                  opacity: actionLoading === r.requestId ? 0.5 : 1,
-                                  transition: 'transform .12s, background .15s',
-                                }}
-                                onMouseEnter={(e) => { if (actionLoading !== r.requestId) { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.background = '#b62b4a' } }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'var(--ces-danger)' }}
-                              >
-                                <XCircle size={14} />
-                              </button>
-                            </span>
+                              <UserPlus size={13} />
+                              Operator
+                            </button>
                           )}
 
-                          {r.requestStatus === 'ACCEPTED' && (
-                            <span className="ces-pill ces-p-ok sm">
-                              <CheckCircle size={11} />
-                              Göndərildi
+                          {r.requestStatus === 'OPERATOR_ASSIGNED' && canPut && (
+                            <>
+                              {!r.equipmentDocsVerified && (
+                                <button
+                                  disabled={actionLoading === r.requestId}
+                                  onClick={(e) => handleVerifyDocs(r, e)}
+                                  className="flex items-center gap-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                                  title="Texnika sənədlərini yoxlandı kimi işarələ"
+                                >
+                                  <PackageCheck size={13} />
+                                  Sənəd OK
+                                </button>
+                              )}
+                              <button
+                                disabled={actionLoading === r.requestId || !r.equipmentDocsVerified}
+                                onClick={(e) => handleDispatch(r, e)}
+                                className="flex items-center gap-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                <Truck size={13} />
+                                Göndər
+                              </button>
+                            </>
+                          )}
+
+                          {r.requestStatus === 'EQUIPMENT_DISPATCHED' && canPut && (
+                            <button
+                              disabled={actionLoading === r.requestId}
+                              onClick={(e) => handleDeliver(r, e)}
+                              className="flex items-center gap-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                            >
+                              <CheckCircle size={13} />
+                              Təhvil
+                            </button>
+                          )}
+
+                          {!['REJECTED', 'DELIVERED'].includes(r.requestStatus) && canPut && (
+                            <button
+                              disabled={actionLoading === r.requestId}
+                              onClick={(e) => handleReject(r, e)}
+                              className="flex items-center gap-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                              title="Sorğunu ləğv et"
+                            >
+                              <XCircle size={13} />
+                              Ləğv
+                            </button>
+                          )}
+
+                          {r.requestStatus === 'DELIVERED' && (
+                            <span className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                              <CheckCircle size={13} />
+                              Tamamlandı
                             </span>
                           )}
                           {r.requestStatus === 'REJECTED' && (
-                            <span className="ces-pill ces-p-danger sm">
-                              <XCircle size={11} />
+                            <span className="flex items-center gap-1 text-xs font-medium text-red-500 dark:text-red-400">
+                              <XCircle size={13} />
                               Rədd edildi
                             </span>
                           )}
@@ -519,15 +486,16 @@ export default function CoordinatorPage() {
             </tbody>
           </table>
         </div>
-        <Pagination
-          page={data.page + 1}
-          pageSize={data.size}
-          totalPages={data.totalPages}
-          totalElements={data.totalElements}
-          onPage={(p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p - 1)); return n }, { replace: true })}
-          onPageSize={(s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })}
-        />
       </div>
+
+      <Pagination
+        page={data.page + 1}
+        pageSize={data.size}
+        totalPages={data.totalPages}
+        totalElements={data.totalElements}
+        onPage={(p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p - 1)); return n }, { replace: true })}
+        onPageSize={(s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })}
+      />
 
       {selected && (
         <CoordinatorPlanModal

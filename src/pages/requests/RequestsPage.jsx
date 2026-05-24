@@ -17,14 +17,16 @@ import { useRequestsWebSocket } from '../../hooks/useRequestsWebSocket'
 
 const PAGE_SIZES = [15, 25, 50, 100]
 
+// PM flow stat kartları — həm UI kit iconCls, həm Tailwind color
 const STAT_CARDS = [
-  { id: 'ALL',                 label: 'Hamısı',          icon: FileText,    iconCls: '' },
-  { id: 'DRAFT',               label: 'Qaralama',        icon: FileText,    iconCls: '' },
-  { id: 'PENDING',             label: 'Hazırdır',        icon: Clock,       iconCls: '' },
-  { id: 'SENT_TO_COORDINATOR', label: 'Kordinatorda',    icon: SendIcon,    iconCls: '' },
-  { id: 'OFFER_SENT',          label: 'Gözdən keçirilir', icon: AlertCircle, iconCls: 'gold' },
-  { id: 'ACCEPTED',            label: 'Qəbul',           icon: CheckCircle, iconCls: 'ok' },
-  { id: 'REJECTED',            label: 'Rədd',            icon: XCircle,     iconCls: 'danger' },
+  { id: 'ALL',                      label: 'Hamısı',              icon: FileText,    iconCls: '',       color: 'text-gray-500' },
+  { id: 'DRAFT',                    label: 'Qaralama',            icon: FileText,    iconCls: '',       color: 'text-gray-400' },
+  { id: 'PENDING',                  label: 'PM-ə yönləndirildi',  icon: SendIcon,    iconCls: '',       color: 'text-blue-500' },
+  { id: 'PM_REVIEW',                label: 'PM nəzərdə',          icon: Clock,       iconCls: '',       color: 'text-sky-500' },
+  { id: 'COORDINATOR_NEGOTIATING',  label: 'Koordinatorda',       icon: SendIcon,    iconCls: 'gold',   color: 'text-purple-500' },
+  { id: 'PM_PRICE_NEGOTIATION',     label: 'Sifarişçi ilə',       icon: AlertCircle, iconCls: 'gold',   color: 'text-amber-500' },
+  { id: 'DELIVERED',                label: 'Tamamlandı',          icon: CheckCircle, iconCls: 'ok',     color: 'text-green-500' },
+  { id: 'REJECTED',                 label: 'Rədd',                icon: XCircle,     iconCls: 'danger', color: 'text-red-500' },
 ]
 
 function SortHeader({ label, field, sortBy, sortDir, onSort, align }) {

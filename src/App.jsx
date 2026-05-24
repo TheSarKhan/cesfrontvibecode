@@ -16,6 +16,8 @@ import GaragePage from './pages/garage/GaragePage'
 import CustomersPage from './pages/customers/CustomersPage'
 import RequestsPage from './pages/requests/RequestsPage'
 import CoordinatorPage from './pages/coordinator/CoordinatorPage'
+import ProjectManagerPage from './pages/project-manager/ProjectManagerPage'
+import DocumentCheckPage from './pages/accounting/DocumentCheckPage'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import AccountingPage from './pages/accounting/AccountingPage'
 import AccountingInvoicesPage from './pages/accounting/AccountingInvoicesPage'
@@ -69,6 +71,7 @@ export default function App() {
             <Route path="roles" element={<RolesPage />} />
             <Route path="garage" element={<GaragePage />} />
             <Route path="requests" element={<RequestsPage />} />
+            <Route path="project-manager" element={<ProjectManagerPage />} />
             <Route path="coordinator" element={<CoordinatorPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="accounting" element={<AccountingPage />} />
@@ -78,6 +81,7 @@ export default function App() {
             <Route path="accounting/kreditor" element={<KreditorPage />} />
             <Route path="accounting/debit-credit" element={<Navigate to="/accounting/debitor" replace />} />
             <Route path="accounting/service-invoices" element={<ServiceInvoicesPage />} />
+            <Route path="accounting/document-checks" element={<DocumentCheckPage />} />
             <Route path="service" element={<ServicePage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="approval" element={<ApprovalPage />} />

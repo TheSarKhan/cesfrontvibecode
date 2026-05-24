@@ -19,4 +19,12 @@ export const coordinatorApi = {
 
   acceptOffer: (requestId) => api.post(`/coordinator/requests/${requestId}/accept`),
   rejectOffer: (requestId) => api.post(`/coordinator/requests/${requestId}/reject`),
+
+  // Mərhələ B (icra)
+  assignOperator: (requestId, operatorId) =>
+    api.post(`/coordinator/requests/${requestId}/assign-operator`, null, { params: { operatorId } }),
+  verifyEquipmentDocs: (requestId) =>
+    api.post(`/coordinator/requests/${requestId}/verify-equipment-docs`),
+  dispatch: (requestId) => api.post(`/coordinator/requests/${requestId}/dispatch`),
+  deliver: (requestId, notes) => api.post(`/coordinator/requests/${requestId}/deliver`, { notes }),
 }

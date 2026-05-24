@@ -764,14 +764,22 @@ function DeadlineBadge({ endDate }) {
    REQUEST STATUS PILL — UI kit semantic colors
 ─────────────────────────────────────────────── */
 function StatusPill({ status }) {
+  // PM flow: 14 status
   const map = {
-    DRAFT:               { label: 'Qaralama',          tone: 'muted' },
-    PENDING:             { label: 'Gözləmədə',         tone: 'warn' },
-    SUBMITTED:           { label: 'Göndərildi',        tone: 'info' },
-    SENT_TO_COORDINATOR: { label: 'Koordinatorda',     tone: 'gold' },
-    OFFER_SENT:          { label: 'Təklif göndərildi', tone: 'info' },
-    ACCEPTED:            { label: 'Qəbul edilib',      tone: 'ok' },
-    REJECTED:            { label: 'Rədd edildi',       tone: 'danger' },
+    DRAFT:                    { label: 'Qaralama',          tone: 'muted' },
+    PENDING:                  { label: 'PM-ə yönləndirildi', tone: 'info' },
+    PM_REVIEW:                { label: 'PM nəzərdə',        tone: 'info' },
+    PM_SHORTLIST_READY:       { label: 'Shortlist hazır',   tone: 'gold' },
+    COORDINATOR_NEGOTIATING:  { label: 'Koordinatorda',     tone: 'gold' },
+    COORDINATOR_PROPOSED:     { label: 'Təklif PM-ə',       tone: 'warn' },
+    PM_PRICE_NEGOTIATION:     { label: 'Sifarişçi ilə',     tone: 'warn' },
+    PM_APPROVED:              { label: 'PM təsdiqlədi',     tone: 'ok' },
+    ACCOUNTING_DOCS_CHECK:    { label: 'Mühasibatda',       tone: 'info' },
+    EXECUTION_READY:          { label: 'İcraya hazır',      tone: 'gold' },
+    OPERATOR_ASSIGNED:        { label: 'Operator təyin',    tone: 'gold' },
+    EQUIPMENT_DISPATCHED:     { label: 'Yüklənib',          tone: 'ok' },
+    DELIVERED:                { label: 'Təhvil-təslim',     tone: 'ok' },
+    REJECTED:                 { label: 'Rədd edildi',       tone: 'danger' },
   }
   const cfg = map[status] || { label: status, tone: 'muted' }
   return <Pill tone={cfg.tone} sm>{cfg.label}</Pill>
@@ -836,7 +844,7 @@ export default function DashboardPage() {
   /* ─── Derived ─── */
   const activeProjects    = projects.filter(p => p.status === 'ACTIVE')
   const completedProjects = projects.filter(p => p.status === 'COMPLETED')
-  const pendingRequests   = requests.filter(r => ['DRAFT','PENDING','SENT_TO_COORDINATOR'].includes(r.status))
+  const pendingRequests   = requests.filter(r => ['DRAFT','PENDING','PM_REVIEW','PM_SHORTLIST_READY','COORDINATOR_NEGOTIATING','COORDINATOR_PROPOSED','PM_PRICE_NEGOTIATION'].includes(r.status))
 
   const urgentProjects = useMemo(() => activeProjects.filter(p => {
     if (!p.endDate) return false

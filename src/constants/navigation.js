@@ -91,6 +91,13 @@ export const NAV_ITEMS = [
     section: 'operations',
   },
   {
+    id: 'project-manager',
+    label: 'Layihə Meneceri',
+    path: '/project-manager',
+    icon: ClipboardCheck,
+    module: 'PROJECT_MANAGER',
+  },
+  {
     id: 'coordinator',
     label: 'Koordinator',
     path: '/coordinator',
