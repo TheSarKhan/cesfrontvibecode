@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../../api/auth'
+import { useThemeStore } from '../../store/themeStore'
 import { Eye, EyeOff, ArrowRight, AlertCircle, Lock, CheckCircle2, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
+import logoLight from '../../assets/logo white.png'
+import logoDark from '../../assets/logo2.png'
 
 const MIN_PASSWORD_LENGTH = 6
 
@@ -22,6 +25,8 @@ function passwordStrength(pwd) {
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
+  const theme = useThemeStore((s) => s.theme)
+  const brandLogo = theme === 'light' ? logoLight : logoDark
   const [verificationToken, setVerificationToken] = useState('')
   const [resetEmail, setResetEmail] = useState('')
   const [form, setForm] = useState({ newPassword: '', confirm: '' })
@@ -100,7 +105,7 @@ export default function ResetPasswordPage() {
             }}
           >
             <img
-              src="/e8e0f0a3bd7902466f6cdf7793af03199b95dce7 (1).png"
+              src={brandLogo}
               alt="CES"
               className="w-full h-full object-contain"
             />

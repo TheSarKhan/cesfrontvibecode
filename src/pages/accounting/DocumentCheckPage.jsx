@@ -226,8 +226,8 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
   if (loading || !data) {
     return (
       <div className="fixed inset-0 z-50 flex">
-        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-        <div className="ml-auto h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex items-center justify-center text-sm text-gray-400">
+        <div className="absolute inset-0" style={{background:"rgba(0,0,0,0.08)"}} />
+        <div className="relative z-10 ml-auto h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex items-center justify-center text-sm text-gray-400">
           Yüklənir...
         </div>
       </div>
@@ -238,8 +238,8 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="ml-auto h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+      <div className="absolute inset-0" style={{background:"rgba(0,0,0,0.08)"}} />
+      <div className="relative z-10 ml-auto h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between">
           <div>
             <span className="text-xs font-mono font-semibold text-amber-600">{data.requestCode}</span>

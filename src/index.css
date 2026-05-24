@@ -42,7 +42,7 @@
   --ces-shadow-lg: 0 24px 48px -20px rgba(58,58,58,.28), 0 6px 14px rgba(58,58,58,.08);
   --ces-toast-bg: #262626;
   --ces-toast-fg: #ffffff;
-  --ces-backdrop: rgba(58, 58, 58, 0.45);
+  --ces-backdrop: rgba(58, 58, 58, 0.15);
   --ces-brand-bg: #3a3a3a;
   --ces-brand-fg: #ffffff;
 }
@@ -85,7 +85,7 @@
   --ces-shadow-lg: 0 24px 48px -16px rgba(0,0,0,.8), 0 6px 14px rgba(0,0,0,.5);
   --ces-toast-bg: #06060a;
   --ces-toast-fg: #ffffff;
-  --ces-backdrop: rgba(0, 0, 0, 0.65);
+  --ces-backdrop: rgba(0, 0, 0, 0.25);
   --ces-brand-bg: #1a1a1a;
   --ces-brand-fg: #ffffff;
 

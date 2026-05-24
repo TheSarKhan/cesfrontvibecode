@@ -7,6 +7,8 @@ import { AlertCircle, X } from 'lucide-react'
 import { PILL_STYLES } from './_constants'
 
 /* ─── UI kit `.pill` ─── */
+// dot prop saxlanılır (geriyə uyğunluq üçün) amma render etmir — istifadəçi
+// status badge-larında nöqtə istəmir, yalnız sözün özü.
 export function Pill({ tone = 'muted', children, dot, sm }) {
   const s = PILL_STYLES[tone] || PILL_STYLES.muted
   return (
@@ -17,7 +19,6 @@ export function Pill({ tone = 'muted', children, dot, sm }) {
       )}
       style={{ background: s.bg, color: s.color }}
     >
-      {dot && <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />}
       {children}
     </span>
   )

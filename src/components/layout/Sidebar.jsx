@@ -4,9 +4,12 @@ import { clsx } from 'clsx'
 import { NAV_ITEMS, NAV_SECTIONS } from '../../constants/navigation'
 import { useAuthStore } from '../../store/authStore'
 import { useNotificationStore } from '../../store/notificationStore'
+import { useThemeStore } from '../../store/themeStore'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { dashboardApi } from '../../api/dashboard'
 import UserAvatar from '../common/UserAvatar'
+import logoLight from '../../assets/logo white.png'
+import logoDark from '../../assets/logo2.png'
 
 /* ─────────────────────────────────────────────────────
    CES ERP Sidebar — UI Kit `.sidebar-demo` pattern
@@ -18,6 +21,9 @@ export default function Sidebar({ collapsed, onToggle }) {
   const logout = useAuthStore((s) => s.logout)
   const user = useAuthStore((s) => s.user)
   const hasPermission = useAuthStore((s) => s.hasPermission)
+  const theme = useThemeStore((s) => s.theme)
+  // logo white.png — açıq mod üçün; logo2.png — gecə və qalaktika modları üçün
+  const brandLogo = theme === 'light' ? logoLight : logoDark
   const [pendingCount, setPendingCount] = useState(0)
   const approvalQueueVersion = useNotificationStore((s) => s.approvalQueueVersion)
 
@@ -50,16 +56,11 @@ export default function Sidebar({ collapsed, onToggle }) {
         style={{ borderBottom: '1px solid var(--ces-line)' }}
       >
         <div
-          className="flex-none grid place-items-center p-1"
-          style={{
-            width: '42px',
-            height: '42px',
-            background: 'var(--ces-graphite)',
-            borderRadius: '9px',
-          }}
+          className="flex-none grid place-items-center"
+          style={{ width: '42px', height: '42px' }}
         >
           <img
-            src="/e8e0f0a3bd7902466f6cdf7793af03199b95dce7 (1).png"
+            src={brandLogo}
             alt="CES"
             className="w-full h-full object-contain"
           />

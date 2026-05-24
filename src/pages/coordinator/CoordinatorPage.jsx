@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Truck, PackageCheck, UserPlus } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import { useAuthStore } from '../../store/authStore'
-import CoordinatorPlanModal from './CoordinatorPlanModal'
+import CoordinatorStageModal from './CoordinatorStageModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -498,7 +498,7 @@ export default function CoordinatorPage() {
       />
 
       {selected && (
-        <CoordinatorPlanModal
+        <CoordinatorStageModal
           request={selected}
           onClose={() => setSelected(null)}
           onSaved={load}

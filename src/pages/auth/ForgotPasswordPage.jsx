@@ -3,11 +3,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Mail, ArrowLeft, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authApi } from '../../api/auth'
+import { useThemeStore } from '../../store/themeStore'
+import logoLight from '../../assets/logo white.png'
+import logoDark from '../../assets/logo2.png'
 
 const OTP_LENGTH = 6  // Backend 6 rəqəmli OTP göndərir
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
+  const theme = useThemeStore((s) => s.theme)
+  const brandLogo = theme === 'light' ? logoLight : logoDark
   const [step, setStep] = useState('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''))
@@ -137,7 +142,7 @@ export default function ForgotPasswordPage() {
             }}
           >
             <img
-              src="/e8e0f0a3bd7902466f6cdf7793af03199b95dce7 (1).png"
+              src={brandLogo}
               alt="CES"
               className="w-full h-full object-contain"
             />

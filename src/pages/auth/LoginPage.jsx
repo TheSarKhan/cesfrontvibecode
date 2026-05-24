@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import { useThemeStore } from '../../store/themeStore'
 import { Eye, EyeOff, ArrowRight, CheckCircle2, AlertCircle, Lock, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
+import logoLight from '../../assets/logo white.png'
+import logoDark from '../../assets/logo2.png'
 
 const SESSION_KEY = 'login_form_draft'
 
 export default function LoginPage() {
+  const theme = useThemeStore((s) => s.theme)
+  const brandLogo = theme === 'light' ? logoLight : logoDark
   const [form, setForm] = useState(() => {
     const draft = sessionStorage.getItem(SESSION_KEY)
     if (draft) {
@@ -78,7 +83,7 @@ export default function LoginPage() {
             }}
           >
             <img
-              src="/e8e0f0a3bd7902466f6cdf7793af03199b95dce7 (1).png"
+              src={brandLogo}
               alt="CES"
               className="w-full h-full object-contain"
             />

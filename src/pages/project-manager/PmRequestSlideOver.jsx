@@ -67,8 +67,8 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
   if (loading || !data) {
     return (
       <div className="fixed inset-0 z-50 flex">
-        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-        <div className="ml-auto h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-2xl flex items-center justify-center">
+        <div className="absolute inset-0" style={{background:"rgba(0,0,0,0.08)"}} />
+        <div className="relative z-10 ml-auto h-full w-full max-w-2xl bg-white dark:bg-gray-800 shadow-2xl flex items-center justify-center">
           <div className="text-sm text-gray-400">Yüklənir...</div>
         </div>
       </div>
@@ -181,8 +181,8 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="ml-auto h-full w-full max-w-3xl bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+      <div className="absolute inset-0" style={{background:"rgba(0,0,0,0.08)"}} />
+      <div className="relative z-10 ml-auto h-full w-full max-w-3xl bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between">
           <div>

@@ -46,7 +46,6 @@ function Pill({ tone = 'muted', children, sm, dot }) {
       )}
       style={{ background: s.bg, color: s.color }}
     >
-      {dot && <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />}
       {children}
     </span>
   )

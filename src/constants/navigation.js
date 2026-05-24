@@ -96,6 +96,7 @@ export const NAV_ITEMS = [
     path: '/project-manager',
     icon: ClipboardCheck,
     module: 'PROJECT_MANAGER',
+    section: 'operations',
   },
   {
     id: 'coordinator',
