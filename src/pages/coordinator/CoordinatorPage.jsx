@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Search, ClipboardList, CheckCircle, XCircle, RefreshCw, SlidersHorizontal, FileText, Send, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown, Truck, PackageCheck, UserPlus } from 'lucide-react'
 import { coordinatorApi } from '../../api/coordinator'
 import { useAuthStore } from '../../store/authStore'
 import CoordinatorPlanModal from './CoordinatorPlanModal'
@@ -11,19 +11,26 @@ import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
 const STATUS_CONFIG = {
-  SENT_TO_COORDINATOR: { label: 'Koordinatorda', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
-  OFFER_SENT:          { label: 'Gözdən keçirilir', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
-  ACCEPTED:            { label: 'Qəbul edildi', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  REJECTED:            { label: 'Rədd edildi', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  COORDINATOR_NEGOTIATING: { label: 'Danışıq mərhələsi', cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
+  COORDINATOR_PROPOSED:    { label: 'Təklif göndərildi', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
+  EXECUTION_READY:         { label: 'İcraya hazır',     cls: 'bg-lime-50 text-lime-700 border-lime-200 dark:bg-lime-900/20 dark:text-lime-400 dark:border-lime-800' },
+  OPERATOR_ASSIGNED:       { label: 'Operator təyin',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
+  EQUIPMENT_DISPATCHED:    { label: 'Yüklənib',         cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
+  DELIVERED:               { label: 'Təhvil-təslim',    cls: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' },
+  REJECTED:                { label: 'Rədd edildi',      cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
 }
 
 const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 
+// Mərhələ A — danışıq, Mərhələ B — icra
 const STAT_CARDS = [
   { id: 'ALL', label: 'Hamısı', icon: FileText, color: 'text-gray-500' },
-  { id: 'SENT_TO_COORDINATOR', label: 'Koordinatorda', icon: Send, color: 'text-purple-500' },
-  { id: 'OFFER_SENT', label: 'Gözdən keçirilir', icon: AlertCircle, color: 'text-amber-500' },
-  { id: 'ACCEPTED', label: 'Qəbul', icon: CheckCircle, color: 'text-green-500' },
+  { id: 'COORDINATOR_NEGOTIATING', label: 'Danışıq', icon: Send, color: 'text-purple-500' },
+  { id: 'COORDINATOR_PROPOSED', label: 'Təklif göndərildi', icon: AlertCircle, color: 'text-amber-500' },
+  { id: 'EXECUTION_READY', label: 'İcraya hazır', icon: UserPlus, color: 'text-lime-500' },
+  { id: 'OPERATOR_ASSIGNED', label: 'Operator təyin', icon: PackageCheck, color: 'text-emerald-500' },
+  { id: 'EQUIPMENT_DISPATCHED', label: 'Yüklənib', icon: Truck, color: 'text-green-500' },
+  { id: 'DELIVERED', label: 'Təhvil-təslim', icon: CheckCircle, color: 'text-green-600' },
   { id: 'REJECTED', label: 'Rədd', icon: XCircle, color: 'text-red-500' },
 ]
 
@@ -96,30 +103,53 @@ export default function CoordinatorPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [filterOpen])
 
-  const handleAccept = async (r, e) => {
+  const handleReject = async (r, e) => {
     e.stopPropagation()
-    if (!(await confirm({ title: 'Təklifi təsdiq et', message: `"${r.companyName}" üçün təklif təsdiq edilsin? Layihələr moduluna göndəriləcək.`, danger: false }))) return
+    if (!(await confirm({ title: 'Sorğunu ləğv et', message: `"${r.companyName}" üçün sorğu ləğv edilsin?` }))) return
     setActionLoading(r.requestId)
     try {
-      await coordinatorApi.acceptOffer(r.requestId)
-      toast.success('Təklif təsdiq edildi — layihə yaradıldı')
+      await coordinatorApi.rejectOffer(r.requestId)
+      toast.success('Sorğu ləğv edildi')
       load()
-    } catch {
-    } finally {
+    } catch {} finally {
       setActionLoading(null)
     }
   }
 
-  const handleReject = async (r, e) => {
+  const handleVerifyDocs = async (r, e) => {
     e.stopPropagation()
-    if (!(await confirm({ title: 'Təklifi ləğv et', message: `"${r.companyName}" üçün təklif ləğv edilsin?` }))) return
     setActionLoading(r.requestId)
     try {
-      await coordinatorApi.rejectOffer(r.requestId)
-      toast.success('Təklif ləğv edildi')
+      await coordinatorApi.verifyEquipmentDocs(r.requestId)
+      toast.success('Texnika sənədləri yoxlanıldı')
       load()
-    } catch {
-    } finally {
+    } catch {} finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDispatch = async (r, e) => {
+    e.stopPropagation()
+    if (!(await confirm({ title: 'Yükləmə və göndərmə', message: `"${r.companyName}" üçün texnika yüklənib göndərildi?` }))) return
+    setActionLoading(r.requestId)
+    try {
+      await coordinatorApi.dispatch(r.requestId)
+      toast.success('Texnika göndərildi')
+      load()
+    } catch {} finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeliver = async (r, e) => {
+    e.stopPropagation()
+    if (!(await confirm({ title: 'Təhvil-təslim', message: `"${r.companyName}" üçün təhvil-təslim tamamlandı?` }))) return
+    setActionLoading(r.requestId)
+    try {
+      await coordinatorApi.deliver(r.requestId, null)
+      toast.success('Təhvil-təslim tamamlandı — layihə aktivdir')
+      load()
+    } catch {} finally {
       setActionLoading(null)
     }
   }
@@ -314,9 +344,9 @@ export default function CoordinatorPage() {
                 </tr>
               ) : (
                 data.content.filter(r => (!regionFilter || r.region === regionFilter) && (!sourceFilter || r.ownershipType === sourceFilter)).map((r) => {
-                  const status = r.hasPendingSubmit && r.requestStatus === 'SENT_TO_COORDINATOR'
-                    ? { label: 'Təklif dəyərləndirilir', cls: 'bg-violet-50 text-violet-700 border-violet-200' }
-                    : STATUS_CONFIG[r.requestStatus] || STATUS_CONFIG.SENT_TO_COORDINATOR
+                  const status = r.hasPendingSubmit && r.requestStatus === 'COORDINATOR_NEGOTIATING'
+                    ? { label: 'Təklif təsdiqlənir', cls: 'bg-violet-50 text-violet-700 border-violet-200' }
+                    : STATUS_CONFIG[r.requestStatus] || { label: r.requestStatus, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
                   const total = parseFloat(r.totalAmount || 0)
                   const profit = parseFloat(r.companyProfit || 0)
                   const hasPlan = !!r.planId
@@ -367,7 +397,7 @@ export default function CoordinatorPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1.5 justify-end flex-wrap">
-                          {!['ACCEPTED', 'REJECTED'].includes(r.requestStatus) && canGet && (
+                          {!['REJECTED', 'DELIVERED'].includes(r.requestStatus) && canGet && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setSelected(r) }}
                               className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 px-2.5 py-1.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors whitespace-nowrap"
@@ -377,33 +407,68 @@ export default function CoordinatorPage() {
                             </button>
                           )}
 
-                          {r.requestStatus === 'OFFER_SENT' && canPut && (
+                          {r.requestStatus === 'EXECUTION_READY' && canPut && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelected(r) }}
+                              className="flex items-center gap-1 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                              title="Operator təyin et"
+                            >
+                              <UserPlus size={13} />
+                              Operator
+                            </button>
+                          )}
+
+                          {r.requestStatus === 'OPERATOR_ASSIGNED' && canPut && (
                             <>
+                              {!r.equipmentDocsVerified && (
+                                <button
+                                  disabled={actionLoading === r.requestId}
+                                  onClick={(e) => handleVerifyDocs(r, e)}
+                                  className="flex items-center gap-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                                  title="Texnika sənədlərini yoxlandı kimi işarələ"
+                                >
+                                  <PackageCheck size={13} />
+                                  Sənəd OK
+                                </button>
+                              )}
                               <button
-                                disabled={actionLoading === r.requestId}
-                                onClick={(e) => handleAccept(r, e)}
-                                className="flex items-center gap-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-                                title="Təklifi təsdiq et — Layihələrə göndər"
+                                disabled={actionLoading === r.requestId || !r.equipmentDocsVerified}
+                                onClick={(e) => handleDispatch(r, e)}
+                                className="flex items-center gap-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
                               >
-                                <CheckCircle size={13} />
-                                Təsdiq
-                              </button>
-                              <button
-                                disabled={actionLoading === r.requestId}
-                                onClick={(e) => handleReject(r, e)}
-                                className="flex items-center gap-1 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-                                title="Təklifi ləğv et"
-                              >
-                                <XCircle size={13} />
-                                Ləğv et
+                                <Truck size={13} />
+                                Göndər
                               </button>
                             </>
                           )}
 
-                          {r.requestStatus === 'ACCEPTED' && (
+                          {r.requestStatus === 'EQUIPMENT_DISPATCHED' && canPut && (
+                            <button
+                              disabled={actionLoading === r.requestId}
+                              onClick={(e) => handleDeliver(r, e)}
+                              className="flex items-center gap-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                            >
+                              <CheckCircle size={13} />
+                              Təhvil
+                            </button>
+                          )}
+
+                          {!['REJECTED', 'DELIVERED'].includes(r.requestStatus) && canPut && (
+                            <button
+                              disabled={actionLoading === r.requestId}
+                              onClick={(e) => handleReject(r, e)}
+                              className="flex items-center gap-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                              title="Sorğunu ləğv et"
+                            >
+                              <XCircle size={13} />
+                              Ləğv
+                            </button>
+                          )}
+
+                          {r.requestStatus === 'DELIVERED' && (
                             <span className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
                               <CheckCircle size={13} />
-                              Layihəyə göndərildi
+                              Tamamlandı
                             </span>
                           )}
                           {r.requestStatus === 'REJECTED' && (

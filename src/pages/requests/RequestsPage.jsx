@@ -20,10 +20,11 @@ const PAGE_SIZES = [15, 25, 50, 100]
 const STAT_CARDS = [
   { id: 'ALL', label: 'Hamısı', icon: FileText, color: 'text-gray-500' },
   { id: 'DRAFT', label: 'Qaralama', icon: FileText, color: 'text-gray-400' },
-  { id: 'PENDING', label: 'Hazırdır', icon: Clock, color: 'text-blue-500' },
-  { id: 'SENT_TO_COORDINATOR', label: 'Kordinatorda', icon: SendIcon, color: 'text-purple-500' },
-  { id: 'OFFER_SENT', label: 'Gözdən keçirilir', icon: AlertCircle, color: 'text-amber-500' },
-  { id: 'ACCEPTED', label: 'Qəbul', icon: CheckCircle, color: 'text-green-500' },
+  { id: 'PENDING', label: 'PM-ə yönləndirildi', icon: SendIcon, color: 'text-blue-500' },
+  { id: 'PM_REVIEW', label: 'PM nəzərdə', icon: Clock, color: 'text-sky-500' },
+  { id: 'COORDINATOR_NEGOTIATING', label: 'Koordinatorda', icon: SendIcon, color: 'text-purple-500' },
+  { id: 'PM_PRICE_NEGOTIATION', label: 'Sifarişçi ilə', icon: AlertCircle, color: 'text-amber-500' },
+  { id: 'DELIVERED', label: 'Tamamlandı', icon: CheckCircle, color: 'text-green-500' },
   { id: 'REJECTED', label: 'Rədd', icon: XCircle, color: 'text-red-500' },
 ]
 
