@@ -133,13 +133,20 @@ function EquipmentBar({ stats, navigate }) {
 ───────────────────────────────────────────── */
 function StatusPill({ status }) {
   const map = {
-    DRAFT:               { label: 'Qaralama',         cls: 'bg-gray-100 text-gray-500' },
-    PENDING:             { label: 'Gözləmədə',        cls: 'bg-yellow-100 text-yellow-700' },
-    SUBMITTED:           { label: 'Göndərildi',       cls: 'bg-blue-100 text-blue-700' },
-    SENT_TO_COORDINATOR: { label: 'İstənmədi',        cls: 'bg-orange-100 text-orange-600' },
-    OFFER_SENT:          { label: 'Teklif göndərildi',cls: 'bg-teal-100 text-teal-700' },
-    ACCEPTED:            { label: 'İcra edilməyib',   cls: 'bg-red-100 text-red-600' },
-    REJECTED:            { label: 'Rədd edildi',      cls: 'bg-red-100 text-red-600' },
+    DRAFT:                    { label: 'Qaralama',         cls: 'bg-gray-100 text-gray-500' },
+    PENDING:                  { label: 'PM-ə yönləndirildi', cls: 'bg-blue-100 text-blue-700' },
+    PM_REVIEW:                { label: 'PM nəzərdə',       cls: 'bg-sky-100 text-sky-700' },
+    PM_SHORTLIST_READY:       { label: 'Shortlist hazır',  cls: 'bg-indigo-100 text-indigo-700' },
+    COORDINATOR_NEGOTIATING:  { label: 'Koordinatorda',    cls: 'bg-purple-100 text-purple-700' },
+    COORDINATOR_PROPOSED:     { label: 'Təklif PM-ə',      cls: 'bg-fuchsia-100 text-fuchsia-700' },
+    PM_PRICE_NEGOTIATION:     { label: 'Sifarişçi ilə',    cls: 'bg-amber-100 text-amber-700' },
+    PM_APPROVED:              { label: 'PM təsdiqlədi',    cls: 'bg-teal-100 text-teal-700' },
+    ACCOUNTING_DOCS_CHECK:    { label: 'Mühasibatda',      cls: 'bg-cyan-100 text-cyan-700' },
+    EXECUTION_READY:          { label: 'İcraya hazır',     cls: 'bg-lime-100 text-lime-700' },
+    OPERATOR_ASSIGNED:        { label: 'Operator təyin',   cls: 'bg-emerald-100 text-emerald-700' },
+    EQUIPMENT_DISPATCHED:     { label: 'Yüklənib',         cls: 'bg-green-100 text-green-700' },
+    DELIVERED:                { label: 'Təhvil-təslim',    cls: 'bg-green-200 text-green-800' },
+    REJECTED:                 { label: 'Rədd edildi',      cls: 'bg-red-100 text-red-600' },
   }
   const cfg = map[status] || { label: status, cls: 'bg-gray-100 text-gray-500' }
   return (
@@ -198,7 +205,7 @@ export default function DashboardPage() {
   const activeProjects    = projects.filter(p => p.status === 'ACTIVE')
   const pendingProjects   = projects.filter(p => p.status === 'PENDING')
   const completedProjects = projects.filter(p => p.status === 'COMPLETED')
-  const pendingRequests   = requests.filter(r => ['DRAFT','PENDING','SENT_TO_COORDINATOR'].includes(r.status))
+  const pendingRequests   = requests.filter(r => ['DRAFT','PENDING','PM_REVIEW','PM_SHORTLIST_READY','COORDINATOR_NEGOTIATING','COORDINATOR_PROPOSED','PM_PRICE_NEGOTIATION'].includes(r.status))
   const urgentProjects    = activeProjects.filter(p => {
     if (!p.endDate) return false
     return Math.ceil((new Date(p.endDate) - new Date()) / 86400000) <= 3

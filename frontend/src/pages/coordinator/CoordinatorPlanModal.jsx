@@ -282,7 +282,8 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
     : contrDailyRate * (autoDayCount || 0)
   const companyProfit = totalAmount - contrPaymentTotal - opPayment
 
-  const isReadonly = request.requestStatus !== 'SENT_TO_COORDINATOR'
+  // Yalnız danışıq mərhələsində (COORDINATOR_NEGOTIATING) plan redaktə edilə bilər
+  const isReadonly = request.requestStatus !== 'COORDINATOR_NEGOTIATING'
 
   const doSave = async () => {
     const payload = {
