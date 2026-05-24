@@ -1,6 +1,779 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *, .galactic, .galactic *));
+
+/* ────────────────────────────────────────────────
+   CES ERP Design Tokens (UI Kit)
+   Reference: cesfrontvibecode/ui-kit/ui-kit.css
+──────────────────────────────────────────────── */
+:root {
+  --ces-graphite: #3a3a3a;
+  --ces-graphite-900: #262626;
+  --ces-graphite-100: #ececec;
+  --ces-graphite-50: #f4f4f4;
+  --ces-gold: #c8932a;
+  --ces-gold-700: #a87a1c;
+  --ces-gold-100: #f6e8c2;
+  --ces-gold-50: #fbf3dc;
+  --ces-ink: #1a1a1a;
+  --ces-muted: #6b6b6b;
+  --ces-mute2: #9a9a9a;
+  --ces-line: #e6e6e6;
+  --ces-line-2: #ececec;
+  --ces-bg: #f7f5f1;
+  --ces-surface: #ffffff;
+  --ces-surface-2: #fbfaf6;
+  --ces-surface-3: #f4f2ed;
+  --ces-on-primary: #ffffff;
+  --ces-on-gold: #ffffff;
+  --ces-alt: #7d4ec9;
+  --ces-ok: #0f9d6a;
+  --ces-ok-100: #e8fbe5;
+  --ces-warn: #e08a00;
+  --ces-warn-100: #fff4dc;
+  --ces-danger: #d4385a;
+  --ces-danger-100: #fdeaef;
+  --ces-info: #2563c8;
+  --ces-info-100: #e3edfb;
+  --ces-radius: 14px;
+  --ces-radius-lg: 20px;
+  --ces-shadow-sm: 0 1px 2px rgba(58,58,58,.06), 0 1px 1px rgba(58,58,58,.04);
+  --ces-shadow: 0 8px 24px -12px rgba(58,58,58,.18), 0 2px 6px rgba(58,58,58,.06);
+  --ces-shadow-lg: 0 24px 48px -20px rgba(58,58,58,.28), 0 6px 14px rgba(58,58,58,.08);
+  --ces-toast-bg: #262626;
+  --ces-toast-fg: #ffffff;
+  --ces-backdrop: rgba(58, 58, 58, 0.45);
+  --ces-brand-bg: #3a3a3a;
+  --ces-brand-fg: #ffffff;
+}
+
+/* ────────────────────────────────────────────────
+   Dark theme overrides
+   Mirrors cesfrontvibecode/ui-kit/ui-kit-dark.css
+──────────────────────────────────────────────── */
+.dark {
+  --ces-graphite: #e5e5e5;
+  --ces-graphite-900: #f0f0f1;
+  --ces-graphite-100: #26262a;
+  --ces-graphite-50: #1d1d20;
+  --ces-gold: #d9a73a;
+  --ces-gold-700: #b88a23;
+  --ces-gold-100: rgba(217, 167, 58, .18);
+  --ces-gold-50: rgba(217, 167, 58, .08);
+  --ces-ink: #f4f4f4;
+  --ces-muted: #a3a3a8;
+  --ces-mute2: #6b6b70;
+  --ces-line: #2a2a2e;
+  --ces-line-2: #222226;
+  --ces-bg: #0c0c0e;
+  --ces-surface: #161618;
+  --ces-surface-2: #1d1d20;
+  --ces-surface-3: #232327;
+  --ces-on-primary: #1a1a1a;
+  --ces-on-gold: #1a1a1a;
+  --ces-alt: #9a6df0;
+  --ces-ok: #22b87a;
+  --ces-ok-100: rgba(34, 184, 122, .16);
+  --ces-warn: #f0a020;
+  --ces-warn-100: rgba(240, 160, 32, .16);
+  --ces-danger: #e54a6e;
+  --ces-danger-100: rgba(229, 74, 110, .16);
+  --ces-info: #3d7eea;
+  --ces-info-100: rgba(61, 126, 234, .16);
+  --ces-shadow-sm: 0 1px 2px rgba(0,0,0,.5);
+  --ces-shadow: 0 8px 24px -10px rgba(0,0,0,.65), 0 2px 6px rgba(0,0,0,.4);
+  --ces-shadow-lg: 0 24px 48px -16px rgba(0,0,0,.8), 0 6px 14px rgba(0,0,0,.5);
+  --ces-toast-bg: #06060a;
+  --ces-toast-fg: #ffffff;
+  --ces-backdrop: rgba(0, 0, 0, 0.65);
+  --ces-brand-bg: #1a1a1a;
+  --ces-brand-fg: #ffffff;
+
+  color-scheme: dark;
+}
+
+/* ════════════════════════════════════════════════════════
+   Galactic theme — cosmic ultraviolet + magenta nebula
+   Faithful port of cesfrontvibecode/ui-kit/ui-kit-galactic.css
+═══════════════════════════════════════════════════════ */
+.galactic {
+  /* ─── Tokens (semi-transparent for glassmorphism) ─── */
+  --ces-graphite: #8b6cff;
+  --ces-graphite-900: #5d3df5;
+  --ces-graphite-100: rgba(48, 38, 96, .7);
+  --ces-graphite-50: rgba(38, 30, 84, .55);
+  --ces-gold: #ffd35c;
+  --ces-gold-700: #e6b53d;
+  --ces-gold-100: rgba(255, 211, 92, .18);
+  --ces-gold-50: rgba(255, 211, 92, .08);
+  --ces-ink: #f1ecff;
+  --ces-muted: #a8a3d6;
+  --ces-mute2: #6f6aa3;
+  --ces-line: rgba(140, 110, 255, .22);
+  --ces-line-2: rgba(140, 110, 255, .12);
+  --ces-bg: #06061a;
+  --ces-surface: rgba(22, 18, 54, .78);
+  --ces-surface-2: rgba(38, 30, 84, .72);
+  --ces-surface-3: #2a2168;
+  --ces-on-primary: #ffffff;
+  --ces-on-gold: #1a1208;
+  --ces-alt: #ff5cd6;
+  --ces-violet: #8b6cff;
+  --ces-violet-deep: #5d3df5;
+  --ces-violet-100: rgba(139, 108, 255, .2);
+  --ces-magenta: #ff5cd6;
+  --ces-cyan: #4cd5ff;
+  --ces-ok: #45e6a8;
+  --ces-ok-100: rgba(69, 230, 168, .16);
+  --ces-warn: #ffae3d;
+  --ces-warn-100: rgba(255, 174, 61, .16);
+  --ces-danger: #ff5c8a;
+  --ces-danger-100: rgba(255, 92, 138, .16);
+  --ces-info: #4cd5ff;
+  --ces-info-100: rgba(76, 213, 255, .16);
+  --ces-shadow-sm: 0 1px 2px rgba(0, 0, 0, .5), 0 0 0 1px rgba(140, 110, 255, .06);
+  --ces-shadow: 0 8px 32px -10px rgba(93, 61, 245, .45), 0 2px 6px rgba(0, 0, 0, .4);
+  --ces-shadow-lg: 0 30px 60px -16px rgba(139, 108, 255, .5), 0 6px 14px rgba(0, 0, 0, .5);
+  --ces-glow-violet: 0 0 24px rgba(139, 108, 255, .45);
+  --ces-glow-gold: 0 0 24px rgba(255, 211, 92, .45);
+  --ces-glow-magenta: 0 0 24px rgba(255, 92, 214, .4);
+  --ces-toast-bg: #06061a;
+  --ces-toast-fg: #ffffff;
+  --ces-backdrop: radial-gradient(ellipse at center, rgba(48, 38, 120, .7), rgba(0, 0, 0, .85));
+  --ces-brand-bg: #06061a;
+  --ces-brand-fg: #f1ecff;
+
+  color-scheme: dark;
+}
+
+/* ─── Cosmic body background ─── */
+.galactic body {
+  background:
+    radial-gradient(ellipse 1200px 600px at 20% 0%, rgba(93, 61, 245, .25), transparent 60%),
+    radial-gradient(ellipse 900px 500px at 100% 30%, rgba(255, 92, 214, .16), transparent 65%),
+    radial-gradient(ellipse 1000px 700px at 30% 100%, rgba(76, 213, 255, .14), transparent 65%),
+    var(--ces-bg);
+  background-attachment: fixed;
+  color: var(--ces-ink);
+}
+
+/* ─── Starfield (twinkling stars) ─── */
+.galactic body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 32% 42%, #ffe4ff, transparent),
+    radial-gradient(1px 1px at 58% 12%, #d9c8ff, transparent),
+    radial-gradient(2px 2px at 78% 60%, #fff, transparent),
+    radial-gradient(1px 1px at 91% 28%, #b5e4ff, transparent),
+    radial-gradient(1.5px 1.5px at 4% 78%, #fff, transparent),
+    radial-gradient(1px 1px at 22% 88%, #f3d8ff, transparent),
+    radial-gradient(1.2px 1.2px at 44% 72%, #fff, transparent),
+    radial-gradient(1px 1px at 64% 92%, #c8e0ff, transparent),
+    radial-gradient(1.4px 1.4px at 86% 84%, #fff, transparent),
+    radial-gradient(1px 1px at 8% 36%, #c8e0ff, transparent),
+    radial-gradient(1.2px 1.2px at 50% 30%, #fff, transparent);
+  background-size: 100% 100%;
+  opacity: .85;
+  animation: ces-twinkle 6s ease-in-out infinite alternate;
+}
+
+/* ─── Nebula (drifting clouds) ─── */
+.galactic body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 80% 8%, rgba(255, 92, 214, .22), transparent 28%),
+    radial-gradient(circle at 12% 92%, rgba(76, 213, 255, .18), transparent 30%),
+    radial-gradient(circle at 60% 50%, rgba(139, 108, 255, .12), transparent 38%);
+  filter: blur(20px);
+  animation: ces-nebula-drift 22s ease-in-out infinite alternate;
+}
+
+@keyframes ces-twinkle {
+  0% { opacity: .6 }
+  50% { opacity: .95 }
+  100% { opacity: .7 }
+}
+@keyframes ces-nebula-drift {
+  0% { transform: translate(0, 0) }
+  100% { transform: translate(-30px, 20px) }
+}
+
+/* Lift app content above cosmic decorations */
+.galactic #root,
+.galactic body > * { position: relative; z-index: 1; }
+
+/* ─── Glassmorphism on all surface components ─── */
+.galactic .ces-modal,
+.galactic .ces-kpi-card,
+.galactic .ces-card,
+.galactic .ces-table-wrap,
+.galactic .ces-drawer,
+.galactic .ces-alert {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ─── Gradient primary button (violet) ─── */
+.galactic .ces-btn-primary {
+  background: linear-gradient(135deg, var(--ces-violet), var(--ces-violet-deep));
+  color: #fff;
+  box-shadow: 0 4px 16px -4px rgba(139, 108, 255, .6), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+.galactic .ces-btn-primary:hover {
+  background: linear-gradient(135deg, #a085ff, #6f4dff);
+  box-shadow: 0 6px 22px -4px rgba(139, 108, 255, .8), inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+
+/* ─── Gradient gold button ─── */
+.galactic .ces-btn-gold {
+  background: linear-gradient(135deg, var(--ces-gold), #e69c1f);
+  color: var(--ces-on-gold);
+  box-shadow: 0 4px 16px -4px rgba(255, 211, 92, .55), inset 0 1px 0 rgba(255, 255, 255, .3);
+}
+.galactic .ces-btn-gold:hover {
+  background: linear-gradient(135deg, #ffe07c, #e6a833);
+}
+
+/* ─── Gradient danger button ─── */
+.galactic .ces-btn-danger {
+  background: linear-gradient(135deg, var(--ces-danger), #e23d6f);
+  color: #fff;
+  box-shadow: 0 4px 14px -4px rgba(255, 92, 138, .5);
+}
+
+/* ─── Outline button with violet hover glow ─── */
+.galactic .ces-btn-outline {
+  background: transparent;
+  border-color: var(--ces-line);
+  color: var(--ces-ink);
+}
+.galactic .ces-btn-outline:hover {
+  border-color: var(--ces-violet);
+  background: rgba(139, 108, 255, .08);
+  box-shadow: 0 0 16px rgba(139, 108, 255, .25);
+}
+.galactic .ces-btn-outline.on {
+  background: var(--ces-violet);
+  color: #fff;
+  border-color: var(--ces-violet);
+  box-shadow: var(--ces-glow-violet);
+}
+
+/* ─── Ghost button ─── */
+.galactic .ces-btn-ghost { background: transparent; color: var(--ces-ink); }
+.galactic .ces-btn-ghost:hover { background: rgba(139, 108, 255, .12); }
+
+/* ─── Input / Select with cosmic glow on focus ─── */
+.galactic .ces-input {
+  background: rgba(10, 8, 30, .6);
+  border-color: var(--ces-line);
+}
+.galactic .ces-input:hover { border-color: rgba(139, 108, 255, .45); }
+.galactic .ces-input:focus-within {
+  border-color: var(--ces-violet);
+  box-shadow: 0 0 0 3px rgba(139, 108, 255, .18), 0 0 14px rgba(139, 108, 255, .25);
+}
+.galactic .ces-input.is-error {
+  border-color: var(--ces-danger);
+  box-shadow: 0 0 0 3px rgba(255, 92, 138, .18), 0 0 14px rgba(255, 92, 138, .25);
+}
+.galactic .ces-select {
+  background: rgba(10, 8, 30, .6);
+  border-color: var(--ces-line);
+  color: var(--ces-ink);
+}
+.galactic .ces-select:hover { border-color: var(--ces-violet); }
+.galactic .ces-select:focus {
+  border-color: var(--ces-violet);
+  box-shadow: 0 0 0 3px rgba(139, 108, 255, .18), 0 0 14px rgba(139, 108, 255, .25);
+}
+
+/* ─── Checkbox with violet glow when checked ─── */
+.galactic .ces-cb {
+  background: rgba(10, 8, 30, .6);
+  border-color: rgba(139, 108, 255, .4);
+}
+.galactic .ces-chk input:checked + .ces-cb {
+  background: var(--ces-violet);
+  border-color: var(--ces-violet);
+  box-shadow: 0 0 10px rgba(139, 108, 255, .5);
+}
+.galactic .ces-chk input:checked + .ces-cb::after { border-color: #fff; }
+
+/* ─── Segment / tab pills with gradient active ─── */
+.galactic .ces-seg {
+  background: rgba(38, 30, 84, .5);
+  border: 1px solid var(--ces-line);
+}
+.galactic .ces-seg button { color: var(--ces-muted); }
+.galactic .ces-seg button:hover { color: var(--ces-ink); }
+.galactic .ces-seg button.on {
+  background: linear-gradient(135deg, var(--ces-violet), var(--ces-violet-deep));
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(139, 108, 255, .4);
+}
+
+/* ─── Tab underline ─── */
+.galactic .ces-tab { color: var(--ces-muted); }
+.galactic .ces-tab:hover { color: var(--ces-ink); }
+.galactic .ces-tab.on {
+  color: var(--ces-ink);
+  border-bottom-color: var(--ces-gold);
+  text-shadow: 0 0 12px rgba(255, 211, 92, .4);
+}
+
+/* ─── Pills (status badges) ─── */
+.galactic .ces-pill { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05); }
+.galactic .ces-p-solid {
+  background: linear-gradient(135deg, var(--ces-violet), var(--ces-magenta));
+  color: #fff;
+  box-shadow: 0 0 12px rgba(255, 92, 214, .4);
+}
+.galactic .ces-p-mute { background: rgba(139, 108, 255, .14); color: var(--ces-muted); }
+
+/* ─── Sidebar items with neon active glow ─── */
+.galactic .ces-sb-item { color: rgba(241, 236, 255, .7); background: transparent; }
+.galactic .ces-sb-item:hover {
+  background: rgba(139, 108, 255, .14);
+  color: #fff;
+}
+.galactic .ces-sb-item.is-active {
+  background: linear-gradient(135deg, var(--ces-violet), var(--ces-violet-deep));
+  color: #fff;
+  box-shadow: 0 0 22px rgba(139, 108, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+.galactic .ces-sb-item.is-active:hover {
+  background: linear-gradient(135deg, #a085ff, #6f4dff);
+  color: #fff;
+}
+
+/* ─── Sidebar surface (sidebar uses inline `var(--ces-bg)` background) ─── */
+.galactic .ces-sidebar {
+  background: linear-gradient(180deg, #0e0a28, #08061e) !important;
+  box-shadow: var(--ces-shadow), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+/* ─── Topbar interactive buttons ─── */
+.galactic .ces-tb-btn { color: var(--ces-muted); }
+.galactic .ces-tb-btn:hover {
+  background: rgba(139, 108, 255, .14);
+  color: var(--ces-ink);
+}
+
+/* ─── Row action icons ─── */
+.galactic .ces-row-act:hover {
+  background: rgba(139, 108, 255, .18);
+  color: var(--ces-ink);
+}
+
+/* ─── Table hover ─── */
+.galactic .ces-tbl tbody tr:hover { background: rgba(139, 108, 255, .08); }
+.galactic .ces-tbl thead th { background: rgba(10, 8, 30, .6); }
+
+/* ─── Modal with cosmic gradient background ─── */
+.galactic .ces-modal {
+  background: linear-gradient(135deg, rgba(22, 18, 54, .95), rgba(10, 8, 30, .95));
+  border: 1px solid var(--ces-violet-100);
+  box-shadow: var(--ces-shadow-lg), 0 0 60px rgba(139, 108, 255, .35);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ─── KPI card hover lift ─── */
+.galactic .ces-kpi-card { transition: transform .2s, box-shadow .2s; }
+.galactic .ces-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px -10px rgba(139, 108, 255, .45);
+}
+
+/* ─── Scrollbar — violet tint ─── */
+.galactic .scrollbar-thin {
+  scrollbar-color: var(--ces-violet-100) transparent;
+}
+.galactic .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--ces-violet-100);
+}
+
+/* ─── Topbar — frosted glass header (mirrors .kit-top from spec) ─── */
+.galactic .ces-topbar {
+  background: linear-gradient(180deg, rgba(10, 8, 38, .92), rgba(8, 6, 28, .92)) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px -16px rgba(139, 108, 255, .4);
+}
+
+/* ─── Modal backdrop — cosmic radial gradient ─── */
+.galactic .ces-modal-backdrop,
+.galactic .ces-drawer-backdrop {
+  background: var(--ces-backdrop);
+}
+
+/* ─── Drawer (right slide-over) ─── */
+.galactic .ces-drawer {
+  background: linear-gradient(135deg, rgba(22, 18, 54, .95), rgba(10, 8, 30, .95));
+  border-left: 1px solid var(--ces-violet-100);
+  box-shadow: var(--ces-shadow-lg), 0 0 60px rgba(139, 108, 255, .35);
+}
+
+/* ─── Alert with side neon glow per tone ─── */
+.galactic .ces-alert.gold { box-shadow: -4px 0 18px -8px var(--ces-gold); }
+.galactic .ces-alert.danger {
+  background: rgba(255, 92, 138, .06);
+  box-shadow: -4px 0 18px -8px var(--ces-danger);
+}
+
+/* ─── Loading spinner gold glow ─── */
+.galactic .ces-spin-big {
+  border-color: var(--ces-line);
+  border-top-color: var(--ces-gold);
+  box-shadow: 0 0 20px rgba(255, 211, 92, .4);
+}
+
+/* ════════════════════════════════════════════════════════
+   Recharts — neon glow on every chart element
+═══════════════════════════════════════════════════════ */
+
+/* Bars, lines, areas — violet aura glow */
+.galactic .recharts-bar-rectangle,
+.galactic .recharts-bar-rectangle path,
+.galactic .recharts-bar > path {
+  filter: drop-shadow(0 0 6px rgba(139, 108, 255, .5));
+}
+.galactic .recharts-line .recharts-curve,
+.galactic .recharts-line-curve {
+  filter: drop-shadow(0 0 6px rgba(139, 108, 255, .45));
+}
+.galactic .recharts-area .recharts-area-area,
+.galactic .recharts-area-curve {
+  filter: drop-shadow(0 0 8px rgba(139, 108, 255, .35));
+}
+.galactic .recharts-pie .recharts-pie-sector,
+.galactic .recharts-pie .recharts-sector {
+  filter: drop-shadow(0 0 8px rgba(139, 108, 255, .4));
+}
+.galactic .recharts-line-dot,
+.galactic .recharts-dot {
+  filter: drop-shadow(0 0 4px rgba(255, 211, 92, .55));
+}
+.galactic .recharts-active-dot {
+  filter: drop-shadow(0 0 8px rgba(255, 211, 92, .7));
+}
+
+/* Grid lines — faint violet */
+.galactic .recharts-cartesian-grid line,
+.galactic .recharts-cartesian-grid-horizontal line,
+.galactic .recharts-cartesian-grid-vertical line {
+  stroke: rgba(139, 108, 255, .18) !important;
+}
+
+/* Axis tick labels — muted violet-tinted */
+.galactic .recharts-cartesian-axis-tick text,
+.galactic .recharts-text.recharts-cartesian-axis-tick-value {
+  fill: var(--ces-muted) !important;
+}
+
+/* Default tooltip wrapper — cosmic glow */
+.galactic .recharts-tooltip-wrapper {
+  filter: drop-shadow(0 0 16px rgba(139, 108, 255, .45));
+}
+.galactic .recharts-default-tooltip {
+  background: linear-gradient(135deg, rgba(22, 18, 54, .95), rgba(10, 8, 30, .95)) !important;
+  border: 1px solid var(--ces-violet-100) !important;
+  color: var(--ces-ink) !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.galactic .recharts-tooltip-item,
+.galactic .recharts-tooltip-label,
+.galactic .recharts-default-tooltip * {
+  color: var(--ces-ink) !important;
+}
+
+/* Pie labels + legend */
+.galactic .recharts-pie-label-text { fill: var(--ces-ink) !important; }
+.galactic .recharts-legend-item-text { color: var(--ces-muted) !important; }
+
+/* ════════════════════════════════════════════════════════
+   Toast — cosmic gradient (Toast.jsx reads --ces-toast-bg)
+═══════════════════════════════════════════════════════ */
+.galactic {
+  --ces-toast-bg: linear-gradient(135deg, #0a0828, #06061a);
+}
+
+/* ════════════════════════════════════════════════════════
+   Avatars — violet→deep gradient with inner highlight
+   (UserAvatar uses className "ces-avatar")
+═══════════════════════════════════════════════════════ */
+.galactic .ces-avatar,
+.galactic [data-ces-avatar] {
+  background: linear-gradient(135deg, var(--ces-violet), var(--ces-violet-deep)) !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .15);
+}
+
+/* ════════════════════════════════════════════════════════
+   Notification dropdown + user menu (Topbar inline-styled)
+   Targeted via position:absolute + var(--ces-surface) heuristic
+═══════════════════════════════════════════════════════ */
+.galactic .ces-topbar [class*="absolute"][class*="z-50"] {
+  background: linear-gradient(135deg, rgba(22, 18, 54, .95), rgba(10, 8, 30, .95)) !important;
+  border-color: var(--ces-violet-100) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--ces-shadow-lg), 0 0 30px rgba(139, 108, 255, .3) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Sidebar brand text glow + logo aura
+═══════════════════════════════════════════════════════ */
+.galactic .ces-sidebar img[alt="CES"] {
+  filter: drop-shadow(0 0 12px rgba(255, 211, 92, .5));
+}
+
+/* ════════════════════════════════════════════════════════
+   Theme toggle button — Sparkles icon glow in galactic
+═══════════════════════════════════════════════════════ */
+.galactic .ces-tb-btn svg {
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+/* ════════════════════════════════════════════════════════
+   Buttons with var(--ces-ok) / var(--ces-danger) — neon glow
+   These exist as inline-styled buttons across pages
+═══════════════════════════════════════════════════════ */
+.galactic button[style*="--ces-ok"]:not([style*="--ces-ok-100"]):not([style*="surface"]) {
+  filter: drop-shadow(0 0 8px rgba(69, 230, 168, .4));
+}
+.galactic button[style*="--ces-danger"]:not([style*="--ces-danger-100"]):not([style*="surface"]) {
+  filter: drop-shadow(0 0 8px rgba(255, 92, 138, .4));
+}
+
+/* ════════════════════════════════════════════════════════
+   Stepper indicators (RequestModal step circles)
+   Active = gold gradient + glow, Completed = ok gradient + glow
+═══════════════════════════════════════════════════════ */
+.galactic span[style*="var(--ces-gold)"][style*="borderRadius: 999"] {
+  background: linear-gradient(135deg, var(--ces-gold), #e6a833) !important;
+  box-shadow: 0 0 0 4px rgba(255, 211, 92, .25), 0 0 18px rgba(255, 211, 92, .5) !important;
+}
+.galactic span[style*="var(--ces-ok)"][style*="borderRadius: 999"] {
+  background: linear-gradient(135deg, var(--ces-ok), #22c98a) !important;
+  box-shadow: 0 0 10px rgba(69, 230, 168, .5) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Progress bars — gradient violet→magenta fill + glow
+   (Bars in Dashboard, projects, accounting)
+═══════════════════════════════════════════════════════ */
+.galactic div[style*="width:"][style*="var(--ces-ok)"]:not([style*="surface"]) {
+  background: linear-gradient(90deg, var(--ces-ok), #22c98a) !important;
+  box-shadow: 0 0 8px rgba(69, 230, 168, .45);
+}
+.galactic div[style*="width:"][style*="var(--ces-gold)"]:not([style*="surface"]) {
+  background: linear-gradient(90deg, var(--ces-gold), var(--ces-magenta)) !important;
+  box-shadow: 0 0 8px rgba(255, 211, 92, .45);
+}
+.galactic div[style*="width:"][style*="var(--ces-warn)"]:not([style*="surface"]) {
+  background: linear-gradient(90deg, var(--ces-warn), var(--ces-magenta)) !important;
+  box-shadow: 0 0 8px rgba(255, 174, 61, .45);
+}
+.galactic div[style*="width:"][style*="var(--ces-danger)"]:not([style*="surface"]) {
+  background: linear-gradient(90deg, var(--ces-danger), var(--ces-magenta)) !important;
+  box-shadow: 0 0 8px rgba(255, 92, 138, .45);
+}
+
+/* ════════════════════════════════════════════════════════
+   Skeleton loader — violet shimmer in galactic
+═══════════════════════════════════════════════════════ */
+.galactic [style*="ces-shimmer"] {
+  background: linear-gradient(90deg, rgba(139, 108, 255, .1) 0%, rgba(139, 108, 255, .25) 50%, rgba(139, 108, 255, .1) 100%) !important;
+  background-size: 200% 100% !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Search trigger button in Topbar — frosted glass
+═══════════════════════════════════════════════════════ */
+.galactic .ces-tb-search {
+  background: rgba(10, 8, 30, .5) !important;
+  border-color: var(--ces-violet-100) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.galactic .ces-tb-search:hover {
+  border-color: var(--ces-violet) !important;
+  box-shadow: 0 0 16px rgba(139, 108, 255, .25);
+}
+.galactic .ces-tb-search kbd {
+  background: rgba(139, 108, 255, .14) !important;
+  border-color: var(--ces-violet-100) !important;
+  color: var(--ces-ink) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Empty state — violet art color
+═══════════════════════════════════════════════════════ */
+.galactic .ces-empty-art,
+.galactic [class*="empty"] svg {
+  filter: drop-shadow(0 0 8px rgba(139, 108, 255, .4));
+}
+
+/* ════════════════════════════════════════════════════════
+   Date input calendar (DateInput.jsx today indicator)
+   today = violet→magenta gradient glow
+═══════════════════════════════════════════════════════ */
+.galactic .bg-amber-500 {
+  background: linear-gradient(135deg, var(--ces-gold), #e6a833) !important;
+  color: var(--ces-on-gold) !important;
+  box-shadow: 0 0 12px rgba(255, 211, 92, .5);
+}
+
+/* ════════════════════════════════════════════════════════
+   Notification badges (red circle on bell icon)
+═══════════════════════════════════════════════════════ */
+.galactic span[style*="var(--ces-danger)"][style*="border-radius"]:not([style*="surface"]) {
+  background: linear-gradient(135deg, var(--ces-danger), #e23d6f) !important;
+  box-shadow: 0 0 10px rgba(255, 92, 138, .5);
+}
+
+/* ════════════════════════════════════════════════════════
+   Sidebar logo container — keep white plate for logo per spec
+═══════════════════════════════════════════════════════ */
+.galactic .ces-sidebar > div:first-child > div:first-child {
+  background: linear-gradient(135deg, #fff, #f3e8ff) !important;
+  box-shadow: 0 0 18px rgba(255, 211, 92, .4) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Tile/card hover lifts in galactic — universal subtle glow
+═══════════════════════════════════════════════════════ */
+.galactic .ces-card:hover,
+.galactic .ces-kpi-card:hover {
+  box-shadow: 0 12px 36px -10px rgba(139, 108, 255, .45);
+}
+
+/* ════════════════════════════════════════════════════════
+   Star rating glow (Contractors, Investors)
+═══════════════════════════════════════════════════════ */
+.galactic .lucide-star[style*="var(--ces-gold)"],
+.galactic .fill-\[var\(--ces-gold\)\] {
+  filter: drop-shadow(0 0 6px rgba(255, 211, 92, .6));
+}
+
+/* ════════════════════════════════════════════════════════
+   Checkbox accent color (native checkboxes use accent-color CSS)
+═══════════════════════════════════════════════════════ */
+.galactic input[type="checkbox"] {
+  accent-color: var(--ces-violet);
+}
+.galactic input[type="radio"] {
+  accent-color: var(--ces-gold);
+}
+
+/* ════════════════════════════════════════════════════════
+   Form _shared.jsx inline-styled Input/Select/Textarea
+   These read --ces-line for focus border — already cosmic
+   but add explicit glow for filled state
+═══════════════════════════════════════════════════════ */
+.galactic input:focus,
+.galactic textarea:focus,
+.galactic select:focus {
+  outline: none;
+}
+.galactic .ces-input:focus-within,
+.galactic .ces-select:focus-within {
+  border-color: var(--ces-violet) !important;
+  box-shadow: 0 0 0 3px rgba(139, 108, 255, .18), 0 0 14px rgba(139, 108, 255, .25) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   PgBtn (Pagination component buttons) — gradient + glow on active
+═══════════════════════════════════════════════════════ */
+.galactic button[style*="var(--ces-graphite)"][style*="--ces-on-primary"]:not([style*="surface"]):not([style*="transparent"]) {
+  background: linear-gradient(135deg, var(--ces-violet), var(--ces-violet-deep)) !important;
+  border-color: var(--ces-violet) !important;
+  color: #fff !important;
+  box-shadow: 0 0 12px rgba(139, 108, 255, .4) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Brand panel decoration (auth pages) — cosmic enhanced
+═══════════════════════════════════════════════════════ */
+.galactic [style*="--ces-brand-bg"] {
+  background:
+    radial-gradient(ellipse 800px 500px at 20% 0%, rgba(93, 61, 245, .35), transparent 60%),
+    radial-gradient(ellipse 600px 400px at 100% 100%, rgba(255, 92, 214, .25), transparent 65%),
+    var(--ces-brand-bg) !important;
+}
+
+/* ════════════════════════════════════════════════════════
+   Card-action (dashed-border quick actions) in galactic
+═══════════════════════════════════════════════════════ */
+.galactic .ces-card-action {
+  background: transparent !important;
+  border: 1.5px dashed var(--ces-line) !important;
+}
+.galactic .ces-card-action:hover {
+  border-color: var(--ces-violet) !important;
+  background: rgba(139, 108, 255, .06) !important;
+  box-shadow: 0 0 28px rgba(139, 108, 255, .25);
+}
+
+/* ════════════════════════════════════════════════════════
+   Dashboard KPI Hero (revenue card)
+   Spec: linear-gradient(135deg, rgba(48,38,120,.7), rgba(22,18,54,.7))
+         + radial glow ::after + gold→fff gradient text
+═══════════════════════════════════════════════════════ */
+.galactic .ces-kpi-hero {
+  background: linear-gradient(135deg, rgba(48, 38, 120, .7), rgba(22, 18, 54, .7)) !important;
+  border-color: var(--ces-violet-100) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--ces-shadow), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.galactic .ces-kpi-hero-glow {
+  background: radial-gradient(closest-side, rgba(255, 211, 92, .35), rgba(255, 92, 214, .18), transparent 70%) !important;
+}
+/* KPI hero value — gradient text fill (the 42px revenue number) */
+.galactic .ces-kpi-hero > div:nth-of-type(3) {
+  background: linear-gradient(90deg, #fff, var(--ces-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Sparkline path glow in galactic */
+.galactic .ces-spark-line {
+  filter: drop-shadow(0 0 6px rgba(255, 211, 92, .55));
+}
+
+/* ════════════════════════════════════════════════════════
+   Dashboard Alert side-glow per tone (spec: -4px 0 18px -8px <tone>)
+═══════════════════════════════════════════════════════ */
+.galactic .ces-alert.info { box-shadow: -4px 0 18px -8px var(--ces-info); }
+.galactic .ces-alert.ok { box-shadow: -4px 0 18px -8px var(--ces-ok); }
+.galactic .ces-alert.warn { box-shadow: -4px 0 18px -8px var(--ces-warn); }
+.galactic .ces-alert.danger {
+  background: rgba(255, 92, 138, .06) !important;
+  box-shadow: -4px 0 18px -8px var(--ces-danger);
+}
+
+/* Page title + dashboard heading gradient text (subtle) */
+.galactic .ces-page-title {
+  background: linear-gradient(90deg, #fff, #d9c8ff 50%, var(--ces-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
 @layer base {
   * {
@@ -9,24 +782,398 @@
 
   body {
     margin: 0;
-    @apply bg-gray-50 text-gray-900 antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--ces-bg);
+    color: var(--ces-ink);
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
+
+  .ces-font {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  .num { font-feature-settings: "tnum" 1, "lnum" 1; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: "tnum" 1; }
+}
+
+/* ────────────────────────────────────────────────
+   CES UI Kit — component classes
+   Mirrors cesfrontvibecode/ui-kit/ui-kit.css using --ces-* tokens
+──────────────────────────────────────────────── */
+
+/* Headings / page chrome */
+.ces-page-title { font-size: 28px; font-weight: 800; letter-spacing: -.022em; line-height: 1.1; color: var(--ces-ink); margin: 0; }
+.ces-page-sub { font-size: 13px; color: var(--ces-muted); margin-top: 4px; }
+.ces-sec-label { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ces-muted); }
+
+/* Buttons */
+.ces-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 14px; line-height: 1;
+  padding: 11px 16px; border-radius: 10px;
+  border: 1px solid transparent; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s, transform .08s;
+  white-space: nowrap; font-family: inherit;
+}
+.ces-btn:active { transform: translateY(1px); }
+.ces-btn[disabled] { opacity: .5; cursor: not-allowed; pointer-events: none; }
+.ces-btn-primary { background: var(--ces-graphite); color: var(--ces-on-primary); }
+.ces-btn-primary:hover { background: var(--ces-graphite-900); }
+.ces-btn-gold { background: var(--ces-gold); color: var(--ces-on-gold); }
+.ces-btn-gold:hover { background: var(--ces-gold-700); }
+.ces-btn-outline { background: var(--ces-surface); border-color: var(--ces-line); color: var(--ces-ink); }
+.ces-btn-outline:hover { border-color: var(--ces-graphite); }
+.ces-btn-outline.on { background: var(--ces-graphite); color: var(--ces-on-primary); border-color: var(--ces-graphite); }
+.ces-btn-ghost { background: transparent; color: var(--ces-ink); }
+.ces-btn-ghost:hover { background: var(--ces-graphite-50); }
+.ces-btn-danger { background: var(--ces-danger); color: #fff; }
+.ces-btn-danger:hover { background: #b62b4a; }
+.ces-btn-sm { padding: 8px 12px; font-size: 13px; border-radius: 8px; }
+.ces-btn-xs { padding: 6px 10px; font-size: 12px; border-radius: 7px; }
+.ces-btn-icon { padding: 0; width: 40px; height: 40px; justify-content: center; }
+.ces-btn-icon.ces-btn-sm { width: 32px; height: 32px; }
+
+/* Input / Select */
+.ces-input {
+  display: flex; align-items: center;
+  background: var(--ces-surface); border: 1px solid var(--ces-line); border-radius: 11px;
+  padding: 0 13px; transition: border-color .15s, box-shadow .15s; min-height: 44px;
+}
+.ces-input input, .ces-input textarea {
+  flex: 1; border: 0; outline: 0; background: transparent;
+  font-size: 14px; padding: 11px 0; color: var(--ces-ink); font-family: inherit;
+  resize: none; width: 100%;
+}
+.ces-input input::placeholder, .ces-input textarea::placeholder { color: var(--ces-mute2); }
+.ces-input:hover { border-color: var(--ces-mute2); }
+.ces-input:focus-within { border-color: var(--ces-gold); box-shadow: 0 0 0 3px var(--ces-gold-100); }
+.ces-input.is-error { border-color: var(--ces-danger); box-shadow: 0 0 0 3px var(--ces-danger-100); }
+.ces-input.has-icon svg { color: var(--ces-mute2); flex: none; margin-right: 8px; }
+.ces-input.sm { min-height: 36px; padding: 0 10px; }
+.ces-input.sm input { font-size: 13px; padding: 8px 0; }
+
+.ces-select {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--ces-surface); border: 1px solid var(--ces-line); border-radius: 11px;
+  padding: 12px 13px; font-size: 14px; cursor: pointer;
+  transition: border-color .15s; min-height: 44px; font-family: inherit;
+  color: var(--ces-ink);
+}
+.ces-select:hover { border-color: var(--ces-gold); }
+.ces-select:focus { outline: none; border-color: var(--ces-gold); box-shadow: 0 0 0 3px var(--ces-gold-100); }
+.ces-select.sm { padding: 7px 10px; font-size: 13px; border-radius: 8px; min-height: 36px; }
+
+/* Pill / badge */
+.ces-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 700; letter-spacing: .01em;
+}
+.ces-pill .d { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.ces-pill.sm { padding: 3px 8px; font-size: 11.5px; }
+.ces-p-ok { background: var(--ces-ok-100); color: var(--ces-ok); }
+.ces-p-warn { background: var(--ces-warn-100); color: var(--ces-warn); }
+.ces-p-danger { background: var(--ces-danger-100); color: var(--ces-danger); }
+.ces-p-info { background: var(--ces-info-100); color: var(--ces-info); }
+.ces-p-mute { background: var(--ces-graphite-100); color: var(--ces-muted); }
+.ces-p-gold { background: var(--ces-gold-100); color: var(--ces-gold-700); }
+.ces-p-solid { background: var(--ces-graphite); color: var(--ces-on-primary); }
+
+/* KPI card */
+.ces-kpi-card {
+  background: var(--ces-surface); border: 1px solid var(--ces-line);
+  border-radius: var(--ces-radius-lg); padding: 22px;
+  box-shadow: var(--ces-shadow-sm); transition: transform .15s, box-shadow .15s;
+}
+.ces-kpi-card:hover { transform: translateY(-1px); box-shadow: var(--ces-shadow); }
+.ces-kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ces-kpi-lab { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ces-muted); font-weight: 700; }
+.ces-kpi-ic { width: 36px; height: 36px; border-radius: 10px; background: var(--ces-graphite-50); color: var(--ces-graphite); display: grid; place-items: center; }
+.ces-kpi-ic.gold { background: var(--ces-gold-100); color: var(--ces-gold-700); }
+.ces-kpi-ic.ok { background: var(--ces-ok-100); color: var(--ces-ok); }
+.ces-kpi-ic.danger { background: var(--ces-danger-100); color: var(--ces-danger); }
+.ces-kpi-val { font-size: 34px; font-weight: 800; letter-spacing: -.025em; line-height: 1; font-feature-settings: "tnum" 1; }
+
+/* Table */
+.ces-table-wrap {
+  background: var(--ces-surface); border: 1px solid var(--ces-line);
+  border-radius: var(--ces-radius-lg); overflow: hidden;
+  box-shadow: var(--ces-shadow-sm);
+}
+.ces-table-tools {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 22px; gap: 16px; border-bottom: 1px solid var(--ces-line);
+}
+.ces-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.ces-tbl thead th {
+  text-align: left; padding: 12px 16px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ces-muted); border-bottom: 1px solid var(--ces-line); background: var(--ces-surface);
+}
+.ces-tbl thead th.r { text-align: right; }
+.ces-tbl thead th.w-chk { width: 48px; padding-right: 0; }
+.ces-tbl thead th.w-act { width: 42px; }
+.ces-tbl tbody td { padding: 14px 16px; border-bottom: 1px solid var(--ces-line-2); vertical-align: middle; }
+.ces-tbl tbody tr:last-child td { border-bottom: 0; }
+.ces-tbl tbody tr:hover { background: var(--ces-graphite-50); }
+.ces-tbl td.r { text-align: right; font-feature-settings: "tnum" 1; }
+
+.ces-row-act {
+  width: 30px; height: 30px; border-radius: 7px;
+  background: transparent; color: var(--ces-muted); font-size: 16px;
+  border: 0; cursor: pointer; display: inline-grid; place-items: center;
+  transition: background .15s, color .15s;
+}
+.ces-row-act:hover { background: var(--ces-graphite-50); color: var(--ces-ink); }
+.ces-row-act.danger:hover { background: var(--ces-danger-100); color: var(--ces-danger); }
+.ces-row-act.gold:hover { background: var(--ces-gold-100); color: var(--ces-gold-700); }
+.ces-row-act.info:hover { background: var(--ces-info-100); color: var(--ces-info); }
+
+/* Checkbox (kit-style) */
+.ces-chk { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; user-select: none; }
+.ces-chk input { display: none; }
+.ces-cb {
+  width: 18px; height: 18px; border-radius: 5px; border: 1.6px solid var(--ces-mute2);
+  background: var(--ces-surface); display: inline-grid; place-items: center; flex: none;
+  transition: background .15s, border-color .15s;
+}
+.ces-chk input:checked + .ces-cb { background: var(--ces-graphite); border-color: var(--ces-graphite); }
+.ces-chk input:checked + .ces-cb::after {
+  content: ""; width: 10px; height: 6px;
+  border: 2px solid var(--ces-on-primary); border-top: 0; border-right: 0;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+/* Filter chips row segment */
+.ces-seg { display: inline-flex; background: var(--ces-graphite-50); padding: 3px; border-radius: 10px; gap: 2px; }
+.ces-seg button {
+  padding: 8px 14px; font-size: 13px; font-weight: 600;
+  color: var(--ces-muted); border-radius: 8px;
+  background: transparent; border: 0; cursor: pointer; font-family: inherit;
+  transition: background .15s, color .15s;
+}
+.ces-seg button:hover { color: var(--ces-graphite); }
+.ces-seg button.on { background: var(--ces-graphite); color: var(--ces-on-primary); }
+
+/* Alert */
+.ces-alert {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; background: var(--ces-surface); border: 1px solid var(--ces-line);
+  border-left: 4px solid var(--ces-graphite); border-radius: 12px;
+}
+.ces-alert .ces-al-ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+.ces-alert.gold { border-left-color: var(--ces-gold); }
+.ces-alert.gold .ces-al-ic { background: var(--ces-gold-100); color: var(--ces-gold-700); }
+.ces-alert.danger { border-left-color: var(--ces-danger); background: var(--ces-danger-100); }
+.ces-alert.danger .ces-al-ic { background: var(--ces-danger-100); color: var(--ces-danger); }
+
+/* Form field */
+.ces-field { margin-bottom: 16px; }
+.ces-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 7px; color: var(--ces-ink); }
+.ces-field .req { color: var(--ces-danger); }
+.ces-hint { display: block; margin-top: 6px; font-size: 12px; color: var(--ces-muted); }
+.ces-err  { display: block; margin-top: 6px; font-size: 12px; color: var(--ces-danger); font-weight: 600; }
+
+/* Modal (kit-style) */
+.ces-modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--ces-backdrop); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.ces-modal {
+  position: relative; background: var(--ces-surface);
+  border: 1px solid var(--ces-line);
+  border-radius: 18px; box-shadow: var(--ces-shadow-lg);
+  width: 100%; max-width: 720px;
+  max-height: 92vh; display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.ces-modal-x {
+  position: absolute; top: 14px; right: 14px;
+  width: 30px; height: 30px; border-radius: 8px;
+  color: var(--ces-muted); background: transparent; border: 0; cursor: pointer;
+  display: inline-grid; place-items: center; transition: background .15s, color .15s;
+}
+.ces-modal-x:hover { background: var(--ces-graphite-50); color: var(--ces-graphite); }
+.ces-m-head { display: flex; gap: 14px; align-items: center; padding: 22px 26px 18px; border-bottom: 1px solid var(--ces-line); }
+.ces-m-ic { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--ces-graphite-50); color: var(--ces-graphite); }
+.ces-m-ic.gold { background: var(--ces-gold-100); color: var(--ces-gold-700); }
+.ces-m-ic.danger { background: var(--ces-danger-100); color: var(--ces-danger); }
+.ces-m-head h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: var(--ces-ink); }
+.ces-m-head p { margin: 2px 0 0; font-size: 13px; color: var(--ces-muted); }
+.ces-m-body { padding: 22px 26px; overflow-y: auto; flex: 1; }
+.ces-m-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 26px; border-top: 1px solid var(--ces-line); background: var(--ces-surface-2); }
+
+/* Slide-over (right drawer) */
+.ces-drawer-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--ces-backdrop); backdrop-filter: blur(4px);
+}
+.ces-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 51;
+  width: 100%; max-width: 540px;
+  background: var(--ces-surface);
+  display: flex; flex-direction: column;
+  box-shadow: var(--ces-shadow-lg);
+}
+.ces-drawer-head { padding: 22px 24px 18px; border-bottom: 1px solid var(--ces-line); display: flex; align-items: flex-start; gap: 12px; }
+.ces-drawer-body { padding: 22px 24px; overflow-y: auto; flex: 1; }
+.ces-drawer-foot { padding: 14px 24px; border-top: 1px solid var(--ces-line); background: var(--ces-surface-2); display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Card */
+.ces-card {
+  background: var(--ces-surface); border: 1px solid var(--ces-line);
+  border-radius: var(--ces-radius-lg); padding: 22px;
+  box-shadow: var(--ces-shadow-sm);
+}
+.ces-card h4 { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--ces-ink); }
+.ces-card-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13.5px; border-bottom: 1px dashed var(--ces-line); }
+.ces-card-row:last-child { border-bottom: 0; }
+.ces-card-row span { color: var(--ces-muted); }
+.ces-card-row b { font-weight: 700; color: var(--ces-ink); text-align: right; }
+
+/* Tabs */
+.ces-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--ces-line); }
+.ces-tab {
+  padding: 12px 18px; font-size: 14px; font-weight: 600;
+  color: var(--ces-muted); position: relative;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  background: transparent; border-top: 0; border-left: 0; border-right: 0;
+  cursor: pointer; font-family: inherit; transition: color .15s;
+}
+.ces-tab:hover { color: var(--ces-graphite); }
+.ces-tab.on { color: var(--ces-graphite); border-bottom-color: var(--ces-gold); }
+
+/* ────────────────────────────────────────────────
+   CES Sidebar — UI kit `.sd-item` hover/active states (light theme)
+──────────────────────────────────────────────── */
+.ces-sb-item {
+  color: var(--ces-graphite);
+  background: transparent;
+}
+.ces-sb-item:hover {
+  background: var(--ces-surface);
+  color: var(--ces-ink);
+}
+.ces-sb-item.is-active {
+  background: var(--ces-gold);
+  color: var(--ces-on-gold);
+}
+.ces-sb-item.is-active:hover {
+  background: var(--ces-gold-700);
+  color: var(--ces-on-gold);
+}
+
+.ces-sb-toggle {
+  color: var(--ces-muted);
+  background: transparent;
+}
+.ces-sb-toggle:hover {
+  background: var(--ces-graphite-100);
+  color: var(--ces-graphite);
+}
+
+.ces-sb-logout {
+  color: var(--ces-muted);
+  background: transparent;
+}
+.ces-sb-logout:hover {
+  background: rgba(212, 56, 90, 0.10);
+  color: var(--ces-danger);
+}
+
+/* Topbar interactive elements */
+.ces-tb-btn {
+  color: var(--ces-muted);
+  background: transparent;
+}
+.ces-tb-btn:hover {
+  background: var(--ces-graphite-50);
+  color: var(--ces-graphite);
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: var(--ces-mute2) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
+    background-color: var(--ces-mute2);
     border-radius: 3px;
   }
 }
+
+/* ────────────────────────────────────────────────
+   Dark-mode Tailwind utility shim
+   Re-maps the most common stock Tailwind colors used across the
+   codebase to design tokens, so existing `bg-white`, `text-gray-*`,
+   `border-gray-*` markup works in dark mode without per-file edits.
+──────────────────────────────────────────────── */
+:where(.dark, .galactic) .bg-white { background-color: var(--ces-surface) !important; }
+:where(.dark, .galactic) .bg-gray-50 { background-color: var(--ces-graphite-50) !important; }
+:where(.dark, .galactic) .bg-gray-100 { background-color: var(--ces-graphite-100) !important; }
+:where(.dark, .galactic) .bg-gray-200 { background-color: var(--ces-surface-3) !important; }
+:where(.dark, .galactic) .bg-neutral-50 { background-color: var(--ces-graphite-50) !important; }
+:where(.dark, .galactic) .bg-neutral-100 { background-color: var(--ces-graphite-100) !important; }
+:where(.dark, .galactic) .bg-slate-50 { background-color: var(--ces-graphite-50) !important; }
+:where(.dark, .galactic) .bg-slate-100 { background-color: var(--ces-graphite-100) !important; }
+:where(.dark, .galactic) .bg-stone-50 { background-color: var(--ces-graphite-50) !important; }
+:where(.dark, .galactic) .bg-stone-100 { background-color: var(--ces-graphite-100) !important; }
+:where(.dark, .galactic) .bg-zinc-50 { background-color: var(--ces-graphite-50) !important; }
+:where(.dark, .galactic) .bg-zinc-100 { background-color: var(--ces-graphite-100) !important; }
+
+:where(.dark, .galactic) .text-black { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-gray-900 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-gray-800 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-gray-700 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-gray-600 { color: var(--ces-muted) !important; }
+:where(.dark, .galactic) .text-gray-500 { color: var(--ces-muted) !important; }
+:where(.dark, .galactic) .text-gray-400 { color: var(--ces-mute2) !important; }
+:where(.dark, .galactic) .text-neutral-900,
+:where(.dark, .galactic) .text-neutral-800,
+:where(.dark, .galactic) .text-neutral-700 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-neutral-600,
+:where(.dark, .galactic) .text-neutral-500 { color: var(--ces-muted) !important; }
+:where(.dark, .galactic) .text-neutral-400 { color: var(--ces-mute2) !important; }
+:where(.dark, .galactic) .text-slate-900,
+:where(.dark, .galactic) .text-slate-800,
+:where(.dark, .galactic) .text-slate-700 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-slate-600,
+:where(.dark, .galactic) .text-slate-500 { color: var(--ces-muted) !important; }
+:where(.dark, .galactic) .text-slate-400 { color: var(--ces-mute2) !important; }
+:where(.dark, .galactic) .text-stone-900,
+:where(.dark, .galactic) .text-stone-800,
+:where(.dark, .galactic) .text-stone-700 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-stone-600,
+:where(.dark, .galactic) .text-stone-500 { color: var(--ces-muted) !important; }
+:where(.dark, .galactic) .text-zinc-900,
+:where(.dark, .galactic) .text-zinc-800,
+:where(.dark, .galactic) .text-zinc-700 { color: var(--ces-ink) !important; }
+:where(.dark, .galactic) .text-zinc-600,
+:where(.dark, .galactic) .text-zinc-500 { color: var(--ces-muted) !important; }
+
+:where(.dark, .galactic) .border-white { border-color: var(--ces-line) !important; }
+:where(.dark, .galactic) .border-gray-100,
+:where(.dark, .galactic) .border-gray-200 { border-color: var(--ces-line) !important; }
+:where(.dark, .galactic) .border-gray-300 { border-color: var(--ces-line-2) !important; }
+:where(.dark, .galactic) .border-neutral-100,
+:where(.dark, .galactic) .border-neutral-200 { border-color: var(--ces-line) !important; }
+:where(.dark, .galactic) .border-slate-100,
+:where(.dark, .galactic) .border-slate-200 { border-color: var(--ces-line) !important; }
+:where(.dark, .galactic) .border-stone-100,
+:where(.dark, .galactic) .border-stone-200 { border-color: var(--ces-line) !important; }
+:where(.dark, .galactic) .border-zinc-100,
+:where(.dark, .galactic) .border-zinc-200 { border-color: var(--ces-line) !important; }
+
+:where(.dark, .galactic) .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+:where(.dark, .galactic) .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--ces-line) !important; }
+
+:where(.dark, .galactic) .hover\:bg-gray-50:hover { background-color: var(--ces-graphite-50) !important; }
+:where(.dark, .galactic) .hover\:bg-gray-100:hover { background-color: var(--ces-graphite-100) !important; }
+:where(.dark, .galactic) .hover\:bg-white:hover { background-color: var(--ces-surface) !important; }
 
 @media print {
   /* Hide everything except the printable area */
@@ -50,4 +1197,8 @@
 
   /* Hide scrollbars, overflow */
   * { overflow: visible !important; box-shadow: none !important; }
+}
+
+@keyframes ces-spin {
+  to { transform: rotate(360deg); }
 }

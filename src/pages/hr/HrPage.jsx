@@ -2,71 +2,29 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, Calculator, Calendar, ClipboardList,
-  Briefcase, Settings, TrendingUp, FileText,
+  Briefcase, Settings, TrendingUp, ArrowRight,
 } from 'lucide-react'
 import { hrApi } from '../../api/hr'
+import { PageHeader, Pill } from './_shared'
+import { fmtMoney } from './_constants'
 
 const CARDS = [
-  {
-    id: 'employees',
-    title: 'İşçilər',
-    description: 'İşçilərin idarə edilməsi, məlumatları, statusu',
-    icon: Users,
-    color: 'amber',
-    path: '/hr/employees',
-  },
-  {
-    id: 'payroll',
-    title: 'Əməkhaqqı Cədvəli',
-    description: 'Aylıq əməkhaqqı, vergi və sığorta hesablamaları',
-    icon: Calculator,
-    color: 'emerald',
-    path: '/hr/payroll',
-  },
-  {
-    id: 'attendance',
-    title: 'Davamiyyət',
-    description: 'İş günü, məzuniyyət və davamiyyətin izlənməsi',
-    icon: Calendar,
-    color: 'indigo',
-    path: '/hr/attendance',
-  },
-  {
-    id: 'leaves',
-    title: 'Məzuniyyət',
-    description: 'Məzuniyyət tələbləri və təsdiq prosesi',
-    icon: ClipboardList,
-    color: 'rose',
-    path: '/hr/leaves',
-  },
-  {
-    id: 'positions',
-    title: 'Vəzifələr',
-    description: 'Vəzifə kataloqu və default əməkhaqqılar',
-    icon: Briefcase,
-    color: 'sky',
-    path: '/hr/positions',
-  },
-  {
-    id: 'tax-config',
-    title: 'Vergi Tarifləri',
-    description: 'İllik vergi və sığorta faizlərinin konfiqurasiyası',
-    icon: Settings,
-    color: 'violet',
-    path: '/hr/tax-config',
-  },
+  { id: 'employees',  title: 'İşçilər',           description: 'İşçilərin idarə edilməsi, məlumatları, statusu',                  icon: Users,        path: '/hr/employees',   tone: 'gold' },
+  { id: 'payroll',    title: 'Əməkhaqqı Cədvəli', description: 'Aylıq əməkhaqqı, vergi və sığorta hesablamaları',                  icon: Calculator,   path: '/hr/payroll',     tone: 'ok' },
+  { id: 'attendance', title: 'Davamiyyət',        description: 'İş günü, məzuniyyət və davamiyyətin izlənməsi',                    icon: Calendar,     path: '/hr/attendance',  tone: 'info' },
+  { id: 'leaves',     title: 'Məzuniyyət',        description: 'Məzuniyyət tələbləri və təsdiq prosesi',                            icon: ClipboardList, path: '/hr/leaves',     tone: 'danger' },
+  { id: 'positions',  title: 'Vəzifələr',         description: 'Vəzifə kataloqu və default əməkhaqqılar',                          icon: Briefcase,    path: '/hr/positions',   tone: 'muted' },
+  { id: 'tax-config', title: 'Vergi Tarifləri',   description: 'İllik vergi və sığorta faizlərinin konfiqurasiyası',               icon: Settings,     path: '/hr/tax-config',  tone: 'warn' },
 ]
 
-const COLOR_MAP = {
-  amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800', hover: 'hover:border-amber-400 hover:shadow-lg hover:shadow-amber-100/50', icon: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400', title: 'text-amber-900 dark:text-amber-200' },
-  emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800', hover: 'hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-100/50', icon: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400', title: 'text-emerald-900 dark:text-emerald-200' },
-  indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-200 dark:border-indigo-800', hover: 'hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-100/50', icon: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400', title: 'text-indigo-900 dark:text-indigo-200' },
-  rose: { bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-800', hover: 'hover:border-rose-400 hover:shadow-lg hover:shadow-rose-100/50', icon: 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400', title: 'text-rose-900 dark:text-rose-200' },
-  sky: { bg: 'bg-sky-50 dark:bg-sky-900/20', border: 'border-sky-200 dark:border-sky-800', hover: 'hover:border-sky-400 hover:shadow-lg hover:shadow-sky-100/50', icon: 'bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400', title: 'text-sky-900 dark:text-sky-200' },
-  violet: { bg: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-200 dark:border-violet-800', hover: 'hover:border-violet-400 hover:shadow-lg hover:shadow-violet-100/50', icon: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400', title: 'text-violet-900 dark:text-violet-200' },
+const TONE_TO_BG = {
+  gold:   { bg: 'var(--ces-gold-100)',     color: 'var(--ces-gold-700)' },
+  ok:     { bg: 'var(--ces-ok-100)',                 color: 'var(--ces-ok)' },
+  info:   { bg: 'var(--ces-info-100)',                 color: 'var(--ces-info)' },
+  danger: { bg: 'var(--ces-danger-100)',                 color: 'var(--ces-danger)' },
+  warn:   { bg: 'var(--ces-warn-100)',                 color: 'var(--ces-warn)' },
+  muted:  { bg: 'var(--ces-graphite-50)',  color: 'var(--ces-graphite)' },
 }
-
-const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function HrPage() {
   const navigate = useNavigate()
@@ -76,69 +34,148 @@ export default function HrPage() {
     hrApi.getDashboard().then(r => setStats(r.data?.data ?? r.data)).catch(() => {})
   }, [])
 
+  const statCards = stats ? [
+    { label: 'Cəmi işçi',         value: stats.totalEmployees,        icon: Users,         tone: 'gold' },
+    { label: 'Aktiv',             value: stats.activeEmployees,       icon: TrendingUp,    tone: 'ok' },
+    { label: 'Məzuniyyətdə',      value: stats.onLeaveEmployees,      icon: Calendar,      tone: 'info' },
+    { label: 'Gözləyən tələblər', value: stats.pendingLeaveRequests,  icon: ClipboardList, tone: 'danger' },
+  ] : []
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">İnsan Resursları</h1>
-        <p className="text-sm text-gray-400 mt-1">İşçilər, əməkhaqqı və davamiyyətin idarə edilməsi</p>
-      </div>
+    <div style={{ color: 'var(--ces-ink)' }}>
+      <PageHeader
+        eyebrow="İnsan Resursları"
+        title="HR Modulları"
+        subtitle="İşçilər, əməkhaqqı, davamiyyət və vergi konfiqurasiyası"
+      />
 
+      {/* Stats grid */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Stat label="Cəmi işçi" value={stats.totalEmployees} icon={Users} accent="text-amber-600" />
-          <Stat label="Aktiv" value={stats.activeEmployees} icon={TrendingUp} accent="text-emerald-600" />
-          <Stat label="Məzuniyyətdə" value={stats.onLeaveEmployees} icon={Calendar} accent="text-indigo-600" />
-          <Stat label="Gözləyən tələblər" value={stats.pendingLeaveRequests} icon={ClipboardList} accent="text-rose-600" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {statCards.map((s) => {
+            const t = TONE_TO_BG[s.tone]
+            const Icon = s.icon
+            return (
+              <div
+                key={s.label}
+                className="flex items-center gap-3.5"
+                style={{
+                  background: 'var(--ces-surface)',
+                  border: '1px solid var(--ces-line)',
+                  borderRadius: 'var(--ces-radius-lg)',
+                  padding: '16px 18px',
+                  boxShadow: 'var(--ces-shadow-sm)',
+                }}
+              >
+                <span
+                  className="w-10 h-10 rounded-[10px] grid place-items-center flex-none"
+                  style={{ background: t.bg, color: t.color }}
+                >
+                  {Icon && <Icon size={18} />}
+                </span>
+                <div>
+                  <p className="text-[10.5px] font-bold uppercase tracking-[.14em]" style={{ color: 'var(--ces-muted)' }}>
+                    {s.label}
+                  </p>
+                  <p className="text-[22px] font-extrabold tracking-[-.02em] leading-none num mt-1" style={{ color: 'var(--ces-graphite-900)' }}>
+                    {s.value ?? 0}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
+      {/* Current month payroll banner */}
       {stats && stats.currentMonthEntryCount > 0 && (
-        <div className="mb-8 rounded-2xl border border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 font-bold">Bu ay</p>
-              <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mt-1">{stats.currentMonthLabel}</p>
-              <p className="text-xs text-gray-500 mt-1">Status: {stats.currentMonthStatus} — {stats.currentMonthEntryCount} işçi</p>
+        <div
+          className="flex overflow-hidden mb-6"
+          style={{
+            background: 'var(--ces-surface)',
+            border: '1px solid var(--ces-line)',
+            borderRadius: 'var(--ces-radius-lg)',
+            boxShadow: 'var(--ces-shadow-sm)',
+          }}
+        >
+          <div style={{ width: '6px', background: 'var(--ces-gold)' }} />
+          <div className="flex-1 p-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-[10.5px] font-bold uppercase tracking-[.16em] mb-1" style={{ color: 'var(--ces-gold)' }}>
+                  Bu ay
+                </p>
+                <p className="text-[18px] font-extrabold leading-tight" style={{ color: 'var(--ces-graphite-900)' }}>
+                  {stats.currentMonthLabel}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Pill tone="info" sm>{stats.currentMonthStatus}</Pill>
+                  <span className="text-[12px]" style={{ color: 'var(--ces-muted)' }}>
+                    <span className="num font-semibold" style={{ color: 'var(--ces-ink)' }}>{stats.currentMonthEntryCount}</span> işçi
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(`/hr/payroll/${stats.currentMonthPeriodId}`)}
+                className="ces-btn ces-btn-primary"
+              >
+                Cədvələ keç <ArrowRight size={14} />
+              </button>
             </div>
-            <button
-              onClick={() => navigate(`/hr/payroll/${stats.currentMonthPeriodId}`)}
-              className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
-            >
-              Cədvələ keç →
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-amber-200 dark:border-amber-800">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Gross</p>
-              <p className="text-base font-bold text-gray-800 dark:text-gray-100">{fmt(stats.currentMonthGross)} ₼</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Ödəniləcək</p>
-              <p className="text-base font-bold text-emerald-700 dark:text-emerald-400">{fmt(stats.currentMonthNet)} ₼</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">Şirkət xərci</p>
-              <p className="text-base font-bold text-rose-700 dark:text-rose-400">{fmt(stats.currentMonthCompanyCost)} ₼</p>
+            <div className="grid grid-cols-3 gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--ces-line)' }}>
+              <BannerStat label="Gross"        value={fmtMoney(stats.currentMonthGross)}       color="var(--ces-graphite-900)" />
+              <BannerStat label="Ödəniləcək"   value={fmtMoney(stats.currentMonthNet)}         color="var(--ces-ok)" />
+              <BannerStat label="Şirkət xərci" value={fmtMoney(stats.currentMonthCompanyCost)} color="var(--ces-info)" />
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {CARDS.map(card => {
-          const c = COLOR_MAP[card.color]
+      {/* Module cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {CARDS.map((card) => {
+          const t = TONE_TO_BG[card.tone]
           const Icon = card.icon
           return (
             <button
               key={card.id}
               onClick={() => navigate(card.path)}
-              className={`relative text-left rounded-2xl border p-6 transition-all duration-200 cursor-pointer ${c.bg} ${c.border} ${c.hover}`}
+              className="group relative text-left transition-all"
+              style={{
+                background: 'var(--ces-surface)',
+                border: '1px solid var(--ces-line)',
+                borderRadius: 'var(--ces-radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--ces-shadow-sm)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--ces-graphite)'
+                e.currentTarget.style.boxShadow = 'var(--ces-shadow)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--ces-line)'
+                e.currentTarget.style.boxShadow = 'var(--ces-shadow-sm)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
             >
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${c.icon}`}>
-                <Icon size={22} />
+              <div
+                className="w-12 h-12 rounded-[12px] grid place-items-center mb-4 transition-transform group-hover:scale-110"
+                style={{ background: t.bg, color: t.color }}
+              >
+                {Icon && <Icon size={22} />}
               </div>
-              <h3 className={`text-sm font-bold mb-1 ${c.title}`}>{card.title}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{card.description}</p>
+              <h3 className="text-[16px] font-extrabold mb-1" style={{ color: 'var(--ces-graphite-900)' }}>
+                {card.title}
+              </h3>
+              <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--ces-muted)' }}>
+                {card.description}
+              </p>
+              <ArrowRight
+                size={14}
+                className="absolute top-6 right-6 transition-transform group-hover:translate-x-0.5"
+                style={{ color: 'var(--ces-mute2)' }}
+              />
             </button>
           )
         })}
@@ -147,14 +184,11 @@ export default function HrPage() {
   )
 }
 
-function Stat({ label, value, icon: Icon, accent }) {
+function BannerStat({ label, value, color }) {
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-        <Icon size={16} className={accent} />
-      </div>
-      <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{value ?? 0}</p>
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-[.14em]" style={{ color: 'var(--ces-muted)' }}>{label}</p>
+      <p className="text-[18px] font-extrabold num mt-1" style={{ color }}>{value}</p>
     </div>
   )
 }

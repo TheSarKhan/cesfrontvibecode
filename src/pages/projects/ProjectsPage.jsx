@@ -12,9 +12,9 @@ import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
 const STATUS_CONFIG = {
-  PENDING:   { label: 'Gözləmədə', cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  ACTIVE:    { label: 'Aktiv',      cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  COMPLETED: { label: 'Bağlanmış',  cls: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+  PENDING:   { label: 'Gözləmədə', pill: 'ces-p-info' },
+  ACTIVE:    { label: 'Aktiv',     pill: 'ces-p-ok' },
+  COMPLETED: { label: 'Bağlanmış', pill: 'ces-p-mute' },
 }
 
 const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
@@ -30,19 +30,22 @@ function calcDuration(p) {
   if (!n) return '—'
   return p.projectType === 'MONTHLY' ? `${n} ay` : `${n} gün`
 }
-const OWNERSHIP = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
 
-function StatCard({ icon: Icon, label, value, sub, color }) {
+const OWNERSHIP_CFG = {
+  COMPANY:    { label: 'Şirkət',    color: 'var(--ces-ok)' },
+  INVESTOR:   { label: 'İnvestor',  color: 'var(--ces-info)' },
+  CONTRACTOR: { label: 'Podratçı',  color: 'var(--ces-warn)' },
+}
+
+function StatCard({ icon: Icon, label, value, sub, iconCls }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3.5 flex items-center gap-3">
-      <div className={clsx('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', color)}>
-        <Icon size={16} className="text-white" />
+    <div className="ces-kpi-card" style={{ padding: 18 }}>
+      <div className="ces-kpi-top" style={{ marginBottom: 10 }}>
+        <span className="ces-kpi-lab">{label}</span>
+        <span className={clsx('ces-kpi-ic', iconCls)}><Icon size={16} /></span>
       </div>
-      <div className="min-w-0">
-        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{label}</p>
-        <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight">{value}</p>
-        {sub && <p className="text-[10px] text-gray-400 truncate">{sub}</p>}
-      </div>
+      <div className="ces-kpi-val" style={{ fontSize: 26 }}>{value}</div>
+      {sub && <p style={{ fontSize: 11.5, color: 'var(--ces-muted)', marginTop: 6 }}>{sub}</p>}
     </div>
   )
 }
@@ -75,8 +78,8 @@ export default function ProjectsPage() {
       const paged = res.data.data || res.data
       setData(paged)
       setSelected(prev => prev ? (paged.content.find(p => p.id === prev.id) ?? prev) : null)
-    } catch {
-      toast.error('Layihələr yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Layihələr yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -84,7 +87,15 @@ export default function ProjectsPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Load all projects for stats cards
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    projectsApi.getById(Number(openId))
+      .then(res => setSelected(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     projectsApi.getAll().then(res => setAllProjects(res.data.data || res.data || [])).catch(() => {})
   }, [data])
@@ -111,43 +122,43 @@ export default function ProjectsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Layihələr</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} layihə</p>
+          <h1 className="ces-page-title">Layihələr</h1>
+          <p className="ces-page-sub">{data.totalElements} layihə</p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <StatCard icon={Clock}        label="Gözləmədə"       value={stats.pending}   sub="müqavilə gözlənilir"           color="bg-blue-500" />
-        <StatCard icon={Zap}          label="Aktiv"            value={stats.active}    sub="icra mərhələsində"              color="bg-green-500" />
-        <StatCard icon={CheckCircle}  label="Bağlanmış"        value={stats.completed} sub="mühasibatlığa göndərildi"       color="bg-gray-400" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatCard icon={Clock}       label="Gözləmədə"  value={stats.pending}   sub="müqavilə gözlənilir" />
+        <StatCard icon={Zap}         label="Aktiv"      value={stats.active}    sub="icra mərhələsində"      iconCls="ok" />
+        <StatCard icon={CheckCircle} label="Bağlanmış"  value={stats.completed} sub="mühasibatlığa göndərildi" />
         <StatCard
           icon={TrendingUp}
-          label="Ümumi Xalis Gəlir"
+          label="Xalis gəlir"
           value={`${fmtMoney(stats.totalNet)} ₼`}
           sub="aktiv + bağlanmış"
-          color={stats.totalNet >= 0 ? 'bg-amber-500' : 'bg-red-500'}
+          iconCls={stats.totalNet >= 0 ? 'gold' : 'danger'}
         />
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="flex flex-wrap gap-3 mb-5 items-center">
+        <div className="ces-input has-icon sm flex-1 min-w-[240px]">
+          <Search size={15} />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Kod, şirkət, layihə, texnika, bölgə, podratçı..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="ces-select sm"
+          style={{ minWidth: 180 }}
         >
           <option value="">Bütün statuslar</option>
           {Object.entries(STATUS_CONFIG).map(([k, v]) => (
@@ -157,19 +168,19 @@ export default function ProjectsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="ces-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px]">
+          <table className="ces-tbl" style={{ minWidth: 920 }}>
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kod</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət / Layihə</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarixlər</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Müqavilə</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Maliyyə</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="py-3 px-4 w-8"></th>
+              <tr>
+                <th>Kod</th>
+                <th>Şirkət / Layihə</th>
+                <th>Texnika</th>
+                <th>Tarixlər</th>
+                <th>Müqavilə</th>
+                <th className="r">Maliyyə</th>
+                <th>Status</th>
+                <th className="w-act"></th>
               </tr>
             </thead>
             <tbody>
@@ -190,81 +201,85 @@ export default function ProjectsPage() {
                                     + parseFloat(p.planOperatorPayment || 0)
                   const net         = totalRevAll - totalExpAll
                   const isSelected = selected?.id === p.id
+                  const ownership = OWNERSHIP_CFG[p.ownershipType]
 
                   return (
                     <tr
                       key={p.id}
                       onClick={() => setSelected(p)}
-                      className={clsx(
-                        'border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
-                        isSelected
-                          ? 'bg-amber-50 dark:bg-amber-900/10'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-750'
-                      )}
+                      style={{
+                        cursor: 'pointer',
+                        background: isSelected ? 'var(--ces-gold-50)' : undefined,
+                      }}
                     >
                       {/* Kod */}
-                      <td className="py-3 px-4">
-                        <p className="text-xs font-mono font-bold text-green-600 dark:text-green-400">
+                      <td>
+                        <p className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-ok)' }}>
                           {p.projectCode || `PRJ-${String(p.id).padStart(4, '0')}`}
                         </p>
                         {p.requestCode && (
-                          <p className="text-[10px] font-mono text-gray-400">{p.requestCode}</p>
+                          <p className="mono" style={{ fontSize: 10.5, color: 'var(--ces-mute2)', marginTop: 2 }}>{p.requestCode}</p>
                         )}
                       </td>
 
                       {/* Şirkət / Layihə */}
-                      <td className="py-3 px-4">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{p.companyName}</p>
+                      <td>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-ink)' }}>{p.companyName}</p>
                         {p.projectName && (
-                          <p className="text-xs text-gray-400 truncate max-w-[160px]">{p.projectName}</p>
+                          <p className="truncate" style={{ fontSize: 12, color: 'var(--ces-muted)', maxWidth: 180 }}>{p.projectName}</p>
                         )}
-                        {p.region && <p className="text-xs text-gray-400">{p.region}</p>}
+                        {p.region && <p style={{ fontSize: 11.5, color: 'var(--ces-mute2)' }}>{p.region}</p>}
                       </td>
 
                       {/* Texnika */}
-                      <td className="py-3 px-4">
+                      <td>
                         {p.equipmentName ? (
                           <div>
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{p.equipmentName}</p>
-                            <p className="text-[10px] text-gray-400">
+                            <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ces-ink)' }}>{p.equipmentName}</p>
+                            <p style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
                               {[p.equipmentCode, p.equipmentBrand, p.equipmentModel].filter(Boolean).join(' · ')}
                             </p>
                             {p.equipmentType && (
-                              <p className="text-[10px] text-gray-400">{p.equipmentType}</p>
+                              <p style={{ fontSize: 10.5, color: 'var(--ces-mute2)' }}>{p.equipmentType}</p>
                             )}
-                            <span className={clsx('text-[10px] font-medium',
-                              p.ownershipType === 'CONTRACTOR' ? 'text-orange-500' :
-                              p.ownershipType === 'INVESTOR'   ? 'text-blue-500' : 'text-green-500'
-                            )}>
-                              {OWNERSHIP[p.ownershipType] || p.ownershipType}
-                            </span>
+                            {ownership && (
+                              <span style={{ fontSize: 10.5, fontWeight: 700, color: ownership.color }}>
+                                {ownership.label}
+                              </span>
+                            )}
                             {p.ownershipType === 'CONTRACTOR' && p.contractorName && (
-                              <p className="text-[10px] text-orange-400">{p.contractorName}</p>
+                              <p style={{ fontSize: 10.5, color: 'var(--ces-warn)' }}>{p.contractorName}</p>
                             )}
                             {p.ownershipType === 'INVESTOR' && p.investorName && (
-                              <p className="text-[10px] text-blue-400">{p.investorName}</p>
+                              <p style={{ fontSize: 10.5, color: 'var(--ces-info)' }}>{p.investorName}</p>
                             )}
                           </div>
-                        ) : <span className="text-xs text-gray-400">—</span>}
+                        ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
                       </td>
 
                       {/* Tarixlər */}
-                      <td className="py-3 px-4">
+                      <td>
                         {p.projectType && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                          <p style={{ fontSize: 12, color: 'var(--ces-muted)' }}>
                             {PROJ_TYPE[p.projectType]} · {calcDuration(p)}
                           </p>
                         )}
-                        {(p.startDate ?? p.planStartDate) && <p className="text-[10px] text-gray-400">{fmt(p.startDate ?? p.planStartDate)}</p>}
+                        {(p.startDate ?? p.planStartDate) && (
+                          <p className="mono" style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
+                            {fmt(p.startDate ?? p.planStartDate)}
+                          </p>
+                        )}
                         {(p.endDate ?? p.planEndDate) && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-[10px] text-gray-400">→ {fmt(p.endDate ?? p.planEndDate)}</p>
+                            <p className="mono" style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
+                              → {fmt(p.endDate ?? p.planEndDate)}
+                            </p>
                             {p.status === 'ACTIVE' && (() => {
                               const today = new Date(); today.setHours(0,0,0,0)
                               const end = new Date(p.endDate ?? p.planEndDate); end.setHours(0,0,0,0)
                               const diff = Math.ceil((end - today) / 86400000)
-                              if (diff < 0) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">Vaxtı keçib</span>
-                              if (diff <= 3) return <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-yellow-100 text-yellow-700 border border-yellow-200 whitespace-nowrap">{diff}g qalıb</span>
+                              if (diff < 0) return <span className="ces-pill ces-p-danger sm">Vaxtı keçib</span>
+                              if (diff <= 3) return <span className="ces-pill ces-p-warn sm">{diff}g qalıb</span>
                               return null
                             })()}
                           </div>
@@ -272,42 +287,50 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* Müqavilə */}
-                      <td className="py-3 px-4">
+                      <td>
                         {p.hasContract ? (
-                          <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
-                            <FileText size={11} />
+                          <span className="ces-pill ces-p-ok sm">
+                            <FileText size={10} />
                             Yüklənib
                           </span>
                         ) : (
-                          <span className="text-xs text-amber-600 dark:text-amber-400">Gözlənilir</span>
+                          <span className="ces-pill ces-p-warn sm">
+                            <Clock size={10} />
+                            Gözlənilir
+                          </span>
                         )}
                       </td>
 
                       {/* Maliyyə */}
-                      <td className="py-3 px-4">
-                        <div>
-                          <p className="text-[10px] text-green-600">+{fmtMoney(totalRevAll)} ₼</p>
-                          <p className="text-[10px] text-red-500">−{fmtMoney(totalExpAll)} ₼</p>
-                          <p className={clsx('text-xs font-bold border-t border-gray-100 dark:border-gray-700 pt-0.5 mt-0.5',
-                            net >= 0 ? 'text-green-600' : 'text-red-500')}>
-                            {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
-                          </p>
-                        </div>
+                      <td className="r mono" style={{ fontSize: 11.5 }}>
+                        <p style={{ color: 'var(--ces-ok)' }}>+{fmtMoney(totalRevAll)} ₼</p>
+                        <p style={{ color: 'var(--ces-danger)' }}>−{fmtMoney(totalExpAll)} ₼</p>
+                        <p
+                          style={{
+                            fontSize: 12.5, fontWeight: 800,
+                            borderTop: '1px solid var(--ces-line)',
+                            paddingTop: 2, marginTop: 2,
+                            color: net >= 0 ? 'var(--ces-ok)' : 'var(--ces-danger)',
+                          }}
+                        >
+                          {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
+                        </p>
                       </td>
 
                       {/* Status */}
-                      <td className="py-3 px-4">
-                        <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border whitespace-nowrap', status.cls)}>
+                      <td>
+                        <span className={clsx('ces-pill sm', status.pill)}>
+                          <span className="d"></span>
                           {status.label}
                         </span>
                       </td>
 
                       {/* Arrow */}
-                      <td className="py-3 px-4 text-right">
-                        <ChevronRight size={15} className={clsx(
-                          'transition-colors',
-                          isSelected ? 'text-amber-600' : 'text-gray-300'
-                        )} />
+                      <td className="r">
+                        <ChevronRight
+                          size={16}
+                          style={{ color: isSelected ? 'var(--ces-gold-700)' : 'var(--ces-mute2)' }}
+                        />
                       </td>
                     </tr>
                   )
@@ -316,16 +339,15 @@ export default function ProjectsPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={data.page + 1}
+          pageSize={data.size}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPage={(p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p - 1)); return n }, { replace: true })}
+          onPageSize={(s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })}
+        />
       </div>
-
-      <Pagination
-        page={data.page + 1}
-        pageSize={data.size}
-        totalPages={data.totalPages}
-        totalElements={data.totalElements}
-        onPage={(p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p - 1)); return n }, { replace: true })}
-        onPageSize={(s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })}
-      />
 
       {/* SlideOver */}
       {selected && (

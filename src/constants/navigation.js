@@ -19,19 +19,34 @@ import {
   Briefcase,
 } from 'lucide-react'
 
+// UI kit-də .sd-lab ilə qruplaşma. Hər item-də `section` field-i bölmə adı təyin edir.
+export const NAV_SECTIONS = [
+  { key: 'main',       label: 'Əsas' },
+  { key: 'partners',   label: 'Tərəfdaşlar' },
+  { key: 'operations', label: 'Əməliyyatlar' },
+  { key: 'finance',    label: 'Maliyyə və HR' },
+  { key: 'system',     label: 'Sistem' },
+]
+
 export const NAV_ITEMS = [
+  // ───────── ƏSAS ─────────
   {
     id: 'dashboard',
     label: 'İdarə Paneli',
     path: '/',
     icon: LayoutDashboard,
+    module: 'DASHBOARD',
+    section: 'main',
   },
+
+  // ───────── TƏRƏFDAŞLAR ─────────
   {
     id: 'customers',
     label: 'Müştərilər',
     path: '/customers',
     icon: Building2,
     module: 'CUSTOMER_MANAGEMENT',
+    section: 'partners',
   },
   {
     id: 'contractors',
@@ -39,6 +54,7 @@ export const NAV_ITEMS = [
     path: '/contractors',
     icon: HardHat,
     module: 'CONTRACTOR_MANAGEMENT',
+    section: 'partners',
   },
   {
     id: 'investors',
@@ -46,6 +62,7 @@ export const NAV_ITEMS = [
     path: '/investors',
     icon: Banknote,
     module: 'INVESTORS',
+    section: 'partners',
   },
   {
     id: 'operators',
@@ -53,27 +70,17 @@ export const NAV_ITEMS = [
     path: '/operators',
     icon: UserCheck,
     module: 'OPERATORS',
+    section: 'partners',
   },
-  {
-    id: 'users',
-    label: 'İstifadəçilər',
-    path: '/users',
-    icon: Users,
-    module: 'EMPLOYEE_MANAGEMENT',
-  },
-  {
-    id: 'roles',
-    label: 'İstifadəçi və rol',
-    path: '/roles',
-    icon: UserCog,
-    module: 'ROLE_PERMISSION',
-  },
+
+  // ───────── ƏMƏLİYYATLAR ─────────
   {
     id: 'garage',
     label: 'Qaraj',
     path: '/garage',
     icon: Truck,
     module: 'GARAGE',
+    section: 'operations',
   },
   {
     id: 'requests',
@@ -81,6 +88,7 @@ export const NAV_ITEMS = [
     path: '/requests',
     icon: ClipboardList,
     module: 'REQUESTS',
+    section: 'operations',
   },
   {
     id: 'coordinator',
@@ -88,6 +96,7 @@ export const NAV_ITEMS = [
     path: '/coordinator',
     icon: GitBranch,
     module: 'COORDINATOR',
+    section: 'operations',
   },
   {
     id: 'projects',
@@ -95,20 +104,7 @@ export const NAV_ITEMS = [
     path: '/projects',
     icon: FolderKanban,
     module: 'PROJECTS',
-  },
-  {
-    id: 'accounting',
-    label: 'Mühasibatlıq',
-    path: '/accounting',
-    icon: Calculator,
-    module: 'ACCOUNTING',
-  },
-  {
-    id: 'hr',
-    label: 'İnsan Resursları',
-    path: '/hr',
-    icon: Briefcase,
-    module: 'HR_MANAGEMENT',
+    section: 'operations',
   },
   {
     id: 'service',
@@ -117,6 +113,7 @@ export const NAV_ITEMS = [
     icon: Wrench,
     module: 'SERVICE_MANAGEMENT',
     comingSoon: true,
+    section: 'operations',
   },
   {
     id: 'approval',
@@ -124,13 +121,43 @@ export const NAV_ITEMS = [
     path: '/approval',
     icon: ClipboardCheck,
     module: 'OPERATIONS_APPROVAL',
+    section: 'operations',
+  },
+
+  // ───────── MALİYYƏ VƏ HR ─────────
+  {
+    id: 'accounting',
+    label: 'Mühasibatlıq',
+    path: '/accounting',
+    icon: Calculator,
+    module: 'ACCOUNTING',
+    section: 'finance',
   },
   {
-    id: 'trash',
-    label: 'Silinmiş Məlumatlar',
-    path: '/trash',
-    icon: Trash2,
-    module: 'TRASH',
+    id: 'hr',
+    label: 'İnsan Resursları',
+    path: '/hr',
+    icon: Briefcase,
+    module: 'HR_MANAGEMENT',
+    section: 'finance',
+  },
+
+  // ───────── SİSTEM ─────────
+  {
+    id: 'users',
+    label: 'İstifadəçilər',
+    path: '/users',
+    icon: Users,
+    module: 'EMPLOYEE_MANAGEMENT',
+    section: 'system',
+  },
+  {
+    id: 'roles',
+    label: 'Rollar və icazələr',
+    path: '/roles',
+    icon: UserCog,
+    module: 'ROLE_PERMISSION',
+    section: 'system',
   },
   {
     id: 'config',
@@ -138,6 +165,7 @@ export const NAV_ITEMS = [
     path: '/config',
     icon: Settings,
     module: 'CONFIG',
+    section: 'system',
   },
   {
     id: 'audit',
@@ -145,5 +173,14 @@ export const NAV_ITEMS = [
     path: '/audit',
     icon: History,
     module: 'AUDIT_LOG',
+    section: 'system',
+  },
+  {
+    id: 'trash',
+    label: 'Silinmiş məlumatlar',
+    path: '/trash',
+    icon: Trash2,
+    module: 'TRASH',
+    section: 'system',
   },
 ]

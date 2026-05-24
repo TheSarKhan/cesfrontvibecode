@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
-const COLORS = ['#22c55e', '#f59e0b', '#ef4444', '#6b7280']
+const COLORS = ['var(--ces-ok)', 'var(--ces-gold)', 'var(--ces-danger)', 'var(--ces-mute2)']
 const LABELS = {
   available: 'Mövcud',
   rented: 'İstifadədə',
@@ -12,9 +12,15 @@ const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null
   const { name, value } = payload[0]
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{name}</p>
-      <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{value} ədəd</p>
+    <div
+      className="rounded-lg px-3 py-2 shadow-lg border"
+      style={{
+        background: 'var(--ces-surface)',
+        borderColor: 'var(--ces-line)',
+      }}
+    >
+      <p className="text-xs font-semibold" style={{ color: 'var(--ces-muted)' }}>{name}</p>
+      <p className="text-sm font-bold" style={{ color: 'var(--ces-ink)' }}>{value} ədəd</p>
     </div>
   )
 }
@@ -30,7 +36,7 @@ export default function EquipmentPieChart({ stats }) {
   ].filter(d => d.value > 0)
 
   if (data.length === 0) return (
-    <div className="flex items-center justify-center h-40 text-gray-400 text-xs">Məlumat yoxdur</div>
+    <div className="flex items-center justify-center h-40 text-xs" style={{ color: 'var(--ces-mute2)' }}>Məlumat yoxdur</div>
   )
 
   return (
@@ -51,7 +57,7 @@ export default function EquipmentPieChart({ stats }) {
         </Pie>
         <Tooltip content={<CustomTooltip />} />
         <Legend
-          formatter={(value) => <span className="text-[11px] text-gray-600 dark:text-gray-400">{value}</span>}
+          formatter={(value) => <span className="text-[11px]" style={{ color: 'var(--ces-muted)' }}>{value}</span>}
           iconType="circle"
           iconSize={8}
         />

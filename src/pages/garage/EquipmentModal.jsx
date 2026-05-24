@@ -1,11 +1,12 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect } from 'react'
-import { X, ChevronLeft, ChevronRight, Check, Truck, Copy, Pencil, Plus } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Check, Copy, Pencil, Plus } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import ComboInput from '../../components/common/ComboInput'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 
 const OWNERSHIP_TYPES = [
   { value: 'COMPANY', label: 'Şirkət', desc: 'Şirkətin öz texnikası' },
@@ -32,44 +33,46 @@ const EMPTY = {
 function Field({ label, required, children, error }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-1.5">
+        {label} {required && <span className="text-[var(--ces-danger)]">*</span>}
       </label>
       {children}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-1.5 text-xs font-semibold text-[var(--ces-danger)]">{error}</p>}
     </div>
   )
 }
 
 function StepIndicator({ steps, current }) {
   return (
-    <div className="flex items-center gap-1 px-6 pt-4 pb-2">
-      {steps.map((step, i) => (
-        <div key={step.id} className="flex items-center gap-1 flex-1">
-          <div className={clsx(
-            'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors',
-            current > step.id
-              ? 'bg-emerald-500 text-white'
-              : current === step.id
-              ? 'bg-amber-600 text-white'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-          )}>
-            {current > step.id ? <Check size={12} /> : step.id}
-          </div>
-          <span className={clsx(
-            'text-[10px] font-medium truncate',
-            current === step.id ? 'text-amber-600' : 'text-gray-400'
-          )}>
-            {step.label}
-          </span>
-          {i < steps.length - 1 && (
+    <div className="flex items-center gap-1.5 px-6 py-4 border-b border-[var(--ces-line)] bg-[var(--ces-graphite-50)]">
+      {steps.map((step, i) => {
+        const done = current > step.id
+        const active = current === step.id
+        return (
+          <div key={step.id} className="flex items-center gap-2 flex-1">
             <div className={clsx(
-              'flex-1 h-px mx-1',
-              current > step.id ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-gray-200 dark:bg-gray-700'
-            )} />
-          )}
-        </div>
-      ))}
+              'w-7 h-7 rounded-full grid place-items-center text-[11px] font-extrabold shrink-0 transition-colors font-mono',
+              done && 'bg-[var(--ces-ok)] text-white',
+              active && 'bg-[var(--ces-gold)] text-[var(--ces-on-gold)] shadow-[0_0_0_4px_var(--ces-gold-100)]',
+              !done && !active && 'bg-white border border-[var(--ces-line)] text-[var(--ces-muted)]'
+            )}>
+              {done ? <Check size={13} /> : step.id}
+            </div>
+            <span className={clsx(
+              'text-[12px] font-bold truncate',
+              active ? 'text-[var(--ces-ink)]' : 'text-[var(--ces-muted)]'
+            )}>
+              {step.label}
+            </span>
+            {i < steps.length - 1 && (
+              <div className={clsx(
+                'flex-1 h-0.5 mx-1 rounded-full',
+                done ? 'bg-[var(--ces-ok)]' : 'bg-[var(--ces-graphite-100)]'
+              )} />
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -82,12 +85,17 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
   const [initialForm, setInitialForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
+  const { confirm, ConfirmDialog } = useConfirm()
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (isDirty) {
-      if (!window.confirm('Dəyişikliklər yadda saxlanmayıb. Bağlamaq istəyirsiniz?')) return
+      if (!(await confirm({
+        title: 'Bağlamağı təsdiqlə',
+        message: 'Dəyişikliklər yadda saxlanmayıb. Bağlamaq istəyirsiniz?',
+        confirmText: 'Bağla',
+      }))) return
     }
     onClose()
   }
@@ -137,10 +145,10 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
   }
 
   const inputCls = (field) => clsx(
-    'w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent',
+    'w-full px-3.5 py-2.5 text-sm bg-white border rounded-[11px] text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none transition-all',
     errors[field]
-      ? 'border-red-400 dark:border-red-500 focus:ring-red-400'
-      : 'border-gray-200 dark:border-gray-600 focus:ring-amber-500'
+      ? 'border-[var(--ces-danger)] focus:border-[var(--ces-danger)] focus:ring-[3px] focus:ring-[rgba(212,56,90,0.12)]'
+      : 'border-[var(--ces-line)] focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)]'
   )
 
   const hasLetter = (v) => /\p{L}/u.test(v ?? '')
@@ -174,25 +182,44 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
     }
 
     if (s === 2) {
-      if (form.purchasePrice !== '' && form.purchasePrice != null) {
+      if (form.purchasePrice === '' || form.purchasePrice == null) {
+        errs.purchasePrice = 'Alış qiyməti tələb olunur'
+      } else {
         const p = parseFloat(form.purchasePrice)
-        if (isNaN(p) || p < 0) errs.purchasePrice = 'Alış qiyməti mənfi ola bilməz'
+        if (isNaN(p)) errs.purchasePrice = 'Düzgün rəqəm daxil edin'
+        else if (p < 0) errs.purchasePrice = 'Alış qiyməti mənfi ola bilməz'
+        else if (p > 99999999) errs.purchasePrice = 'Alış qiyməti çox böyükdür'
       }
+
+      if (!form.purchaseDate) {
+        errs.purchaseDate = 'Alınma tarixi tələb olunur'
+      }
+
       if (form.currentMarketValue !== '' && form.currentMarketValue != null) {
         const v = parseFloat(form.currentMarketValue)
-        if (isNaN(v) || v < 0) errs.currentMarketValue = 'Bazar dəyəri mənfi ola bilməz'
+        if (isNaN(v)) errs.currentMarketValue = 'Düzgün rəqəm daxil edin'
+        else if (v < 0) errs.currentMarketValue = 'Bazar dəyəri mənfi ola bilməz'
+        else if (v > 99999999) errs.currentMarketValue = 'Bazar dəyəri çox böyükdür'
       }
+
       if (form.depreciationRate !== '' && form.depreciationRate != null) {
         const d = parseFloat(form.depreciationRate)
-        if (isNaN(d) || d < 0 || d > 100) errs.depreciationRate = 'Amortizasiya 0-100% arasında olmalıdır'
+        if (isNaN(d)) errs.depreciationRate = 'Düzgün rəqəm daxil edin'
+        else if (d < 0 || d > 100) errs.depreciationRate = 'Amortizasiya 0-100% arasında olmalıdır'
       }
+
       if (form.motoHours !== '' && form.motoHours != null) {
         const m = parseFloat(form.motoHours)
-        if (isNaN(m) || m < 0) errs.motoHours = 'Moto saatlar mənfi ola bilməz'
+        if (isNaN(m)) errs.motoHours = 'Düzgün rəqəm daxil edin'
+        else if (m < 0) errs.motoHours = 'Moto saatlar mənfi ola bilməz'
+        else if (m > 999999) errs.motoHours = 'Moto saatlar çox böyükdür'
       }
+
       if (form.hourKmCounter !== '' && form.hourKmCounter != null) {
         const h = parseFloat(form.hourKmCounter)
-        if (isNaN(h) || h < 0) errs.hourKmCounter = 'Saat/KM göstəricisi mənfi ola bilməz'
+        if (isNaN(h)) errs.hourKmCounter = 'Düzgün rəqəm daxil edin'
+        else if (h < 0) errs.hourKmCounter = 'Saat/KM göstəricisi mənfi ola bilməz'
+        else if (h > 999999) errs.hourKmCounter = 'Saat/KM göstəricisi çox böyükdür'
       }
     }
 
@@ -269,24 +296,26 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(58,58,58,0.45)] backdrop-blur-sm p-4 ces-font">
+      <div className="bg-[var(--ces-surface)] rounded-[18px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] w-full max-w-2xl relative overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-2">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              {isClone ? <Copy size={18} className="text-amber-500 shrink-0" /> : isEditing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Plus size={18} className="text-amber-500 shrink-0" />}
+        <div className="flex items-start gap-3.5 px-6 pt-6 pb-5 border-b border-[var(--ces-line)]">
+          <div className="w-11 h-11 rounded-[12px] grid place-items-center bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)] shrink-0">
+            {isClone ? <Copy size={18} /> : isEditing ? <Pencil size={18} /> : <Plus size={18} />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-extrabold text-[var(--ces-ink)] leading-tight">
               {isClone ? 'Texnikanı kopyala' : isEditing ? 'Texnikanı redaktə et' : 'Yeni texnika əlavə et'}
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-[13px] text-[var(--ces-muted)] mt-1 truncate">
               {isClone ? `${editing.name} əsasında yeni texnika` : isEditing ? editing.name : 'Məlumatları doldurun'}
             </p>
           </div>
           <button
             onClick={handleClose}
-            className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 rounded-[8px] grid place-items-center text-[var(--ces-muted)] hover:bg-[var(--ces-graphite-50)] hover:text-[var(--ces-graphite)] transition-colors shrink-0"
           >
-            <X size={14} className="text-white" />
+            <X size={16} />
           </button>
         </div>
 
@@ -294,7 +323,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
         <StepIndicator steps={STEPS} current={step} />
 
         {/* Step content */}
-        <div className="px-6 py-4 space-y-4 max-h-[55vh] overflow-y-auto scrollbar-thin">
+        <div className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto scrollbar-thin">
 
           {/* ── STEP 1: Əsas məlumatlar ── */}
           {step === 1 && (
@@ -311,7 +340,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                 </Field>
                 <Field label="Növ / Kateqoriya" required error={errors.type}>
                   <ComboInput category="EQUIPMENT_TYPE" value={form.type} onChange={(v) => set('type', v)}
-                    placeholder="Ekskavator, Kran..." className={errors.type ? 'border-red-400 focus:ring-red-400' : ''} />
+                    placeholder="Ekskavator, Kran..." className={errors.type ? 'border-[var(--ces-danger)] focus:ring-[var(--ces-danger)]' : ''} />
                 </Field>
               </div>
 
@@ -336,7 +365,6 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                     onChange={(e) => set('manufactureYear', e.target.value)} placeholder="2020" className={inputCls('manufactureYear')} />
                 </Field>
               </div>
-
             </>
           )}
 
@@ -344,11 +372,11 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
           {step === 2 && (
             <>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Alınma tarixi">
+                <Field label="Alınma tarixi" required error={errors.purchaseDate}>
                   <DateInput value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)}
-                    className={inputCls('')} />
+                    className={inputCls('purchaseDate')} />
                 </Field>
-                <Field label="Alış qiyməti (AZN)" error={errors.purchasePrice}>
+                <Field label="Alış qiyməti (AZN)" required error={errors.purchasePrice}>
                   <input type="number" min="0" step="0.01" value={form.purchasePrice}
                     onChange={(e) => set('purchasePrice', e.target.value)} placeholder="0.00" className={inputCls('purchasePrice')} />
                 </Field>
@@ -382,23 +410,23 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
 
               {safetyTypes.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Təhlükəsizlik avadanlıqları</label>
+                  <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-2">Təhlükəsizlik avadanlıqları</label>
                   <div className="grid grid-cols-3 gap-2">
                     {safetyTypes.map((st) => {
                       const checked = (form.safetyEquipmentIds || []).includes(st.id)
                       return (
                         <label key={st.id} className={clsx(
-                          'flex items-center gap-2 cursor-pointer rounded-lg border p-2.5 transition-all text-sm',
+                          'flex items-center gap-2 cursor-pointer rounded-[10px] border p-2.5 transition-all text-[13px]',
                           checked
-                            ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50 text-green-700 dark:text-green-300 font-medium'
-                            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                            ? 'border-[var(--ces-ok)] bg-[var(--ces-ok-100)] text-[var(--ces-ok)] font-bold'
+                            : 'border-[var(--ces-line)] bg-white text-[var(--ces-muted)] hover:border-[var(--ces-graphite)]'
                         )}>
                           <input type="checkbox" checked={checked}
                             onChange={() => {
                               const ids = form.safetyEquipmentIds || []
                               set('safetyEquipmentIds', checked ? ids.filter(id => id !== st.id) : [...ids, st.id])
                             }}
-                            className="accent-green-600 w-4 h-4" />
+                            className="accent-[var(--ces-ok)] w-4 h-4" />
                           {st.key}
                         </label>
                       )
@@ -406,7 +434,6 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                   </div>
                 </div>
               )}
-
             </>
           )}
 
@@ -415,32 +442,35 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
             <>
               <Field label="Mülkiyyət növü">
                 <div className="grid grid-cols-3 gap-2">
-                  {OWNERSHIP_TYPES.map((o) => (
-                    <button
-                      key={o.value}
-                      type="button"
-                      onClick={() => set('ownershipType', o.value)}
-                      className={clsx(
-                        'p-3 rounded-xl border-2 text-left transition-all',
-                        form.ownershipType === o.value
-                          ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                      )}
-                    >
-                      <p className={clsx(
-                        'text-xs font-semibold',
-                        form.ownershipType === o.value ? 'text-amber-700 dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'
-                      )}>{o.label}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{o.desc}</p>
-                    </button>
-                  ))}
+                  {OWNERSHIP_TYPES.map((o) => {
+                    const on = form.ownershipType === o.value
+                    return (
+                      <button
+                        key={o.value}
+                        type="button"
+                        onClick={() => set('ownershipType', o.value)}
+                        className={clsx(
+                          'p-3.5 rounded-[12px] border-2 text-left transition-all',
+                          on
+                            ? 'border-[var(--ces-gold)] bg-[var(--ces-gold-50)]'
+                            : 'border-[var(--ces-line)] bg-white hover:border-[var(--ces-graphite)]'
+                        )}
+                      >
+                        <p className={clsx(
+                          'text-[13px] font-bold',
+                          on ? 'text-[var(--ces-gold-700)]' : 'text-[var(--ces-ink)]'
+                        )}>{o.label}</p>
+                        <p className="text-[11px] text-[var(--ces-muted)] mt-1">{o.desc}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               </Field>
 
               {/* INVESTOR fields */}
               {form.ownershipType === 'INVESTOR' && (
-                <div className="p-4 rounded-xl border border-amber-100 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-900/10 space-y-3">
-                  <p className="text-xs font-semibold text-amber-600">İnvestor məlumatları</p>
+                <div className="p-4 rounded-[14px] border border-[var(--ces-gold-100)] bg-[var(--ces-gold-50)] space-y-3">
+                  <p className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-gold-700)]">İnvestor məlumatları</p>
                   <Field label="İnvestor seçin" error={errors.ownerInvestorId}>
                     <select value={form.ownerInvestorId}
                       onChange={(e) => { set('ownerInvestorId', e.target.value); if (errors.ownerInvestorId) setErrors(p => ({ ...p, ownerInvestorId: undefined })) }} className={inputCls('ownerInvestorId')}>
@@ -456,10 +486,10 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                     const inv = investors.find(i => String(i.id) === String(form.ownerInvestorId))
                     if (!inv) return null
                     return (
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        {inv.voen && <span>VÖEN: <strong className="text-gray-700 dark:text-gray-300">{inv.voen}</strong></span>}
-                        {inv.contactPhone && <span>Tel: <strong className="text-gray-700 dark:text-gray-300">{inv.contactPhone}</strong></span>}
-                        {inv.contactPerson && <span className="col-span-2">Əlaqədar: <strong className="text-gray-700 dark:text-gray-300">{inv.contactPerson}</strong></span>}
+                      <div className="grid grid-cols-2 gap-2 text-[12px] text-[var(--ces-muted)]">
+                        {inv.voen && <span>VÖEN: <strong className="text-[var(--ces-ink)] font-mono">{inv.voen}</strong></span>}
+                        {inv.contactPhone && <span>Tel: <strong className="text-[var(--ces-ink)] font-mono">{inv.contactPhone}</strong></span>}
+                        {inv.contactPerson && <span className="col-span-2">Əlaqədar: <strong className="text-[var(--ces-ink)]">{inv.contactPerson}</strong></span>}
                       </div>
                     )
                   })()}
@@ -468,8 +498,8 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
 
               {/* CONTRACTOR fields */}
               {form.ownershipType === 'CONTRACTOR' && (
-                <div className="p-4 rounded-xl border border-amber-100 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-900/10 space-y-3">
-                  <p className="text-xs font-semibold text-amber-600">Podratçı məlumatları</p>
+                <div className="p-4 rounded-[14px] border border-[var(--ces-gold-100)] bg-[var(--ces-gold-50)] space-y-3">
+                  <p className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-gold-700)]">Podratçı məlumatları</p>
                   <Field label="Podratçı seçin" error={errors.ownerContractorId}>
                     <select value={form.ownerContractorId}
                       onChange={(e) => { set('ownerContractorId', e.target.value); if (errors.ownerContractorId) setErrors(p => ({ ...p, ownerContractorId: undefined })) }} className={inputCls('ownerContractorId')}>
@@ -485,10 +515,10 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                     const c = contractors.find((x) => String(x.id) === String(form.ownerContractorId))
                     if (!c) return null
                     return (
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        {c.voen && <span>VÖEN: <strong className="text-gray-700 dark:text-gray-300">{c.voen}</strong></span>}
-                        {c.phone && <span>Tel: <strong className="text-gray-700 dark:text-gray-300">{c.phone}</strong></span>}
-                        {c.contactPerson && <span className="col-span-2">Əlaqədar: <strong className="text-gray-700 dark:text-gray-300">{c.contactPerson}</strong></span>}
+                      <div className="grid grid-cols-2 gap-2 text-[12px] text-[var(--ces-muted)]">
+                        {c.voen && <span>VÖEN: <strong className="text-[var(--ces-ink)] font-mono">{c.voen}</strong></span>}
+                        {c.phone && <span>Tel: <strong className="text-[var(--ces-ink)] font-mono">{c.phone}</strong></span>}
+                        {c.contactPerson && <span className="col-span-2">Əlaqədar: <strong className="text-[var(--ces-ink)]">{c.contactPerson}</strong></span>}
                       </div>
                     )
                   })()}
@@ -505,12 +535,12 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-2.5 px-6 py-4 border-t border-[var(--ces-line)] bg-[var(--ces-graphite-50)]">
           {step > 1 && (
             <button
               type="button"
               onClick={() => setStep((s) => s - 1)}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--ces-graphite)] hover:text-[var(--ces-ink)] transition-colors"
             >
               <ChevronLeft size={16} />
               Geriyə
@@ -520,7 +550,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
           <button
             type="button"
             onClick={handleClose}
-            className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="px-5 py-2.5 rounded-[10px] text-sm font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] hover:border-[var(--ces-graphite)] transition-colors"
           >
             Ləğv et
           </button>
@@ -528,7 +558,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
             <button
               type="button"
               onClick={nextStep}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
+              className="inline-flex items-center gap-1.5 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] text-[var(--ces-on-gold)] font-semibold px-5 py-2.5 rounded-[10px] text-sm transition-colors"
             >
               Davam et
               <ChevronRight size={16} />
@@ -538,7 +568,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
+              className="inline-flex items-center gap-2 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] disabled:opacity-60 disabled:pointer-events-none text-[var(--ces-on-gold)] font-semibold px-5 py-2.5 rounded-[10px] text-sm transition-colors"
             >
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {isClone ? 'Kopyala' : isEditing ? 'Yadda saxla' : 'Əlavə et'}
@@ -546,6 +576,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
           )}
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Save, RefreshCw, Plus, Trash2, Pencil } from 'lucide-react'
+import { Save, RefreshCw, Plus, Trash2, Pencil, FileText } from 'lucide-react'
 import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
+import { clsx } from 'clsx'
 
 const SECTIONS = [
   {
@@ -43,7 +44,6 @@ export default function DocumentSettingsPage() {
   const [bankForm, setBankForm] = useState({})
 
   const mk = (cat, key) => `${cat}__${key}`
-  const bankMk = (idx, key) => `BANK_${idx}__${key}`
 
   useEffect(() => {
     load()
@@ -64,21 +64,18 @@ export default function DocumentSettingsPage() {
       results.forEach((res, idx) => {
         const list = res.data?.data || res.data || []
         if (idx < SECTIONS.length) {
-          // Standard sections
           list.forEach(item => {
             const k = mk(item.category, item.key)
             map[k] = item
             vals[k] = item.value || ''
           })
         } else {
-          // Bank details
           const bankMap = {}
           list.forEach(item => {
             if (!bankMap[item.key]) bankMap[item.key] = {}
             bankMap[item.key] = { id: item.id, value: item.value, item }
           })
 
-          // Group by implicit bank index (assuming single bank set for now, can extend)
           if (Object.keys(bankMap).length > 0) {
             newBanks.push({
               BANK_NAME:             bankMap.BANK_NAME?.value || '',
@@ -86,7 +83,7 @@ export default function DocumentSettingsPage() {
               SWIFT:                 bankMap.SWIFT?.value || '',
               IBAN:                  bankMap.IBAN?.value || '',
               CORRESPONDENT_ACCOUNT: bankMap.CORRESPONDENT_ACCOUNT?.value || '',
-              ids: { // store IDs for updates
+              ids: {
                 BANK_NAME:             bankMap.BANK_NAME?.id,
                 BANK_CODE:             bankMap.BANK_CODE?.id,
                 SWIFT:                 bankMap.SWIFT?.id,
@@ -101,8 +98,8 @@ export default function DocumentSettingsPage() {
       setItems(map)
       setValues(vals)
       setBanks(newBanks)
-    } catch {
-      toast.error('Məlumatlar yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Məlumatlar yüklənə bilmədi')
     } finally {
       setLoading(false)
     }
@@ -113,7 +110,6 @@ export default function DocumentSettingsPage() {
     try {
       const updates = []
 
-      // Update standard config items
       Object.entries(values).forEach(([k, val]) => {
         const item = items[k]
         if (item && val !== (item.value || '')) {
@@ -128,7 +124,6 @@ export default function DocumentSettingsPage() {
         }
       })
 
-      // Update bank details
       banks.forEach(bank => {
         BANK_FIELDS.forEach(field => {
           const id = bank.ids?.[field.key]
@@ -149,8 +144,8 @@ export default function DocumentSettingsPage() {
       await Promise.all(updates)
       toast.success('Saxlandı')
       load()
-    } catch {
-      toast.error('Xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Xəta baş verdi')
     } finally {
       setSaving(false)
     }
@@ -186,19 +181,23 @@ export default function DocumentSettingsPage() {
     toast.success('Bank silindi')
   }
 
-  const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500'
-
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Sənəd Konfiqurasiyası</h1>
-          <p className="text-sm text-gray-500 mt-0.5">PDF sənədlərə çap olunan məlumatlar</p>
+    <div className="max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="ces-m-ic gold">
+            <FileText size={20} />
+          </div>
+          <div>
+            <h1 className="ces-page-title">Sənəd Konfiqurasiyası</h1>
+            <p className="ces-page-sub">PDF sənədlərə çap olunan rekvizit və parametrlər</p>
+          </div>
         </div>
         <button
           onClick={handleSave}
           disabled={saving || loading}
-          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          className="ces-btn ces-btn-primary"
         >
           {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
           Yadda saxla
@@ -207,30 +206,31 @@ export default function DocumentSettingsPage() {
 
       {loading ? (
         <div className="space-y-4">
-          {[1,2,3].map(i => <div key={i} className="h-40 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />)}
+          {[1,2,3].map(i => (
+            <div key={i} className="h-40 rounded-2xl" style={{ background: 'var(--ces-graphite-50)' }} />
+          ))}
         </div>
       ) : (
-        <>
+        <div className="space-y-5">
           {SECTIONS.map(section => (
-            <div key={section.category} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-              <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4 pb-2 border-b border-gray-100 dark:border-gray-700">
+            <div key={section.category} className="ces-card">
+              <h2 className="text-base font-bold text-[var(--ces-ink)] mb-4 pb-3 border-b border-[var(--ces-line)] m-0">
                 {section.title}
               </h2>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
                 {section.fields.map(field => {
                   const k = mk(section.category, field.key)
                   return (
-                    <div key={field.key}>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        {field.label}
-                      </label>
-                      <input
-                        type="text"
-                        value={values[k] ?? ''}
-                        onChange={e => setValues(v => ({ ...v, [k]: e.target.value }))}
-                        placeholder={field.placeholder}
-                        className={inputCls}
-                      />
+                    <div key={field.key} className="ces-field">
+                      <label>{field.label}</label>
+                      <div className="ces-input">
+                        <input
+                          type="text"
+                          value={values[k] ?? ''}
+                          onChange={e => setValues(v => ({ ...v, [k]: e.target.value }))}
+                          placeholder={field.placeholder}
+                        />
+                      </div>
                     </div>
                   )
                 })}
@@ -239,96 +239,96 @@ export default function DocumentSettingsPage() {
           ))}
 
           {/* Banks Table */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">Bank Məlumatları</h2>
-              <button
-                onClick={handleAddBank}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors"
-              >
-                <Plus size={13} />
+          <div className="ces-table-wrap">
+            <div className="ces-table-tools">
+              <div>
+                <h2 className="text-base font-bold text-[var(--ces-ink)] m-0">Bank Məlumatları</h2>
+                <p className="text-xs text-[var(--ces-muted)] mt-1">Sənədlərdə görünən bank rekvizitləri</p>
+              </div>
+              <button onClick={handleAddBank} className="ces-btn ces-btn-primary ces-btn-sm">
+                <Plus size={14} />
                 Yeni Bank
               </button>
             </div>
 
             {editingBankIdx !== null && (
-              <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-3">
-                <div className="grid grid-cols-3 gap-3">
+              <div className="p-5 border-b border-[var(--ces-line)]" style={{ background: 'var(--ces-gold-50)' }}>
+                <p className="ces-sec-label mb-4" style={{ color: 'var(--ces-gold-700)' }}>
+                  {editingBankIdx === banks.length ? 'Yeni Bank' : 'Bankı Redaktə Et'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-0">
                   {BANK_FIELDS.map(field => (
-                    <div key={field.key}>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        {field.label}
-                      </label>
-                      <input
-                        type="text"
-                        value={bankForm[field.key] || ''}
-                        onChange={e => setBankForm(f => ({ ...f, [field.key]: e.target.value }))}
-                        placeholder={field.label}
-                        className={inputCls}
-                      />
+                    <div key={field.key} className="ces-field">
+                      <label>{field.label}</label>
+                      <div className="ces-input">
+                        <input
+                          type="text"
+                          value={bankForm[field.key] || ''}
+                          onChange={e => setBankForm(f => ({ ...f, [field.key]: e.target.value }))}
+                          placeholder={field.label}
+                          className={['BANK_CODE', 'SWIFT', 'IBAN', 'CORRESPONDENT_ACCOUNT'].includes(field.key) ? 'mono' : ''}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 justify-end pt-2">
+                <div className="flex gap-2 justify-end mt-2">
                   <button
                     onClick={() => { setEditingBankIdx(null); setBankForm({}) }}
-                    className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-lg text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600"
+                    className="ces-btn ces-btn-ghost ces-btn-sm"
                   >
                     Ləğv et
                   </button>
-                  <button
-                    onClick={handleSaveBank}
-                    className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700"
-                  >
+                  <button onClick={handleSaveBank} className="ces-btn ces-btn-primary ces-btn-sm">
                     Saxla
                   </button>
                 </div>
               </div>
             )}
 
-            {!editingBankIdx && (
+            {editingBankIdx === null && (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="ces-tbl" style={{ minWidth: 760 }}>
                   <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Bank Adı</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Kod</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">SWIFT</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">IBAN</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">M./h</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300">Hərəkət</th>
+                    <tr>
+                      <th>Bank Adı</th>
+                      <th>Kod</th>
+                      <th>SWIFT</th>
+                      <th>IBAN</th>
+                      <th>M./h</th>
+                      <th className="r" style={{ width: 110 }}>Əməliyyat</th>
                     </tr>
                   </thead>
                   <tbody>
                     {banks.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="px-4 py-8 text-center text-sm text-gray-400">
+                        <td colSpan={6} className="py-8 text-center text-sm" style={{ color: 'var(--ces-muted)' }}>
                           Hələ bank əlavə edilməyib
                         </td>
                       </tr>
                     ) : (
                       banks.map((bank, idx) => (
-                        <tr key={idx} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                          <td className="px-4 py-3 text-gray-800 dark:text-gray-200 font-medium">{bank.BANK_NAME || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">{bank.BANK_CODE || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">{bank.SWIFT || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">{bank.IBAN || '—'}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">{bank.CORRESPONDENT_ACCOUNT || '—'}</td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
+                        <tr key={idx}>
+                          <td className="font-semibold text-[var(--ces-ink)]">{bank.BANK_NAME || '—'}</td>
+                          <td className="mono" style={{ color: 'var(--ces-muted)' }}>{bank.BANK_CODE || '—'}</td>
+                          <td className="mono" style={{ color: 'var(--ces-muted)' }}>{bank.SWIFT || '—'}</td>
+                          <td className="mono" style={{ color: 'var(--ces-muted)' }}>{bank.IBAN || '—'}</td>
+                          <td className="mono" style={{ color: 'var(--ces-muted)' }}>{bank.CORRESPONDENT_ACCOUNT || '—'}</td>
+                          <td>
+                            <div className="flex items-center gap-1 justify-end">
                               <button
                                 onClick={() => handleEditBank(idx)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                className="ces-row-act gold"
                                 title="Redaktə et"
                               >
-                                <Pencil size={14} />
+                                <Pencil size={15} />
                               </button>
                               <button
                                 onClick={() => handleDeleteBank(idx)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                className="ces-row-act danger"
                                 title="Sil"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={15} />
                               </button>
                             </div>
                           </td>
@@ -340,7 +340,7 @@ export default function DocumentSettingsPage() {
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   )

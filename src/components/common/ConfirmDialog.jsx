@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { AlertTriangle, Trash2 } from 'lucide-react'
+import { AlertTriangle, Trash2, X } from 'lucide-react'
 
 /**
  * Usage: import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -15,7 +15,6 @@ export function useConfirm() {
   const [state, setState] = useState(null) // { title, message, resolve }
 
   const confirm = useCallback(({ title = 'Təsdiq', message, confirmText = 'Təsdiq et', danger } = {}) => {
-    // Auto-detect danger from title when not explicitly provided
     const isDanger = danger !== undefined
       ? danger
       : title.toLowerCase().includes('sil')
@@ -44,52 +43,64 @@ export function useConfirm() {
     if (!state) return null
 
     return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      <div className="fixed inset-0 z-[200] flex items-center justify-center ces-font p-4">
         {/* Backdrop */}
         <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+          className="absolute inset-0 bg-[rgba(58,58,58,0.45)] backdrop-blur-sm"
           onClick={handleCancel}
         />
 
         {/* Dialog */}
-        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 animate-in fade-in zoom-in-95 duration-150">
-          {/* Icon */}
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            state.danger ? 'bg-red-50 dark:bg-red-900/30' : 'bg-amber-50 dark:bg-amber-900/30'
-          }`}>
-            {state.danger
-              ? <Trash2 size={22} className="text-red-500" />
-              : <AlertTriangle size={22} className="text-amber-500" />
-            }
-          </div>
+        <div className="relative bg-[var(--ces-surface)] rounded-[18px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] w-full max-w-[420px] p-6 animate-in fade-in zoom-in-95 duration-150">
+          {/* Close */}
+          <button
+            onClick={handleCancel}
+            className="absolute top-3.5 right-3.5 w-8 h-8 rounded-[8px] grid place-items-center text-[var(--ces-muted)] hover:bg-[var(--ces-graphite-50)] hover:text-[var(--ces-graphite)] transition-colors"
+          >
+            <X size={16} />
+          </button>
 
-          {/* Title */}
-          <h3 className="text-center text-base font-semibold text-gray-800 dark:text-gray-100 mb-2">
-            {state.title}
-          </h3>
+          {/* Header row */}
+          <div className="flex items-center gap-3.5 mb-4">
+            <div className={`w-11 h-11 rounded-[12px] grid place-items-center shrink-0 ${
+              state.danger
+                ? 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]'
+                : 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]'
+            }`}>
+              {state.danger
+                ? <Trash2 size={20} />
+                : <AlertTriangle size={20} />
+              }
+            </div>
+            <h3 className="text-[17px] font-extrabold text-[var(--ces-ink)] tracking-tight leading-tight">
+              {state.title}
+            </h3>
+          </div>
 
           {/* Message */}
           {state.message && (
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
-              {state.message}
-            </p>
+            <div className="bg-[var(--ces-graphite-50)] rounded-[12px] px-4 py-3.5 mb-5">
+              <p className="text-[13.5px] text-[var(--ces-ink)] leading-relaxed">
+                {state.message}
+              </p>
+            </div>
           )}
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex gap-2.5 justify-end">
             <button
               ref={cancelRef}
               onClick={handleCancel}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+              className="px-5 py-2.5 text-sm font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] hover:border-[var(--ces-graphite)] rounded-[10px] transition-colors"
             >
               Ləğv et
             </button>
             <button
               onClick={handleConfirm}
-              className={`flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors ${
+              className={`px-5 py-2.5 text-sm font-semibold text-white rounded-[10px] transition-colors ${
                 state.danger
-                  ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-amber-600 hover:bg-amber-700'
+                  ? 'bg-[var(--ces-danger)] hover:bg-[#b62b4a]'
+                  : 'bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)]'
               }`}
             >
               {state.confirmText}

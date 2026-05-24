@@ -12,25 +12,14 @@ const fmtMoney = (v) =>
 
 const fmt = fmtDate
 
-/**
- * Podratçı / investor texnikasına aid layihələrdə ödəniş tarixçəsi.
- *
- * Props:
- *   project      — ProjectResponse
- *   planAmount   — BigDecimal (contractorPayment — plan məbləği)
- *   readOnly     — boolean
- */
 export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
 
-  // Add form
   const [amount, setAmount] = useState('')
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().substring(0, 10)
-  )
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().substring(0, 10))
   const [note, setNote] = useState('')
   const [adding, setAdding] = useState(false)
 
@@ -39,7 +28,6 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
       const res = await projectsApi.getPaymentEntries(project.id)
       setEntries(res.data?.data || [])
     } catch {
-      /* silent */
     } finally {
       setLoading(false)
     }
@@ -76,31 +64,22 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
   }
 
   const handleDelete = async (entry) => {
-    if (
-      !(await confirm({
-        title: 'Ödənişi sil',
-        message: `${fmtMoney(entry.amount)} — ${fmt(entry.paymentDate)} silinsin?`,
-      }))
-    )
-      return
+    if (!(await confirm({ title: 'Ödənişi sil', message: `${fmtMoney(entry.amount)} — ${fmt(entry.paymentDate)} silinsin?` }))) return
     try {
       await projectsApi.deletePaymentEntry(project.id, entry.id)
       toast.success('Ödəniş silindi')
       load()
-    } catch {
-      toast.error('Silinmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silinmədi')
     }
   }
 
   const handleClose = async () => {
-    if (
-      !(await confirm({
-        title: 'Ödəniş qaiməsini bağla',
-        message: `Cəmi ${fmtMoney(paid)} ödənib. Ödəniş seriyasını bağlamaq istəyirsiniz?`,
-        confirmText: 'Bağla',
-      }))
-    )
-      return
+    if (!(await confirm({
+      title: 'Ödəniş qaiməsini bağla',
+      message: `Cəmi ${fmtMoney(paid)} ödənib. Ödəniş seriyasını bağlamaq istəyirsiniz?`,
+      confirmText: 'Bağla',
+    }))) return
     setClosing(true)
     try {
       await projectsApi.closePayment(project.id)
@@ -113,106 +92,120 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
     }
   }
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="py-10 text-center text-sm text-gray-400 animate-pulse">
-        Yüklənir...
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+        <span style={{ width: 22, height: 22, border: '2px solid var(--ces-line)', borderTopColor: 'var(--ces-gold)', borderRadius: 999, animation: 'ces-spin .8s linear infinite' }} />
       </div>
     )
+  }
 
-  const ownerLabel =
-    project.ownershipType === 'CONTRACTOR'
-      ? project.contractorName || 'Podratçı'
-      : project.investorName || 'İnvestor'
+  const ownerLabel = project.ownershipType === 'CONTRACTOR'
+    ? project.contractorName || 'Podratçı'
+    : project.investorName || 'İnvestor'
 
   return (
-    <div className="space-y-4">
-      {/* ── Status banner ── */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Closed banner */}
       {isClosed && (
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-green-50 border border-green-200 text-green-700 text-xs font-semibold">
-          <CheckCircle size={14} />
-          Ödəniş seriyası bağlanmışdır
+        <div className="ces-alert" style={{ borderLeftColor: 'var(--ces-ok)', background: 'var(--ces-ok-100)' }}>
+          <div className="ces-al-ic" style={{ background: '#e8fbe5', color: 'var(--ces-ok)' }}>
+            <CheckCircle size={16} />
+          </div>
+          <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-ok)' }}>
+            Ödəniş seriyası bağlanmışdır
+          </p>
         </div>
       )}
 
-      {/* ── Plan / Ödənilmiş / Qalıq ── */}
-      <div className="rounded-xl border border-orange-100 overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-orange-50">
-          <CreditCard size={13} className="text-orange-500" />
-          <span className="text-xs font-semibold text-orange-700">
-            {project.ownershipType === 'CONTRACTOR' ? 'Podratçı' : 'İnvestor'} Ödənişləri
+      {/* Card */}
+      <div style={{ border: '1px solid #fbe6c1', borderRadius: 14, overflow: 'hidden' }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', background: 'var(--ces-gold-50)',
+          }}
+        >
+          <CreditCard size={14} style={{ color: 'var(--ces-gold-700)' }} />
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-gold-700)' }}>
+            {project.ownershipType === 'CONTRACTOR' ? 'Podratçı' : 'İnvestor'} ödənişləri
           </span>
-          <span className="ml-auto text-[10px] font-medium text-orange-500 truncate max-w-[140px]">
+          <span className="truncate" style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 500, color: 'var(--ces-gold-700)', maxWidth: 160 }}>
             {ownerLabel}
           </span>
         </div>
 
         {/* Progress */}
         {plan > 0 && (
-          <div className="px-3 pt-3 pb-1">
-            <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-              <span>Ödənilmiş: <strong className="text-gray-700">{fmtMoney(paid)}</strong></span>
-              <span>Plan: <strong className="text-gray-700">{fmtMoney(plan)}</strong></span>
+          <div style={{ padding: '12px 14px 4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ces-muted)', marginBottom: 6 }}>
+              <span>Ödənilmiş: <strong className="mono" style={{ color: 'var(--ces-graphite)' }}>{fmtMoney(paid)}</strong></span>
+              <span>Plan: <strong className="mono" style={{ color: 'var(--ces-graphite)' }}>{fmtMoney(plan)}</strong></span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div style={{ height: 8, background: 'var(--ces-graphite-100)', borderRadius: 999, overflow: 'hidden' }}>
               <div
-                className={clsx(
-                  'h-full rounded-full transition-all duration-500',
-                  pct >= 100 ? 'bg-green-500' : 'bg-orange-400'
-                )}
-                style={{ width: `${pct}%` }}
+                style={{
+                  height: '100%',
+                  width: `${pct}%`,
+                  background: pct >= 100 ? 'var(--ces-ok)' : 'var(--ces-gold)',
+                  borderRadius: 999,
+                  transition: 'width .5s, background .25s',
+                }}
               />
             </div>
-            <div className="flex justify-between text-[10px] mt-1">
-              <span className="text-gray-400">{pct.toFixed(0)}% ödənilib</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 6 }}>
+              <span style={{ color: 'var(--ces-mute2)' }}>{pct.toFixed(0)}% ödənilib</span>
               {remaining > 0 ? (
-                <span className="text-orange-500 font-medium">Qalıq: {fmtMoney(remaining)}</span>
+                <span style={{ color: 'var(--ces-gold-700)', fontWeight: 600 }} className="mono">
+                  Qalıq: {fmtMoney(remaining)}
+                </span>
               ) : (
-                <span className="text-green-500 font-medium">Tam ödənilib ✓</span>
+                <span style={{ color: 'var(--ces-ok)', fontWeight: 600 }}>Tam ödənilib ✓</span>
               )}
             </div>
           </div>
         )}
 
-        {/* Siyahı */}
-        <div className="divide-y divide-gray-100 mt-1">
+        {/* Entries */}
+        <div style={{ marginTop: 8 }}>
           {entries.length === 0 ? (
-            <div className="flex flex-col items-center gap-1 py-6 text-gray-400">
-              <AlertCircle size={20} className="opacity-40" />
-              <p className="text-xs">Hələ ödəniş qeydedilməyib</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: 24, color: 'var(--ces-mute2)' }}>
+              <AlertCircle size={22} style={{ opacity: 0.5 }} />
+              <p style={{ fontSize: 12.5 }}>Hələ ödəniş qeydedilməyib</p>
             </div>
           ) : (
             entries.map((entry) => (
               <div
                 key={entry.id}
-                className={clsx(
-                  'flex items-center gap-2 px-3 py-2.5',
-                  entry.closed && 'bg-green-50/40'
-                )}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 14px',
+                  borderTop: '1px solid var(--ces-line-2)',
+                  background: entry.closed ? 'var(--ces-ok-100)' : 'var(--ces-surface)',
+                }}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-orange-600">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="mono" style={{ fontSize: 13, fontWeight: 800, color: 'var(--ces-gold-700)' }}>
                       {fmtMoney(entry.amount)}
                     </span>
-                    <span className="text-[10px] text-gray-400">{fmt(entry.paymentDate)}</span>
+                    <span className="mono" style={{ fontSize: 11, color: 'var(--ces-mute2)' }}>
+                      {fmt(entry.paymentDate)}
+                    </span>
                     {entry.closed && (
-                      <span className="flex items-center gap-0.5 text-[9px] font-bold text-green-600 bg-green-100 border border-green-200 px-1.5 py-0.5 rounded-full">
-                        <Lock size={8} />
+                      <span className="ces-pill ces-p-ok sm">
+                        <Lock size={9} />
                         Bağlı
                       </span>
                     )}
                   </div>
                   {entry.note && (
-                    <p className="text-[10px] text-gray-400 truncate mt-0.5">{entry.note}</p>
+                    <p className="truncate" style={{ fontSize: 11, color: 'var(--ces-mute2)', marginTop: 3 }}>{entry.note}</p>
                   )}
                 </div>
                 {!readOnly && !entry.closed && (
-                  <button
-                    onClick={() => handleDelete(entry)}
-                    className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                  >
-                    <Trash2 size={12} />
+                  <button onClick={() => handleDelete(entry)} className="ces-row-act danger">
+                    <Trash2 size={13} />
                   </button>
                 )}
               </div>
@@ -220,61 +213,82 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
           )}
         </div>
 
-        {/* Əlavə formu */}
+        {/* Add form */}
         {!readOnly && !isClosed && (
-          <div className="px-3 py-2.5 border-t border-orange-100 bg-white space-y-2">
-            <div className="flex gap-2">
-              <DateInput
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-32 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
-              />
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                placeholder="Məbləğ (₼)"
-                min="0"
-                step="0.01"
-                className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
-              />
+          <div style={{ padding: '12px 14px', borderTop: '1px solid #fbe6c1', background: 'var(--ces-surface)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div className="ces-input sm" style={{ width: 130, flexShrink: 0 }}>
+                <DateInput
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 13, padding: '8px 0', width: '100%' }}
+                />
+              </div>
+              <div className="ces-input sm" style={{ flex: 1, minWidth: 0 }}>
+                <input
+                  className="mono"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                  placeholder="Məbləğ (₼)"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
               <button
                 onClick={handleAdd}
                 disabled={adding}
-                className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-lg transition-colors flex-shrink-0"
+                className="ces-btn ces-btn-sm"
+                style={{ background: 'var(--ces-gold)', color: 'var(--ces-on-gold)' }}
               >
                 <Plus size={13} />
               </button>
             </div>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="Qeyd (isteğe bağlı)"
-              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
-            />
+            <div className="ces-input sm">
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                placeholder="Qeyd (isteğe bağlı)"
+              />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Cəmi */}
+      {/* Total */}
       {entries.length > 0 && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 text-xs">
-          <span className="text-gray-500">{entries.length} ödəniş girişi</span>
-          <span className="font-bold text-orange-600">{fmtMoney(paid)}</span>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', borderRadius: 12,
+            background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)',
+          }}
+        >
+          <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{entries.length} ödəniş girişi</span>
+          <span className="mono" style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--ces-gold-700)' }}>{fmtMoney(paid)}</span>
         </div>
       )}
 
-      {/* Bağla düyməsi */}
+      {/* Close button */}
       {canClose && (
         <button
           onClick={handleClose}
           disabled={closing}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-orange-400 bg-orange-50 hover:bg-orange-100 text-orange-700 text-sm font-bold transition-colors disabled:opacity-50"
+          className="ces-btn"
+          style={{
+            background: 'var(--ces-surface)',
+            border: '1.5px solid var(--ces-gold)',
+            color: 'var(--ces-gold-700)',
+            justifyContent: 'center',
+            padding: '13px 16px',
+          }}
         >
-          <Lock size={14} />
-          {closing ? 'Bağlanır...' : 'Ödəniş Qaiməsini Bağla'}
+          {closing
+            ? <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            : <Lock size={14} />}
+          {closing ? 'Bağlanır...' : 'Ödəniş qaiməsini bağla'}
         </button>
       )}
 

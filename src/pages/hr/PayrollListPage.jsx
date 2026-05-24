@@ -1,36 +1,34 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Calendar, FileText, CheckCircle2, DollarSign, RotateCw, Trash2, Calculator } from 'lucide-react'
+import {
+  Plus, Calendar, FileText, CheckCircle2, DollarSign, RotateCw, Trash2, Calculator, ArrowLeft,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-
-const STATUS_CONFIG = {
-  DRAFT:    { label: 'Layihə',     cls: 'bg-amber-100 text-amber-700 border-amber-200' },
-  APPROVED: { label: 'Təsdiqlənib', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
-  PAID:     { label: 'Ödənilib',    cls: 'bg-green-100 text-green-700 border-green-200' },
-}
-
-const AZ_MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun', 'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr']
-
-const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+import {
+  PageHeader, Pill, Field, Input, Select, ModalShell,
+  TableWrap, LoadingRow, EmptyRow,
+} from './_shared'
+import { fmt, PAYROLL_STATUS, AZ_MONTHS } from './_constants'
 
 export default function PayrollListPage() {
   const navigate = useNavigate()
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canCreate = hasPermission('HR_MANAGEMENT', 'canPost')
-  const canEdit = hasPermission('HR_MANAGEMENT', 'canPut')
+  const canEdit   = hasPermission('HR_MANAGEMENT', 'canPut')
   const canDelete = hasPermission('HR_MANAGEMENT', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [periods, setPeriods] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [periods, setPeriods]   = useState([])
+  const [loading, setLoading]   = useState(true)
   const [creating, setCreating] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const today = new Date()
   const [newPeriod, setNewPeriod] = useState({
-    year: today.getFullYear(),
-    month: today.getMonth() + 1,
+    year:               today.getFullYear(),
+    month:              today.getMonth() + 1,
     workingDaysInMonth: 22,
   })
 
@@ -39,13 +37,16 @@ export default function PayrollListPage() {
     try {
       const res = await hrApi.getPeriods()
       setPeriods(res.data?.data ?? res.data ?? [])
-    } catch { toast.error('Dövrlər yüklənmədi') } finally { setLoading(false) }
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Dövrlər yüklənmədi')
+    } finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
 
   const create = async () => {
     if (!canCreate) return
+    setSubmitting(true)
     try {
       const res = await hrApi.createPeriod(newPeriod, true)
       toast.success('Dövr yaradıldı')
@@ -53,152 +54,178 @@ export default function PayrollListPage() {
       navigate(`/hr/payroll/${created.id}`)
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Yaradıla bilmədi')
-    } finally { setCreating(false) }
+    } finally {
+      setSubmitting(false)
+      setCreating(false)
+    }
   }
 
   const handleApprove = async (p) => {
     if (!(await confirm({ title: 'Dövrü təsdiqlə', message: `${AZ_MONTHS[p.month - 1]} ${p.year} dövrünü təsdiqləmək istəyirsiniz?` }))) return
-    try { await hrApi.approvePeriod(p.id); toast.success('Təsdiqləndi'); load() } catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
+    try { await hrApi.approvePeriod(p.id); toast.success('Təsdiqləndi'); load() }
+    catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
   }
   const handleMarkPaid = async (p) => {
     if (!(await confirm({ title: 'Ödənmiş kimi qeyd et', message: `${AZ_MONTHS[p.month - 1]} ${p.year} ödənildiyini qeyd edirsiniz?` }))) return
-    try { await hrApi.markPeriodPaid(p.id); toast.success('Ödənmiş kimi qeyd edildi'); load() } catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
+    try { await hrApi.markPeriodPaid(p.id); toast.success('Ödənmiş kimi qeyd edildi'); load() }
+    catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
   }
   const handleReopen = async (p) => {
     if (!(await confirm({ title: 'Yenidən aç', message: 'Dövrü DRAFT statusuna geri qaytarın?' }))) return
-    try { await hrApi.reopenPeriod(p.id); toast.success('Dövr yenidən açıldı'); load() } catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
+    try { await hrApi.reopenPeriod(p.id); toast.success('Dövr yenidən açıldı'); load() }
+    catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
   }
   const handleDelete = async (p) => {
     if (!(await confirm({ title: 'Dövrü sil', message: 'Bu dövr və bütün hesablamaları silinəcək.' }))) return
-    try { await hrApi.deletePeriod(p.id); toast.success('Silindi'); load() } catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
+    try { await hrApi.deletePeriod(p.id); toast.success('Silindi'); load() }
+    catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
   }
   const downloadPdf = async (p) => {
     try {
       const res = await hrApi.downloadPeriodPdf(p.id)
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
       window.open(url, '_blank')
-    } catch { toast.error('PDF endirilə bilmədi') }
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'PDF endirilə bilmədi')
+    }
   }
 
   return (
-    <div>
+    <div style={{ color: 'var(--ces-ink)' }}>
       <ConfirmDialog />
 
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <Calculator size={22} className="text-emerald-600" />
-            Əməkhaqqı Cədvəlləri
-          </h1>
-          <p className="text-xs text-gray-400 mt-0.5">Aylıq əməkhaqqı dövrləri</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/hr')} className="px-3 py-2 text-xs font-medium text-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50">
-            ← HR
-          </button>
-          {canCreate && (
-            <button onClick={() => setCreating(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-              <Plus size={16} /> Yeni dövr
+      <PageHeader
+        eyebrow="HR · Əməkhaqqı"
+        title="Aylıq cədvəllər"
+        subtitle={<><span className="num font-semibold" style={{ color: 'var(--ces-graphite)' }}>{periods.length}</span> dövr qeyd olunub</>}
+        right={
+          <>
+            <button onClick={() => navigate('/hr')} className="ces-btn ces-btn-outline ces-btn-sm">
+              <ArrowLeft size={14} /> HR
             </button>
-          )}
-        </div>
-      </div>
+            {canCreate && (
+              <button onClick={() => setCreating(true)} className="ces-btn ces-btn-primary">
+                <Plus size={16} /> Yeni dövr
+              </button>
+            )}
+          </>
+        }
+      />
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-900 text-xs uppercase text-gray-500 dark:text-gray-400">
-            <tr>
-              <th className="px-3 py-2.5 text-left font-medium">Dövr</th>
-              <th className="px-3 py-2.5 text-center font-medium">İşçi</th>
-              <th className="px-3 py-2.5 text-right font-medium">Gross</th>
-              <th className="px-3 py-2.5 text-right font-medium">Tutulan</th>
-              <th className="px-3 py-2.5 text-right font-medium">Ödəniləcək</th>
-              <th className="px-3 py-2.5 text-right font-medium">Şirkət xərci</th>
-              <th className="px-3 py-2.5 text-left font-medium">Status</th>
-              <th className="px-3 py-2.5 text-right font-medium">Əməliyyat</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {loading ? (
-              <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">Yüklənir...</td></tr>
-            ) : periods.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">Hələ heç bir dövr yoxdur</td></tr>
-            ) : periods.map(p => {
-              const s = STATUS_CONFIG[p.status] || { label: p.status, cls: 'bg-gray-100 text-gray-500' }
-              const totalCompanyCost = (Number(p.totalGross || 0) + Number(p.totalEmployerContributions || 0))
-              return (
-                <tr
-                  key={p.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                  onClick={() => navigate(`/hr/payroll/${p.id}`)}
-                >
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-emerald-600" />
-                      <span className="font-semibold text-gray-800 dark:text-gray-100">{p.label}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-300">{p.entryCount || 0}</td>
-                  <td className="px-3 py-3 text-right font-medium text-gray-800 dark:text-gray-100">{fmt(p.totalGross)}</td>
-                  <td className="px-3 py-3 text-right text-rose-600">{fmt(p.totalEmployeeDeductions)}</td>
-                  <td className="px-3 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-400">{fmt(p.totalNet)}</td>
-                  <td className="px-3 py-3 text-right text-gray-600 dark:text-gray-300">{fmt(totalCompanyCost)}</td>
-                  <td className="px-3 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${s.cls}`}>
-                      {s.label}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-right" onClick={(ev) => ev.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => downloadPdf(p)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700" title="PDF endir"><FileText size={14} /></button>
-                      {canEdit && p.status === 'DRAFT' && (
-                        <button onClick={() => handleApprove(p)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600" title="Təsdiqlə"><CheckCircle2 size={14} /></button>
-                      )}
-                      {canEdit && p.status === 'APPROVED' && (
-                        <button onClick={() => handleMarkPaid(p)} className="p-1.5 rounded hover:bg-green-50 text-green-600" title="Ödənmiş kimi qeyd et"><DollarSign size={14} /></button>
-                      )}
-                      {canEdit && p.status === 'APPROVED' && (
-                        <button onClick={() => handleReopen(p)} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Yenidən aç"><RotateCw size={14} /></button>
-                      )}
-                      {canDelete && p.status !== 'PAID' && (
-                        <button onClick={() => handleDelete(p)} className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Sil"><Trash2 size={14} /></button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      <TableWrap>
+        <div className="overflow-x-auto">
+          <table className="ces-tbl w-full min-w-[920px]">
+            <thead>
+              <tr>
+                <th>Dövr</th>
+                <th className="r">İşçi</th>
+                <th className="r">Gross</th>
+                <th className="r">Tutulan</th>
+                <th className="r">Ödəniləcək</th>
+                <th className="r">Şirkət xərci</th>
+                <th>Status</th>
+                <th className="r w-act">Əməliyyat</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? <LoadingRow colSpan={8} />
+                : periods.length === 0
+                  ? <EmptyRow colSpan={8} icon={Calculator} message="Hələ heç bir dövr yoxdur" />
+                  : periods.map(p => {
+                    const s = PAYROLL_STATUS[p.status] || { label: p.status, tone: 'muted' }
+                    const totalCompanyCost = (Number(p.totalGross || 0) + Number(p.totalEmployerContributions || 0))
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => navigate(`/hr/payroll/${p.id}`)}
+                        className="cursor-pointer"
+                      >
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className="w-7 h-7 rounded-[8px] grid place-items-center flex-none"
+                              style={{ background: 'var(--ces-gold-100)', color: 'var(--ces-gold-700)' }}
+                            >
+                              <Calendar size={13} />
+                            </span>
+                            <span className="text-[13.5px] font-bold" style={{ color: 'var(--ces-ink)' }}>{p.label}</span>
+                          </div>
+                        </td>
+                        <td className="r num font-extrabold" style={{ color: 'var(--ces-graphite-900)' }}>{p.entryCount || 0}</td>
+                        <td className="r num font-semibold" style={{ color: 'var(--ces-ink)' }}>{fmt(p.totalGross)}</td>
+                        <td className="r num" style={{ color: 'var(--ces-danger)' }}>{fmt(p.totalEmployeeDeductions)}</td>
+                        <td className="r num font-extrabold" style={{ color: 'var(--ces-ok)' }}>{fmt(p.totalNet)}</td>
+                        <td className="r num" style={{ color: 'var(--ces-info)' }}>{fmt(totalCompanyCost)}</td>
+                        <td><Pill tone={s.tone} sm dot>{s.label}</Pill></td>
+                        <td className="r" onClick={(ev) => ev.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => downloadPdf(p)} className="ces-row-act" title="PDF endir"><FileText size={14} /></button>
+                            {canEdit && p.status === 'DRAFT' && (
+                              <button onClick={() => handleApprove(p)} className="ces-row-act info" title="Təsdiqlə"><CheckCircle2 size={14} /></button>
+                            )}
+                            {canEdit && p.status === 'APPROVED' && (
+                              <button onClick={() => handleMarkPaid(p)} className="ces-row-act" style={{ color: 'var(--ces-ok)' }} title="Ödənmiş kimi qeyd et"><DollarSign size={14} /></button>
+                            )}
+                            {canEdit && p.status === 'APPROVED' && (
+                              <button onClick={() => handleReopen(p)} className="ces-row-act gold" title="Yenidən aç"><RotateCw size={14} /></button>
+                            )}
+                            {canDelete && p.status !== 'PAID' && (
+                              <button onClick={() => handleDelete(p)} className="ces-row-act danger" title="Sil"><Trash2 size={14} /></button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+            </tbody>
+          </table>
+        </div>
+      </TableWrap>
 
       {creating && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setCreating(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">Yeni aylıq dövr</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">İl</label>
-                <input type="number" value={newPeriod.year} onChange={e => setNewPeriod({ ...newPeriod, year: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Ay</label>
-                <select value={newPeriod.month} onChange={e => setNewPeriod({ ...newPeriod, month: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700">
+        <ModalShell
+          icon={Calendar}
+          eyebrow="Yeni qeyd"
+          title="Aylıq dövr"
+          subtitle="Bütün aktiv işçilər avtomatik daxil ediləcək"
+          onClose={() => setCreating(false)}
+          maxWidth="480px"
+          footer={
+            <>
+              <button onClick={() => setCreating(false)} className="ces-btn ces-btn-ghost ces-btn-sm">Ləğv</button>
+              <button onClick={create} disabled={submitting} className="ces-btn ces-btn-primary">
+                {submitting && (
+                  <span className="w-3.5 h-3.5 rounded-full animate-spin"
+                    style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: 'var(--ces-on-primary)' }} />
+                )}
+                Yarat
+              </button>
+            </>
+          }
+        >
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="İl">
+                <Input type="number" value={newPeriod.year} onChange={(e) => setNewPeriod({ ...newPeriod, year: Number(e.target.value) })} />
+              </Field>
+              <Field label="Ay">
+                <Select value={newPeriod.month} onChange={(e) => setNewPeriod({ ...newPeriod, month: Number(e.target.value) })}>
                   {AZ_MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">İş günü sayı</label>
-                <input type="number" min="1" max="31" value={newPeriod.workingDaysInMonth} onChange={e => setNewPeriod({ ...newPeriod, workingDaysInMonth: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
-              </div>
-              <p className="text-xs text-gray-500 italic">Bütün aktiv işçilər avtomatik daxil ediləcək.</p>
+                </Select>
+              </Field>
             </div>
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setCreating(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Ləğv</button>
-              <button onClick={create} className="px-5 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg">Yarat</button>
-            </div>
+            <Field label="İş günü sayı" hint="Adətən 22 (5 günlük iş həftəsi)">
+              <Input
+                type="number"
+                min="1"
+                max="31"
+                value={newPeriod.workingDaysInMonth}
+                onChange={(e) => setNewPeriod({ ...newPeriod, workingDaysInMonth: Number(e.target.value) })}
+                suffix="gün"
+              />
+            </Field>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   )

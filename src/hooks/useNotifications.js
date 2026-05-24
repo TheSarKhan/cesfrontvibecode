@@ -3,15 +3,17 @@ import { Client } from '@stomp/stompjs'
 import toast from 'react-hot-toast'
 import { useNotificationStore } from '../store/notificationStore'
 
-const TOAST_ICONS = {
-  SUCCESS: '✅',
-  INFO: 'ℹ️',
-  WARNING: '⚠️',
-}
-
 function getWsUrl() {
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${window.location.host}/api/ws/websocket`
+}
+
+function showToast(payload) {
+  const body = `${payload.title}\n${payload.message}`
+  const opts = { duration: 5000 }
+  if (payload.type === 'SUCCESS') return toast.success(body, opts)
+  if (payload.type === 'WARNING') return toast(body, { ...opts, icon: 'warning' })
+  return toast(body, opts)
 }
 
 export function useNotifications(enabled = true) {
@@ -32,11 +34,7 @@ export function useNotifications(enabled = true) {
             if (payload.type === 'APPROVAL_QUEUE_UPDATED') {
               bumpApprovalQueue()
             } else {
-              const icon = TOAST_ICONS[payload.type] || 'ℹ️'
-              toast(`${icon} ${payload.title}\n${payload.message}`, {
-                duration: 5000,
-                style: { fontSize: '12px', maxWidth: '320px' },
-              })
+              showToast(payload)
             }
           } catch {
             // ignore parse errors

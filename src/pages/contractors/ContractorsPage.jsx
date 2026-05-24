@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Pencil, Trash2, Search, Star, HardHat, Eye, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Star, HardHat, Eye, Download, AlertTriangle, CheckCircle2, Users, XCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { contractorsApi } from '../../api/contractors'
 import ContractorModal from './ContractorModal'
@@ -15,24 +15,24 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
 
 const RISK_CONFIG = {
-  LOW: { label: 'Aşağı', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  MEDIUM: { label: 'Orta', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
-  HIGH: { label: 'Yüksək', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  LOW:    { label: 'Aşağı',   cls: 'bg-[var(--ces-ok-100,#e8fbe5)] text-[var(--ces-ok)]' },
+  MEDIUM: { label: 'Orta',    cls: 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' },
+  HIGH:   { label: 'Yüksək', cls: 'bg-[var(--ces-danger-100,#fdeaef)] text-[var(--ces-danger)]' },
 }
 
 const STATUS_CONFIG = {
-  ACTIVE: { label: 'Aktiv', cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  INACTIVE: { label: 'Deaktiv', cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+  ACTIVE:   { label: 'Aktiv',   cls: 'bg-[var(--ces-ok-100,#e8fbe5)] text-[var(--ces-ok)]' },
+  INACTIVE: { label: 'Deaktiv', cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
 }
 const PAYMENT_LABEL = { CASH: 'Nağd', TRANSFER: 'Köçürmə' }
 
 function RatingStars({ rating }) {
-  if (rating == null || rating === '') return <span className="text-gray-400 text-xs">—</span>
+  if (rating == null || rating === '') return <span className="text-[var(--ces-mute2,#9a9a9a)] text-xs">—</span>
   const val = parseFloat(rating)
   return (
     <div className="flex items-center gap-1">
-      <Star size={13} className="fill-amber-400 text-amber-400" />
-      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{val.toFixed(1)}</span>
+      <Star size={13} className="fill-[var(--ces-gold)] text-[var(--ces-gold)]" />
+      <span className="text-xs font-semibold text-[var(--ces-ink)]">{val.toFixed(1)}</span>
     </div>
   )
 }
@@ -86,7 +86,6 @@ export default function ContractorsPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Search command palette-dən gələn ?open=id param-ı idarə et
   useEffect(() => {
     const openId = searchParams.get('open')
     if (!openId) return
@@ -101,7 +100,11 @@ export default function ContractorsPage() {
   const toggleAll = () => setSelectedIds(allSelected ? new Set() : new Set(data.content.map(x => x.id)))
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`${selectedIds.size} element silinsin?`)) return
+    if (!(await confirm({
+      title: 'Seçilənləri sil',
+      message: `${selectedIds.size} podratçı silinəcək. Davam edilsin?`,
+      confirmText: 'Sil',
+    }))) return
     setBulkLoading(true)
     try {
       await Promise.all([...selectedIds].map(id => contractorsApi.delete(id)))
@@ -147,26 +150,48 @@ export default function ContractorsPage() {
     XLSX.writeFile(wb, 'podratcilar.xlsx')
   }
 
+  const totalCount = data.totalElements
+  const activeCount = data.content.filter(c => c.status === 'ACTIVE').length
+  const inactiveCount = data.content.filter(c => c.status === 'INACTIVE').length
+  const highRiskCount = data.content.filter(c => c.riskLevel === 'HIGH').length
+
+  const stats = [
+    { label: 'Cəmi',        value: totalCount,    icon: Users,         tone: 'graphite' },
+    { label: 'Aktiv',       value: activeCount,   icon: CheckCircle2,  tone: 'ok' },
+    { label: 'Deaktiv',     value: inactiveCount, icon: XCircle,       tone: 'mute' },
+    { label: 'Yüksək risk', value: highRiskCount, icon: AlertTriangle, tone: 'danger' },
+  ]
+
+  const toneCls = {
+    graphite: 'bg-[var(--ces-graphite-50)] text-[var(--ces-graphite)]',
+    ok:       'bg-[var(--ces-ok-100,#e8fbe5)] text-[var(--ces-ok)]',
+    mute:     'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]',
+    danger:   'bg-[var(--ces-danger-100,#fdeaef)] text-[var(--ces-danger)]',
+    gold:     'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]',
+  }
+
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="ces-font">
+      {/* Page Header */}
+      <div className="flex items-end justify-between mb-7">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Podratçılar</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} podratçı</p>
+          <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--ces-ink)] leading-tight">Podratçılar</h1>
+          <p className="text-sm text-[var(--ces-muted)] mt-1">
+            Cəmi <span className="font-semibold text-[var(--ces-ink)]">{totalCount}</span> podratçı qeydiyyatdadır
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={exportExcel}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] rounded-[10px] hover:border-[var(--ces-graphite)] transition-colors"
           >
-            <Download size={13} />
+            <Download size={14} />
             Excel
           </button>
           {canCreate && (
             <button
               onClick={() => setModal({ open: true, editing: null })}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] text-[var(--ces-on-gold)] text-sm font-semibold px-4 py-2.5 rounded-[10px] transition-colors shadow-[0_8px_24px_-12px_rgba(200,147,42,0.55)]"
             >
               <Plus size={16} />
               Yeni podratçı
@@ -175,26 +200,29 @@ export default function ContractorsPage() {
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        {[
-          { label: 'Cəmi',        value: data.totalElements,                                                color: 'bg-gray-500' },
-          { label: 'Aktiv',       value: data.content.filter(c => c.status === 'ACTIVE').length,           color: 'bg-green-500' },
-          { label: 'Deaktiv',     value: data.content.filter(c => c.status === 'INACTIVE').length,         color: 'bg-gray-400' },
-          { label: 'Yüksək risk', value: data.content.filter(c => c.riskLevel === 'HIGH').length,          color: 'bg-red-500' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${stat.color}`} />
-            <div>
-              <p className="text-[11px] text-gray-400">{stat.label}</p>
-              <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight">{stat.value}</p>
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {stats.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <div
+              key={stat.label}
+              className="bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[20px] p-5 shadow-[0_1px_2px_rgba(58,58,58,0.06),0_1px_1px_rgba(58,58,58,0.04)] hover:shadow-[0_8px_24px_-12px_rgba(58,58,58,0.18),0_2px_6px_rgba(58,58,58,0.06)] hover:-translate-y-[1px] transition-all"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)]">{stat.label}</span>
+                <span className={clsx('w-9 h-9 rounded-[10px] grid place-items-center', toneCls[stat.tone])}>
+                  <Icon size={16} />
+                </span>
+              </div>
+              <div className="text-[30px] font-extrabold tracking-tight leading-none text-[var(--ces-ink)] tabular-nums">{stat.value}</div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Quick filter chips */}
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap gap-2 mb-4">
         {[
           { label: 'Hamısı',       status: '', risk: '' },
           { label: 'Aktiv',        status: 'ACTIVE',   risk: '' },
@@ -214,10 +242,10 @@ export default function ContractorsPage() {
                 return n
               }, { replace: true })}
               className={clsx(
-                'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+                'px-3.5 py-1.5 rounded-full text-[12.5px] font-bold tracking-tight transition-colors',
                 active
-                  ? 'bg-amber-500 text-white border-amber-500'
-                  : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-400 hover:text-amber-600'
+                  ? 'bg-[var(--ces-graphite)] text-[var(--ces-on-primary)]'
+                  : 'bg-white text-[var(--ces-graphite)] border border-[var(--ces-line)] hover:border-[var(--ces-graphite)]'
               )}
             >
               {chip.label}
@@ -228,20 +256,20 @@ export default function ContractorsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative flex-1 min-w-[240px]">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ces-mute2,#9a9a9a)]" />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Şirkət adı, VÖEN, əlaqə şəxsi..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="w-full pl-10 pr-3 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] placeholder-[var(--ces-mute2,#9a9a9a)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="px-3.5 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] cursor-pointer"
         >
           <option value="">Bütün statuslar</option>
           <option value="ACTIVE">Aktiv</option>
@@ -250,7 +278,7 @@ export default function ContractorsPage() {
         <select
           value={riskFilter}
           onChange={(e) => setRiskFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="px-3.5 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] cursor-pointer"
         >
           <option value="">Bütün risklər</option>
           <option value="LOW">Aşağı risk</option>
@@ -261,22 +289,22 @@ export default function ContractorsPage() {
 
       {/* Bulk action toolbar */}
       {canDelete && selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl mb-3">
-          <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+        <div className="flex items-center gap-3 px-4 py-3 bg-[var(--ces-gold-50,#fbf3dc)] border border-[var(--ces-gold-100)] rounded-[14px] mb-4">
+          <span className="text-sm font-bold text-[var(--ces-gold-700)]">
             {selectedIds.size} element seçildi
           </span>
           <div className="flex-1" />
           <button
             onClick={handleBulkDelete}
             disabled={bulkLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[var(--ces-danger)] hover:bg-[#b62b4a] text-white text-xs font-bold rounded-[8px] transition-colors disabled:opacity-60"
           >
             {bulkLoading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
             Seçilənləri sil ({selectedIds.size})
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="text-xs font-semibold text-[var(--ces-muted)] hover:text-[var(--ces-graphite)]"
           >
             Ləğv et
           </button>
@@ -284,21 +312,21 @@ export default function ContractorsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <table className="w-full">
+      <div className="bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[20px] overflow-hidden shadow-[0_1px_2px_rgba(58,58,58,0.06),0_1px_1px_rgba(58,58,58,0.04)]">
+        <table className="w-full text-[13.5px]">
           <thead>
-            <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-              <th className="px-4 py-3 w-10">
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-amber-500 cursor-pointer" />
+            <tr className="border-b border-[var(--ces-line)] bg-white">
+              <th className="px-4 py-3.5 w-12">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-4 h-4 accent-[var(--ces-graphite)] cursor-pointer" />
               </th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Şirkət adı</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">VÖEN</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Əlaqə şəxsi</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ödəniş növü</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Risk</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
-              <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Reytinq</th>
-              <th className="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-right">Əməliyyat</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Şirkət adı</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">VÖEN</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Əlaqə şəxsi</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Ödəniş növü</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Risk</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Status</th>
+              <th className="text-left py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Reytinq</th>
+              <th className="py-3.5 px-4 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em] text-right">Əməliyyat</th>
             </tr>
           </thead>
           <tbody>
@@ -322,48 +350,50 @@ export default function ContractorsPage() {
                     key={c.id}
                     onClick={() => setSelected(c)}
                     className={clsx(
-                      'border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors',
-                      isSelected ? 'bg-amber-50 dark:bg-amber-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-750'
+                      'border-b border-[var(--ces-line-2)] cursor-pointer transition-colors last:border-b-0',
+                      isSelected ? 'bg-[var(--ces-gold-50,#fbf3dc)]' : 'hover:bg-[var(--ces-graphite-50)]'
                     )}
                   >
-                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)}
-                        className="w-4 h-4 accent-amber-500 cursor-pointer" />
+                        className="w-4 h-4 accent-[var(--ces-graphite)] cursor-pointer" />
                     </td>
-                    <td className="py-3 px-4" title={c.companyName}>
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.companyName}</span>
+                    <td className="py-3.5 px-4" title={c.companyName}>
+                      <span className="text-sm font-semibold text-[var(--ces-ink)]">{c.companyName}</span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{c.voen || '—'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400" title={c.contactPerson || ''}>{c.contactPerson || '—'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                    <td className="py-3.5 px-4 text-sm text-[var(--ces-muted)] font-mono tabular-nums">{c.voen || '—'}</td>
+                    <td className="py-3.5 px-4 text-sm text-[var(--ces-muted)]" title={c.contactPerson || ''}>{c.contactPerson || '—'}</td>
+                    <td className="py-3.5 px-4 text-sm">
                       {c.paymentType
                         ? <div className="flex flex-wrap gap-1">
                             {c.paymentType.split(',').filter(Boolean).map(pt => (
-                              <span key={pt} className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                              <span key={pt} className="px-2 py-0.5 rounded-[6px] text-[11.5px] font-semibold bg-[var(--ces-graphite-50)] text-[var(--ces-graphite)]">
                                 {PAYMENT_LABEL[pt] || pt}
                               </span>
                             ))}
                           </div>
-                        : '—'}
+                        : <span className="text-[var(--ces-muted)]">—</span>}
                     </td>
-                    <td className="py-3 px-4">
-                      <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', risk.cls)}>
+                    <td className="py-3.5 px-4">
+                      <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold', risk.cls)}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
                         {risk.label}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', status.cls)}>
+                    <td className="py-3.5 px-4">
+                      <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold', status.cls)}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
                         {status.label}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4">
                       <RatingStars rating={c.rating} />
                     </td>
-                    <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                    <td className="py-3.5 px-4" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1 justify-end">
                         <button
                           onClick={() => setSelected(c)}
-                          className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-blue-500 transition-colors"
+                          className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:bg-[var(--ces-graphite-50)] hover:text-[var(--ces-graphite)] transition-colors"
                           title="Bax"
                         >
                           <Eye size={15} />
@@ -371,7 +401,7 @@ export default function ContractorsPage() {
                         {canEdit && (
                           <button
                             onClick={() => setModal({ open: true, editing: c })}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+                            className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:bg-[var(--ces-gold-100)] hover:text-[var(--ces-gold-700)] transition-colors"
                             title="Redaktə et"
                           >
                             <Pencil size={15} />
@@ -380,7 +410,7 @@ export default function ContractorsPage() {
                         {canDelete && (
                           <button
                             onClick={() => handleDelete(c)}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
+                            className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:bg-[var(--ces-danger-100,#fdeaef)] hover:text-[var(--ces-danger)] transition-colors"
                             title="Sil"
                           >
                             <Trash2 size={15} />

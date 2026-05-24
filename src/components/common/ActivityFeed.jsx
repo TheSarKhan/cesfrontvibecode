@@ -5,14 +5,14 @@ import { clsx } from 'clsx'
 import { timeAgo } from '../../utils/date'
 
 const ACTION_CONFIG = {
-  'YARADILDI':    { icon: PlusCircle,   color: 'text-green-500',  bg: 'bg-green-100 dark:bg-green-900/30' },
-  'YENİLƏNDİ':   { icon: Edit3,        color: 'text-blue-500',   bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  'SİLİNDİ':     { icon: Trash2,       color: 'text-red-500',    bg: 'bg-red-100 dark:bg-red-900/30' },
-  'BƏRPA EDİLDİ':{ icon: RotateCcw,    color: 'text-amber-500',  bg: 'bg-amber-100 dark:bg-amber-900/30' },
-  'GİRİŞ ETDİ':  { icon: LogIn,        color: 'text-violet-500', bg: 'bg-violet-100 dark:bg-violet-900/30' },
-  'ÇIXIŞ ETDİ':  { icon: LogOut,       color: 'text-gray-500',   bg: 'bg-gray-100 dark:bg-gray-700' },
-  'TƏSDİQLƏNDİ': { icon: CheckCircle,  color: 'text-teal-500',   bg: 'bg-teal-100 dark:bg-teal-900/30' },
-  'RƏDD EDİLDİ': { icon: XCircle,      color: 'text-orange-500', bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  'YARADILDI':    { icon: PlusCircle,  textCls: 'text-[var(--ces-ok)]',       bgCls: 'bg-[var(--ces-ok-100)]',       borderCls: 'border-[var(--ces-ok)]' },
+  'YENİLƏNDİ':   { icon: Edit3,       textCls: 'text-[var(--ces-info)]',     bgCls: 'bg-[var(--ces-info-100)]',     borderCls: 'border-[var(--ces-info)]' },
+  'SİLİNDİ':     { icon: Trash2,      textCls: 'text-[var(--ces-danger)]',   bgCls: 'bg-[var(--ces-danger-100)]',   borderCls: 'border-[var(--ces-danger)]' },
+  'BƏRPA EDİLDİ':{ icon: RotateCcw,   textCls: 'text-[var(--ces-gold-700)]', bgCls: 'bg-[var(--ces-gold-100)]',     borderCls: 'border-[var(--ces-gold)]' },
+  'GİRİŞ ETDİ':  { icon: LogIn,       textCls: 'text-[var(--ces-info)]',     bgCls: 'bg-[var(--ces-info-100)]',     borderCls: 'border-[var(--ces-info)]' },
+  'ÇIXIŞ ETDİ':  { icon: LogOut,      textCls: 'text-[var(--ces-muted)]',    bgCls: 'bg-[var(--ces-graphite-100)]', borderCls: 'border-[var(--ces-muted)]' },
+  'TƏSDİQLƏNDİ': { icon: CheckCircle, textCls: 'text-[var(--ces-ok)]',       bgCls: 'bg-[var(--ces-ok-100)]',       borderCls: 'border-[var(--ces-ok)]' },
+  'RƏDD EDİLDİ': { icon: XCircle,     textCls: 'text-[var(--ces-warn)]',     bgCls: 'bg-[var(--ces-warn-100)]',     borderCls: 'border-[var(--ces-warn)]' },
 }
 
 export default function ActivityFeed({ entityType, entityId, className }) {
@@ -31,43 +31,67 @@ export default function ActivityFeed({ entityType, entityId, className }) {
   }, [entityType, entityId])
 
   if (loading) return (
-    <div className={clsx('flex items-center justify-center py-8 gap-2 text-gray-400', className)}>
-      <RefreshCw size={14} className="animate-spin" />
-      <span className="text-xs">Yüklənir...</span>
+    <div className={clsx('flex items-center justify-center py-10 gap-2 text-[var(--ces-muted)] ces-font', className)}>
+      <RefreshCw size={14} className="animate-spin text-[var(--ces-gold)]" />
+      <span className="text-[13px] font-semibold">Yüklənir...</span>
     </div>
   )
 
   if (logs.length === 0) return (
-    <div className={clsx('flex flex-col items-center justify-center py-8 text-gray-400', className)}>
-      <Clock size={24} className="mb-2 opacity-40" />
-      <p className="text-xs">Tarixçə yoxdur</p>
+    <div className={clsx('flex flex-col items-center justify-center py-12 ces-font', className)}>
+      <div className="w-14 h-14 rounded-[16px] bg-[var(--ces-graphite-50)] grid place-items-center mb-3">
+        <Clock size={22} className="text-[var(--ces-mute2)]" />
+      </div>
+      <p className="text-[13px] font-semibold text-[var(--ces-muted)]">Tarixçə yoxdur</p>
     </div>
   )
 
   return (
-    <div className={clsx('space-y-1', className)}>
-      {logs.map(log => {
-        const cfg = ACTION_CONFIG[log.action] || ACTION_CONFIG['YENİLƏNDİ']
-        const Icon = cfg.icon
-        return (
-          <div key={log.id} className="flex items-start gap-3 py-2 px-1">
-            <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5', cfg.bg)}>
-              <Icon size={13} className={cfg.color} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-700 dark:text-gray-300">
-                <span className="font-semibold">{log.entityLabel}</span>
-                {' '}
-                <span className={clsx('font-medium', cfg.color)}>{log.action.toLowerCase()}</span>
-              </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">
-                {log.performedBy} · {timeAgo(log.performedAt)}
-              </p>
-              {log.summary && <p className="text-[10px] text-gray-400">{log.summary}</p>}
-            </div>
-          </div>
-        )
-      })}
+    <div className={clsx('ces-font', className)}>
+      <ul className="relative">
+        {logs.map((log, idx) => {
+          const cfg = ACTION_CONFIG[log.action] || ACTION_CONFIG['YENİLƏNDİ']
+          const Icon = cfg.icon
+          const isLast = idx === logs.length - 1
+          return (
+            <li key={log.id} className="relative pl-10 pb-5 last:pb-0">
+              {/* Vertical connector line */}
+              {!isLast && (
+                <span
+                  className="absolute left-[14px] top-7 bottom-0 w-px bg-[var(--ces-line)]"
+                  aria-hidden
+                />
+              )}
+              {/* Dot icon */}
+              <div className={clsx(
+                'absolute left-0 top-0 w-7 h-7 rounded-full grid place-items-center border-2 bg-[var(--ces-surface)]',
+                cfg.borderCls
+              )}>
+                <Icon size={12} className={cfg.textCls} />
+              </div>
+              {/* Body */}
+              <div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-[13px] text-[var(--ces-ink)]">
+                    <span className="font-bold">{log.entityLabel}</span>
+                    {' '}
+                    <span className={clsx('font-semibold', cfg.textCls)}>{log.action.toLowerCase()}</span>
+                  </p>
+                  <span className="text-[10.5px] text-[var(--ces-mute2)] font-medium whitespace-nowrap shrink-0">
+                    {timeAgo(log.performedAt)}
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-[var(--ces-muted)] mt-0.5">
+                  {log.performedBy}
+                </p>
+                {log.summary && (
+                  <p className="text-[11.5px] text-[var(--ces-muted)] mt-1 leading-relaxed">{log.summary}</p>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

@@ -1,27 +1,28 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image, Trash2, ArrowRight, RefreshCw, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, MapPin, User, Building2, Clock, CheckCircle, ShieldCheck, Save } from 'lucide-react'
+import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image as ImageIcon, Trash2, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, User, Building2, CheckCircle, ShieldCheck, Save, Copy } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
-import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, inspectionCountdown, validateFileUpload } from '../../constants/garage'
+import { STATUS_CFG, OWN_LABEL, inspectionCountdown } from '../../constants/garage'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
   { id: 'inspections', label: 'Baxışlar', icon: ClipboardCheck },
   { id: 'documents', label: 'Sənədlər', icon: FileText },
-  { id: 'images', label: 'Şəkillər', icon: Image },
+  { id: 'images', label: 'Şəkillər', icon: ImageIcon },
   { id: 'history', label: 'Tarixçə', icon: History },
 ]
 
 function InfoCard({ title, icon: Icon, children, className }) {
   return (
-    <div className={clsx('bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 p-3.5', className)}>
-      <div className="flex items-center gap-1.5 mb-2.5">
-        {Icon && <Icon size={13} className="text-amber-500" />}
-        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{title}</p>
+    <div className={clsx('bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[16px] p-5 shadow-[0_1px_2px_rgba(58,58,58,0.06)]', className)}>
+      <div className="flex items-center gap-1.5 mb-3.5">
+        {Icon && <Icon size={13} className="text-[var(--ces-gold-700)]" />}
+        <p className="text-[11px] tracking-[0.16em] uppercase font-bold text-[var(--ces-muted)]">{title}</p>
       </div>
       {children}
     </div>
@@ -30,14 +31,16 @@ function InfoCard({ title, icon: Icon, children, className }) {
 
 function InfoField({ label, value, mono }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] text-gray-400 dark:text-gray-500">{label}</span>
-      <span className={clsx('text-xs font-medium text-gray-800 dark:text-gray-200', mono && 'font-mono')}>{value || '—'}</span>
+    <div className="flex flex-col gap-1">
+      <span className="text-[10.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.12em]">{label}</span>
+      <span className={clsx('text-[13px] font-semibold text-[var(--ces-ink)]', mono && 'font-mono tabular-nums')}>{value || '—'}</span>
     </div>
   )
 }
 
+/* ─── InspectionsTab ───────────────────────────────────────────────── */
 function InspectionsTab({ equipmentId }) {
+  const { confirm, ConfirmDialog } = useConfirm()
   const [inspections, setInspections] = useState([])
   const [nextInspectionDate, setNextInspectionDate] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -61,7 +64,6 @@ function InspectionsTab({ equipmentId }) {
       .finally(() => setLoading(false))
   }, [equipmentId])
 
-  // Derive last inspection date from inspections list (handles historical entries)
   const latestInspection = useMemo(() => {
     if (!inspections.length) return null
     return inspections.reduce((latest, ins) => {
@@ -82,7 +84,6 @@ function InspectionsTab({ equipmentId }) {
     }
     setSaving(true)
     try {
-      // If editing, delete the old inspection first
       if (editingIns) {
         await garageApi.deleteInspection(equipmentId, editingIns.id)
         setInspections((prev) => prev.filter((i) => i.id !== editingIns.id))
@@ -99,7 +100,6 @@ function InspectionsTab({ equipmentId }) {
       }
       setInspections((prev) => [...prev, inspection])
 
-      // Update lastInspectionDate if this inspection is newer than all existing ones
       const currentList = editingIns
         ? inspections.filter((i) => i.id !== editingIns.id)
         : inspections
@@ -118,7 +118,8 @@ function InspectionsTab({ equipmentId }) {
 
       cancelForm()
       toast.success(editingIns ? 'Baxış yeniləndi' : 'Baxış əlavə edildi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Baxış əlavə edilə bilmədi')
     } finally {
       setSaving(false)
     }
@@ -128,20 +129,22 @@ function InspectionsTab({ equipmentId }) {
     setDownloading(ins.id)
     try {
       await garageApi.downloadInspectionDoc(equipmentId, ins.id, ins.documentName || `baxis-${ins.id}`)
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd endirilə bilmədi')
     } finally {
       setDownloading(null)
     }
   }
 
   const handleDelete = async (ins) => {
-    if (!window.confirm(`${ins.inspectionDate || ''} tarixli baxışı silmək istəyirsiniz?`)) return
+    if (!(await confirm({ title: 'Baxışı sil', message: `${ins.inspectionDate || ''} tarixli baxışı silmək istəyirsiniz?` }))) return
     setDeleting(ins.id)
     try {
       await garageApi.deleteInspection(equipmentId, ins.id)
       setInspections((prev) => prev.filter((i) => i.id !== ins.id))
       toast.success('Baxış silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Baxış silinə bilmədi')
     } finally {
       setDeleting(null)
     }
@@ -165,122 +168,127 @@ function InspectionsTab({ equipmentId }) {
     setForm({ inspectionDate: '', nextDate: '', description: '' })
   }
 
-  if (loading) return <div className="py-8 text-center text-sm text-gray-400">Yüklənir...</div>
+  if (loading) return <div className="py-10 text-center text-sm font-semibold text-[var(--ces-muted)]">Yüklənir...</div>
+
+  const dateInputCls = 'w-full px-3.5 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all'
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <p className="text-[10px] text-gray-400 mb-0.5">Son baxış</p>
-          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3.5 rounded-[14px] border border-[var(--ces-line)] bg-[var(--ces-surface)]">
+          <p className="text-[10.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.12em] mb-1.5">Son baxış</p>
+          <p className="text-[14px] font-bold text-[var(--ces-ink)] tabular-nums">
             {latestInspection?.inspectionDate
               ? new Date(latestInspection.inspectionDate).toLocaleDateString('az-AZ')
               : '—'}
           </p>
         </div>
         <div className={clsx(
-          'p-2.5 rounded-lg border',
-          nextInsp ? nextInsp.cls : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900'
+          'p-3.5 rounded-[14px] border',
+          nextInsp ? nextInsp.cls + ' border-transparent' : 'border-[var(--ces-line)] bg-[var(--ces-surface)]'
         )}>
-          <p className="text-[10px] opacity-70 mb-0.5">Növbəti baxış</p>
-          <p className="text-xs font-semibold">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] mb-1.5 opacity-80">Növbəti baxış</p>
+          <p className="text-[14px] font-bold tabular-nums">
             {nextInsp ? nextInsp.label : (nextInspectionDate ? new Date(nextInspectionDate).toLocaleDateString('az-AZ') : '—')}
           </p>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 dark:text-gray-400">{inspections.length} baxış</span>
+        <span className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)]">{inspections.length} baxış</span>
         <button
           onClick={() => { cancelForm(); setShowForm((v) => !v) }}
-          className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--ces-gold-700)] hover:text-[var(--ces-graphite)] transition-colors"
         >
-          <Plus size={13} />
+          <Plus size={14} />
           Yeni baxış
         </button>
       </div>
 
       {showForm && (
-        <form onSubmit={handleAdd} className="border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-3 bg-amber-50/40 dark:bg-amber-900/10">
+        <form onSubmit={handleAdd} className="border border-[var(--ces-gold-100)] rounded-[14px] p-4 space-y-3 bg-[var(--ces-gold-50)]">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Baxış tarixi *</label>
+              <label className="block text-[12px] font-semibold text-[var(--ces-ink)] mb-1.5">Baxış tarixi *</label>
               <DateInput
                 value={form.inspectionDate}
                 onChange={(e) => setForm((f) => ({ ...f, inspectionDate: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className={dateInputCls}
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Növbəti baxış</label>
+              <label className="block text-[12px] font-semibold text-[var(--ces-ink)] mb-1.5">Növbəti baxış</label>
               <DateInput
                 value={form.nextDate}
                 onChange={(e) => setForm((f) => ({ ...f, nextDate: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className={dateInputCls}
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Açıqlama</label>
+            <label className="block text-[12px] font-semibold text-[var(--ces-ink)] mb-1.5">Açıqlama</label>
             <textarea
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
               placeholder="Baxış qeydləri..."
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+              className={clsx(dateInputCls, 'resize-none')}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sənəd (istəyə bağlı)</label>
+            <label className="block text-[12px] font-semibold text-[var(--ces-ink)] mb-1.5">Sənəd (istəyə bağlı)</label>
             <div
               onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-amber-400 transition-colors"
+              className="flex items-center gap-2 px-3.5 py-2.5 border-2 border-dashed border-[var(--ces-line)] rounded-[11px] cursor-pointer hover:border-[var(--ces-gold)] transition-colors bg-white"
             >
-              <Upload size={14} className="text-gray-400" />
-              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              <Upload size={14} className="text-[var(--ces-mute2)]" />
+              <span className="text-[12.5px] text-[var(--ces-muted)] truncate">
                 {file ? file.name : 'Fayl seçin...'}
               </span>
             </div>
             <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files[0] || null)} />
           </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              {saving && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {editingIns ? 'Yadda saxla' : 'Əlavə et'}
-            </button>
+          <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={cancelForm}
-              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="text-[12px] font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] hover:border-[var(--ces-graphite)] px-3 py-2 rounded-[8px] transition-colors"
             >
               Ləğv et
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] disabled:opacity-60 text-[var(--ces-on-gold)] text-[12px] font-bold px-4 py-2 rounded-[8px] transition-colors"
+            >
+              {saving && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {editingIns ? 'Yadda saxla' : 'Əlavə et'}
             </button>
           </div>
         </form>
       )}
 
       {inspections.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-6">Hələ baxış yoxdur</p>
+        <div className="text-center py-12 bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[14px]">
+          <ClipboardCheck size={28} className="mx-auto mb-3 text-[var(--ces-mute2)] opacity-50" />
+          <p className="text-sm font-semibold text-[var(--ces-muted)]">Hələ baxış yoxdur</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {[...inspections].sort((a, b) => (b.inspectionDate || '').localeCompare(a.inspectionDate || '')).map((ins) => (
-            <div key={ins.id} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3.5 bg-white dark:bg-gray-800">
+            <div key={ins.id} className="border border-[var(--ces-line)] rounded-[14px] p-3.5 bg-[var(--ces-surface)] shadow-[0_1px_2px_rgba(58,58,58,0.06)]">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
-                    <ClipboardCheck size={14} className="text-amber-600" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-[10px] bg-[var(--ces-gold-100)] grid place-items-center shrink-0">
+                    <ClipboardCheck size={15} className="text-[var(--ces-gold-700)]" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    <p className="text-[13.5px] font-bold text-[var(--ces-ink)] tabular-nums">
                       {ins.inspectionDate ? new Date(ins.inspectionDate).toLocaleDateString('az-AZ') : '—'}
                     </p>
                     {ins.performedByUserName && (
-                      <p className="text-[10px] text-gray-400">{ins.performedByUserName}</p>
+                      <p className="text-[11px] text-[var(--ces-muted)] mt-0.5">{ins.performedByUserName}</p>
                     )}
                   </div>
                 </div>
@@ -289,42 +297,43 @@ function InspectionsTab({ equipmentId }) {
                     <button
                       onClick={() => handleDownload(ins)}
                       disabled={downloading === ins.id}
-                      className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-700 disabled:opacity-50 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--ces-gold-700)] bg-white border border-[var(--ces-gold-100)] hover:border-[var(--ces-gold-700)] disabled:opacity-50 px-2.5 py-1.5 rounded-[8px] transition-colors"
                     >
                       {downloading === ins.id
-                        ? <span className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
-                        : <FileText size={10} />
+                        ? <span className="w-3 h-3 border-2 border-[var(--ces-gold-700)] border-t-transparent rounded-full animate-spin" />
+                        : <Download size={11} />
                       }
                       Sənəd
                     </button>
                   )}
                   <button
                     onClick={() => startEdit(ins)}
-                    className="p-1.5 rounded text-gray-400 hover:text-amber-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:text-[var(--ces-gold-700)] hover:bg-[var(--ces-gold-100)] transition-colors"
                     title="Redaktə"
                   >
-                    <Pencil size={12} />
+                    <Pencil size={13} />
                   </button>
                   <button
                     onClick={() => handleDelete(ins)}
                     disabled={deleting === ins.id}
-                    className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:text-[var(--ces-danger)] hover:bg-[var(--ces-danger-100)] transition-colors disabled:opacity-50"
                     title="Sil"
                   >
                     {deleting === ins.id
-                      ? <span className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                      : <Trash2 size={12} />
+                      ? <span className="w-3 h-3 border-2 border-[var(--ces-danger)] border-t-transparent rounded-full animate-spin" />
+                      : <Trash2 size={13} />
                     }
                   </button>
                 </div>
               </div>
               {ins.description && (
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 pl-10">{ins.description}</p>
+                <p className="mt-2.5 text-[12.5px] text-[var(--ces-muted)] pl-11 leading-relaxed">{ins.description}</p>
               )}
             </div>
           ))}
         </div>
       )}
+      <ConfirmDialog />
     </div>
   )
 }
@@ -335,10 +344,12 @@ const MANDATORY_DOCS = [
   { value: 'TECHNICAL_INSPECTION', label: 'Texniki baxış sənədi' },
 ]
 
+/* ─── DocumentsTab ─────────────────────────────────────────────────── */
 function DocumentsTab({ equipmentId }) {
+  const { confirm, ConfirmDialog } = useConfirm()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(null) // null or docType string or 'extra'
+  const [uploading, setUploading] = useState(null)
   const [extraForm, setExtraForm] = useState(false)
   const [docName, setDocName] = useState('')
   const [downloading, setDownloading] = useState(null)
@@ -358,13 +369,14 @@ function DocumentsTab({ equipmentId }) {
   }, [equipmentId])
 
   const handleDelete = async (doc) => {
-    if (!window.confirm(`"${doc.documentName || 'Sənəd'}" silmək istəyirsiniz?`)) return
+    if (!(await confirm({ title: 'Sənədi sil', message: `"${doc.documentName || 'Sənəd'}" silmək istəyirsiniz?` }))) return
     setDeleting(doc.id)
     try {
       await garageApi.deleteDocument(equipmentId, doc.id)
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id))
       toast.success('Sənəd silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi')
     } finally {
       setDeleting(null)
     }
@@ -381,7 +393,8 @@ function DocumentsTab({ equipmentId }) {
       const res = await garageApi.addDocument(equipmentId, file, label, docType)
       setDocuments((prev) => [...prev, res.data.data || res.data])
       toast.success('Sənəd yükləndi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(null)
       e.target.value = ''
@@ -410,7 +423,8 @@ function DocumentsTab({ equipmentId }) {
       setDocName('')
       setSelectedFile(null)
       if (extraRef.current) extraRef.current.value = ''
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(null)
     }
@@ -420,51 +434,53 @@ function DocumentsTab({ equipmentId }) {
     setDownloading(doc.id)
     try {
       await garageApi.downloadDocument(equipmentId, doc.id, doc.documentName || `sened-${doc.id}`)
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd endirilə bilmədi')
     } finally {
       setDownloading(null)
     }
   }
 
-  if (loading) return <div className="py-8 text-center text-sm text-gray-400">Yüklənir...</div>
+  if (loading) return <div className="py-10 text-center text-sm font-semibold text-[var(--ces-muted)]">Yüklənir...</div>
 
   const uploadedTypes = documents.map(d => d.documentType).filter(Boolean)
   const extraDocs = documents.filter(d => !MANDATORY_DOCS.some(m => m.value === d.documentType))
   const completedCount = MANDATORY_DOCS.filter(m => uploadedTypes.includes(m.value)).length
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Məcburi sənədlər */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Məcburi sənədlər</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)]">Məcburi sənədlər</p>
           <span className={clsx(
-            'text-[10px] font-semibold px-1.5 py-0.5 rounded',
+            'inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full',
             completedCount === MANDATORY_DOCS.length
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+              ? 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]'
+              : 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]'
           )}>
-            {completedCount}/{MANDATORY_DOCS.length} {completedCount === MANDATORY_DOCS.length ? '✓ Tam' : 'Natamam'}
+            {completedCount}/{MANDATORY_DOCS.length} {completedCount === MANDATORY_DOCS.length && '✓ Tam'}
           </span>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {MANDATORY_DOCS.map((mDoc) => {
             const doc = documents.find(d => d.documentType === mDoc.value)
             const isUploading = uploading === mDoc.value
             return (
               <div key={mDoc.value} className={clsx(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-colors',
-                doc
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                  : 'bg-gray-50 dark:bg-gray-750 border-gray-200 dark:border-gray-700'
+                'flex items-center gap-3 px-3.5 py-3 rounded-[14px] border bg-[var(--ces-surface)]',
+                doc ? 'border-[var(--ces-ok-100)]' : 'border-[var(--ces-line)]'
               )}>
-                <CheckCircle size={14} className={doc ? 'text-green-500 shrink-0' : 'text-gray-300 dark:text-gray-600 shrink-0'} />
+                <div className={clsx(
+                  'w-9 h-9 rounded-[10px] grid place-items-center shrink-0',
+                  doc ? 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' : 'bg-[var(--ces-graphite-100)] text-[var(--ces-mute2)]'
+                )}>
+                  <CheckCircle size={16} />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className={clsx('text-xs font-medium', doc ? 'text-green-700 dark:text-green-300' : 'text-gray-500 dark:text-gray-400')}>
-                    {mDoc.label}
-                  </p>
+                  <p className="text-[13px] font-bold text-[var(--ces-ink)]">{mDoc.label}</p>
                   {doc && (
-                    <p className="text-[10px] text-gray-400 truncate">
+                    <p className="text-[11px] text-[var(--ces-muted)] truncate mt-0.5 font-mono">
                       {doc.documentName}{doc.uploadedByUserName ? ` · ${doc.uploadedByUserName}` : ''}{doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString('az-AZ')}` : ''}
                     </p>
                   )}
@@ -472,23 +488,25 @@ function DocumentsTab({ equipmentId }) {
                 {doc ? (
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => handleDownload(doc)} disabled={downloading === doc.id}
-                      className="text-[10px] font-medium text-green-600 hover:text-green-700 px-2 py-1 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-                      {downloading === doc.id ? <span className="w-3 h-3 border border-green-600 border-t-transparent rounded-full animate-spin inline-block" /> : 'Endir'}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--ces-ok)] hover:bg-[var(--ces-ok-100)] px-2.5 py-1.5 rounded-[8px] transition-colors">
+                      {downloading === doc.id
+                        ? <span className="w-3 h-3 border-2 border-[var(--ces-ok)] border-t-transparent rounded-full animate-spin" />
+                        : <Download size={11} />}
+                      Endir
                     </button>
                     <button onClick={() => handleDelete(doc)} disabled={deleting === doc.id}
-                      className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors">
-                      <Trash2 size={11} />
+                      className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:text-[var(--ces-danger)] hover:bg-[var(--ces-danger-100)] transition-colors">
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 ) : (
                   <label className={clsx(
-                    'flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors shrink-0',
-                    isUploading ? 'opacity-50 cursor-wait' : 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                    'inline-flex items-center gap-1.5 text-[11.5px] font-bold px-3 py-1.5 rounded-[8px] cursor-pointer transition-colors shrink-0',
+                    isUploading ? 'opacity-50 cursor-wait bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' : 'bg-[var(--ces-gold)] text-[var(--ces-on-gold)] hover:bg-[var(--ces-gold-700)]'
                   )}>
                     {isUploading
-                      ? <span className="w-3 h-3 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
-                      : <Upload size={11} />
-                    }
+                      ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      : <Upload size={11} />}
                     {isUploading ? 'Yüklənir...' : 'Yüklə'}
                     <input
                       ref={el => mandatoryRefs.current[mDoc.value] = el}
@@ -505,71 +523,71 @@ function DocumentsTab({ equipmentId }) {
 
       {/* Əlavə sənədlər */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Əlavə sənədlər</p>
-          <label className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 cursor-pointer transition-colors">
-            <Upload size={11} />
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)]">Əlavə sənədlər</p>
+          <label className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--ces-gold-700)] hover:text-[var(--ces-graphite)] cursor-pointer transition-colors">
+            <Upload size={12} />
             Fayl seç
             <input ref={extraRef} type="file" className="hidden" onChange={handleExtraFileSelect} />
           </label>
         </div>
 
         {extraForm && selectedFile && (
-          <form onSubmit={handleExtraUpload} className="border border-amber-200 dark:border-amber-800 rounded-xl p-3 space-y-2.5 bg-amber-50/40 dark:bg-amber-900/10 mb-2">
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <FileText size={12} className="text-amber-500 shrink-0" />
-              <span className="truncate text-[11px]">{selectedFile.name}</span>
+          <form onSubmit={handleExtraUpload} className="border border-[var(--ces-gold-100)] rounded-[14px] p-3.5 space-y-2.5 bg-[var(--ces-gold-50)] mb-2">
+            <div className="flex items-center gap-2 text-[12px]">
+              <FileText size={12} className="text-[var(--ces-gold-700)] shrink-0" />
+              <span className="truncate text-[12px] font-mono text-[var(--ces-ink)]">{selectedFile.name}</span>
             </div>
             <div>
-              <label className="block text-[10px] font-medium text-gray-600 dark:text-gray-400 mb-1">Sənədin adı</label>
+              <label className="block text-[11.5px] font-semibold text-[var(--ces-ink)] mb-1">Sənədin adı</label>
               <input type="text" value={docName} onChange={(e) => setDocName(e.target.value)}
                 placeholder="Avtomatik"
-                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" />
+                className="w-full px-3 py-2 text-[12.5px] border border-[var(--ces-line)] rounded-[8px] bg-white text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)]" />
             </div>
-            <div className="flex gap-2">
-              <button type="submit" disabled={uploading === 'extra'}
-                className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                {uploading === 'extra' && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Yüklə
-              </button>
+            <div className="flex gap-2 justify-end">
               <button type="button"
                 onClick={() => { setExtraForm(false); setSelectedFile(null); setDocName(''); if (extraRef.current) extraRef.current.value = '' }}
-                className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                className="text-[11.5px] font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] hover:border-[var(--ces-graphite)] px-3 py-1.5 rounded-[8px] transition-colors">
                 Ləğv et
+              </button>
+              <button type="submit" disabled={uploading === 'extra'}
+                className="inline-flex items-center gap-1.5 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] disabled:opacity-60 text-[var(--ces-on-gold)] text-[11.5px] font-bold px-3 py-1.5 rounded-[8px] transition-colors">
+                {uploading === 'extra' && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Yüklə
               </button>
             </div>
           </form>
         )}
 
         {extraDocs.length === 0 ? (
-          <p className="text-center text-[11px] text-gray-400 py-4">Əlavə sənəd yoxdur</p>
+          <p className="text-center text-[12px] font-semibold text-[var(--ces-muted)] py-6">Əlavə sənəd yoxdur</p>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {extraDocs.map((doc) => (
-              <div key={doc.id} className="flex items-center gap-2.5 p-2.5 border border-gray-100 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
-                  <FileText size={12} className="text-amber-500" />
+              <div key={doc.id} className="flex items-center gap-3 p-3 border border-[var(--ces-line)] rounded-[12px] bg-[var(--ces-surface)] hover:bg-[var(--ces-graphite-50)] transition-colors">
+                <div className="w-9 h-9 rounded-[10px] bg-[var(--ces-gold-100)] grid place-items-center shrink-0">
+                  <FileText size={14} className="text-[var(--ces-gold-700)]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium text-gray-800 dark:text-gray-200 truncate">{doc.documentName || `Sənəd ${doc.id}`}</p>
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-[12.5px] font-bold text-[var(--ces-ink)] truncate">{doc.documentName || `Sənəd ${doc.id}`}</p>
+                  <p className="text-[11px] text-[var(--ces-muted)] mt-0.5">
                     {doc.uploadedByUserName && `${doc.uploadedByUserName} · `}
                     {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('az-AZ') : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => handleDownload(doc)} disabled={downloading === doc.id}
-                    className="flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-700 disabled:opacity-50 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--ces-gold-700)] bg-white border border-[var(--ces-gold-100)] hover:border-[var(--ces-gold-700)] disabled:opacity-50 px-2.5 py-1.5 rounded-[8px] transition-colors">
                     {downloading === doc.id
-                      ? <span className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
-                      : <Upload size={10} className="rotate-180" />}
+                      ? <span className="w-3 h-3 border-2 border-[var(--ces-gold-700)] border-t-transparent rounded-full animate-spin" />
+                      : <Download size={11} />}
                     Endir
                   </button>
                   <button onClick={() => handleDelete(doc)} disabled={deleting === doc.id}
-                    className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" title="Sil">
+                    className="w-8 h-8 grid place-items-center rounded-[7px] text-[var(--ces-muted)] hover:text-[var(--ces-danger)] hover:bg-[var(--ces-danger-100)] transition-colors disabled:opacity-50" title="Sil">
                     {deleting === doc.id
-                      ? <span className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                      : <Trash2 size={12} />}
+                      ? <span className="w-3 h-3 border-2 border-[var(--ces-danger)] border-t-transparent rounded-full animate-spin" />
+                      : <Trash2 size={13} />}
                   </button>
                 </div>
               </div>
@@ -577,16 +595,17 @@ function DocumentsTab({ equipmentId }) {
           </div>
         )}
       </div>
+      <ConfirmDialog />
     </div>
   )
 }
 
+/* ─── AuthImage ────────────────────────────────────────────────────── */
 export function AuthImage({ equipmentId, imageId, alt, className, lazy = true }) {
   const [blobUrl, setBlobUrl] = useState(null)
   const [inView, setInView] = useState(!lazy)
   const imgRef = useRef(null)
 
-  // Lazy load via IntersectionObserver
   useEffect(() => {
     if (!lazy || inView) return
     const el = imgRef.current
@@ -608,7 +627,7 @@ export function AuthImage({ equipmentId, imageId, alt, className, lazy = true })
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url) }
   }, [equipmentId, imageId, inView])
 
-  if (!blobUrl) return <div ref={imgRef} className={clsx(className, 'animate-pulse bg-gray-200 dark:bg-gray-700')} />
+  if (!blobUrl) return <div ref={imgRef} className={clsx(className, 'animate-pulse bg-[var(--ces-graphite-100)]')} />
   return <img src={blobUrl} alt={alt} className={className} />
 }
 
@@ -629,31 +648,32 @@ function ImageLightbox({ blobUrl, name, onClose }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        <img src={blobUrl} alt={name} className="max-w-full max-h-[85vh] rounded-lg object-contain" />
-        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+        <img src={blobUrl} alt={name} className="max-w-full max-h-[85vh] rounded-[14px] object-contain" />
+        <div className="absolute top-3 right-3 flex items-center gap-1.5">
           <button
             onClick={handleDownload}
-            className="p-2 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors"
+            className="w-9 h-9 grid place-items-center rounded-[10px] bg-black/60 hover:bg-black/80 text-white transition-colors"
             title="Yüklə"
           >
             <Download size={16} />
           </button>
           <button
             onClick={onClose}
-            className="p-2 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors"
+            className="w-9 h-9 grid place-items-center rounded-[10px] bg-black/60 hover:bg-black/80 text-white transition-colors"
             title="Bağla"
           >
             <X size={16} />
           </button>
         </div>
         {name && (
-          <p className="absolute bottom-2 left-2 text-xs text-white bg-black/50 px-2 py-1 rounded">{name}</p>
+          <p className="absolute bottom-3 left-3 text-[12px] text-white bg-black/50 px-2.5 py-1 rounded-[6px] font-mono">{name}</p>
         )}
       </div>
     </div>
   )
 }
 
+/* ─── ImagesTab ────────────────────────────────────────────────────── */
 function ImagesTab({ equipmentId }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [images, setImages] = useState([])
@@ -683,7 +703,8 @@ function ImagesTab({ equipmentId }) {
       const res = await garageApi.addImage(equipmentId, file)
       setImages((prev) => [...prev, res.data.data || res.data])
       toast.success('Şəkil yükləndi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Şəkil yüklənə bilmədi')
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -708,13 +729,14 @@ function ImagesTab({ equipmentId }) {
       await garageApi.deleteImage(equipmentId, img.id)
       setImages((prev) => prev.filter((i) => i.id !== img.id))
       toast.success('Şəkil silindi')
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Şəkil silinə bilmədi')
     } finally {
       setDeleting(null)
     }
   }
 
-  if (loading) return <div className="py-8 text-center text-sm text-gray-400">Yüklənir...</div>
+  if (loading) return <div className="py-10 text-center text-sm font-semibold text-[var(--ces-muted)]">Yüklənir...</div>
 
   return (
     <div
@@ -724,13 +746,13 @@ function ImagesTab({ equipmentId }) {
       onDragLeave={handleDragLeave}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 dark:text-gray-400">{images.length} şəkil</span>
+        <span className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)]">{images.length} şəkil</span>
         <label className={clsx(
-          'flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 cursor-pointer transition-colors',
+          'inline-flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--ces-gold-700)] hover:text-[var(--ces-graphite)] cursor-pointer transition-colors',
           uploading && 'opacity-50 pointer-events-none'
         )}>
           {uploading
-            ? <span className="w-3 h-3 border border-amber-600 border-t-transparent rounded-full animate-spin" />
+            ? <span className="w-3 h-3 border-2 border-[var(--ces-gold-700)] border-t-transparent rounded-full animate-spin" />
             : <Upload size={13} />
           }
           Şəkil yüklə
@@ -738,26 +760,25 @@ function ImagesTab({ equipmentId }) {
         </label>
       </div>
 
-      {/* Drop zone indicator */}
       {dragging && (
-        <div className="border-2 border-dashed border-amber-400 rounded-xl p-6 text-center bg-amber-50/50 dark:bg-amber-900/10">
-          <Upload size={24} className="mx-auto text-amber-500 mb-1" />
-          <p className="text-xs text-amber-600 font-medium">Şəkili bura buraxın</p>
+        <div className="border-2 border-dashed border-[var(--ces-gold)] rounded-[14px] p-8 text-center bg-[var(--ces-gold-50)]">
+          <Upload size={28} className="mx-auto text-[var(--ces-gold)] mb-2" />
+          <p className="text-[13px] text-[var(--ces-gold-700)] font-bold">Şəkili bura buraxın</p>
         </div>
       )}
 
       {!dragging && images.length === 0 ? (
-        <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-6 text-center cursor-pointer hover:border-amber-300 transition-colors"
+        <div className="border-2 border-dashed border-[var(--ces-line)] rounded-[14px] p-8 text-center cursor-pointer hover:border-[var(--ces-gold)] transition-colors bg-[var(--ces-surface)]"
           onClick={() => fileRef.current?.click()}>
-          <Upload size={24} className="mx-auto text-gray-300 dark:text-gray-600 mb-1" />
-          <p className="text-xs text-gray-400">Şəkil sürükləyin və ya klikləyin</p>
+          <Upload size={28} className="mx-auto text-[var(--ces-mute2)] mb-2" />
+          <p className="text-[13px] font-semibold text-[var(--ces-muted)]">Şəkil sürükləyin və ya klikləyin</p>
         </div>
       ) : !dragging && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2.5">
           {images.map((img) => (
             <div
               key={img.id}
-              className="relative group rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-video cursor-pointer"
+              className="relative group rounded-[14px] overflow-hidden border border-[var(--ces-line)] bg-[var(--ces-graphite-50)] aspect-video cursor-pointer"
               onClick={() => {
                 garageApi.fetchImageBlob(equipmentId, img.id)
                   .then((url) => setLightbox({ url, name: img.imageName || `Şəkil ${img.id}` }))
@@ -771,13 +792,13 @@ function ImagesTab({ equipmentId }) {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                <span className="p-1.5 rounded-full bg-white/80 text-gray-700">
+                <span className="w-8 h-8 grid place-items-center rounded-full bg-white text-[var(--ces-graphite)]">
                   <ZoomIn size={14} />
                 </span>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(img) }}
                   disabled={deleting === img.id}
-                  className="p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+                  className="w-8 h-8 grid place-items-center rounded-full bg-[var(--ces-danger)] hover:bg-[#b62b4a] text-white transition-colors"
                 >
                   {deleting === img.id
                     ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin block" />
@@ -785,7 +806,7 @@ function ImagesTab({ equipmentId }) {
                   }
                 </button>
               </div>
-              <p className="absolute bottom-0 left-0 right-0 text-[9px] text-white bg-black/40 px-1.5 py-0.5 truncate">
+              <p className="absolute bottom-0 left-0 right-0 text-[10px] text-white bg-black/50 px-2 py-1 truncate font-mono">
                 {img.imageName || `Şəkil ${img.id}`}
               </p>
             </div>
@@ -804,6 +825,7 @@ function ImagesTab({ equipmentId }) {
   )
 }
 
+/* ─── HistoryTab ───────────────────────────────────────────────────── */
 function HistoryTab({ equipmentId }) {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -815,25 +837,31 @@ function HistoryTab({ equipmentId }) {
       .finally(() => setLoading(false))
   }, [equipmentId])
 
-  if (loading) return <div className="py-8 text-center text-sm text-gray-400">Yüklənir...</div>
+  if (loading) return <div className="py-10 text-center text-sm font-semibold text-[var(--ces-muted)]">Yüklənir...</div>
 
   if (history.length === 0) {
-    return <p className="text-center text-sm text-gray-400 py-6">Layihə tarixçəsi yoxdur</p>
+    return (
+      <div className="text-center py-12 bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[14px]">
+        <History size={28} className="mx-auto mb-3 text-[var(--ces-mute2)] opacity-50" />
+        <p className="text-sm font-semibold text-[var(--ces-muted)]">Layihə tarixçəsi yoxdur</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-2">
+      <p className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1">{history.length} layihə</p>
       {history.map((h, i) => (
-        <div key={h.id || i} className="border border-gray-100 dark:border-gray-700 rounded-xl p-3">
+        <div key={h.id || i} className="border border-[var(--ces-line)] rounded-[14px] p-4 bg-[var(--ces-surface)] shadow-[0_1px_2px_rgba(58,58,58,0.06)]">
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{h.projectName || '—'}</p>
-              {h.notes && <p className="text-[10px] text-gray-400 mt-0.5">{h.notes}</p>}
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-bold text-[var(--ces-ink)] truncate">{h.projectName || '—'}</p>
+              {h.notes && <p className="text-[11.5px] text-[var(--ces-muted)] mt-1 leading-relaxed">{h.notes}</p>}
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[10px] text-gray-400">{h.startDate || '—'} → {h.endDate || 'davam edir'}</p>
+              <p className="text-[11px] text-[var(--ces-muted)] tabular-nums">{h.startDate || '—'} → {h.endDate || 'davam edir'}</p>
               {h.contractorRevenue > 0 && (
-                <p className="text-[10px] font-medium text-orange-500">{parseFloat(h.contractorRevenue).toLocaleString('az-AZ')} ₼</p>
+                <p className="text-[12px] font-bold text-[var(--ces-gold-700)] tabular-nums mt-1">{parseFloat(h.contractorRevenue).toLocaleString('az-AZ')} ₼</p>
               )}
             </div>
           </div>
@@ -843,15 +871,7 @@ function HistoryTab({ equipmentId }) {
   )
 }
 
-const STATUS_LABELS = {
-  AVAILABLE: { label: 'Mövcud', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' },
-  RENTED: { label: 'İcarədə', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400' },
-  IN_TRANSIT: { label: 'Yolda', cls: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400' },
-  IN_INSPECTION: { label: 'Servisdədir', cls: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400' },
-  DEFECTIVE: { label: 'Nasaz', cls: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' },
-}
-
+/* ─── EquipmentSlideOver main ──────────────────────────────────────── */
 export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone, onSaved }) {
   const [activeTab, setActiveTab] = useState('info')
   const [depreciatedValue, setDepreciatedValue] = useState(null)
@@ -908,7 +928,8 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
       })
       toast.success('Təhlükəsizlik avadanlıqları yadda saxlandı')
       onSaved?.()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Yadda saxlanıla bilmədi')
     } finally {
       setSavingSafety(false)
     }
@@ -916,83 +937,86 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
 
   return (
     <>
-      {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-[rgba(58,58,58,0.45)] backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-[var(--ces-surface)] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] flex flex-col ces-font">
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-gray-100 dark:border-gray-700 shrink-0">
-          <div className="flex-1 min-w-0 pr-3">
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate">{equipment.name}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              {equipment.brand && (
-                <span className="text-xs text-gray-400">{equipment.brand} {equipment.model}</span>
-              )}
-              <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-medium border', status.cls)}>
+        <div className="flex items-start gap-3.5 px-6 py-5 border-b border-[var(--ces-line)] shrink-0 bg-white">
+          <div className="w-11 h-11 rounded-[12px] grid place-items-center bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)] shrink-0">
+            <Wrench size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[17px] font-extrabold text-[var(--ces-ink)] truncate tracking-tight">{equipment.name}</h2>
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span className={clsx('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold', status.cls)}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
                 {status.label}
               </span>
               {nextInsp && (
-                <span className={clsx('flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', nextInsp.cls)}>
+                <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold', nextInsp.cls)}>
                   <CalendarClock size={10} />
                   {nextInsp.label}
                 </span>
               )}
+              {equipment.brand && (
+                <span className="text-[11.5px] font-semibold text-[var(--ces-muted)] truncate">{equipment.brand} {equipment.model}</span>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {onClone && (
-              <button
-                onClick={onClone}
-                className="text-xs font-medium text-purple-600 hover:text-purple-700 px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+              <button onClick={onClone}
+                className="w-9 h-9 grid place-items-center rounded-[8px] text-[var(--ces-muted)] hover:text-[var(--ces-info)] hover:bg-[var(--ces-info-100)] transition-colors"
+                title="Kopyala"
               >
-                Kopyala
+                <Copy size={16} />
               </button>
             )}
-            <button
-              onClick={onEdit}
-              className="text-xs font-medium text-amber-600 hover:text-amber-700 px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            <button onClick={onEdit}
+              className="w-9 h-9 grid place-items-center rounded-[8px] text-[var(--ces-muted)] hover:text-[var(--ces-gold-700)] hover:bg-[var(--ces-gold-100)] transition-colors"
+              title="Redaktə et"
             >
-              Redaktə et
+              <Pencil size={16} />
             </button>
-            <button
-              onClick={onClose}
-              className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors"
+            <button onClick={onClose}
+              className="w-9 h-9 grid place-items-center rounded-[8px] text-[var(--ces-muted)] hover:text-[var(--ces-graphite)] hover:bg-[var(--ces-graphite-50)] transition-colors ml-1"
             >
-              <X size={14} className="text-white" />
+              <X size={17} />
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700 shrink-0">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1 py-2.5 px-1 text-[11px] font-medium transition-colors border-b-2',
-                activeTab === id
-                  ? 'border-amber-600 text-amber-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-              )}
-            >
-              <Icon size={13} />
-              {label}
-            </button>
-          ))}
+        <div className="flex px-4 border-b border-[var(--ces-line)] shrink-0 overflow-x-auto bg-white">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const on = activeTab === id
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={clsx(
+                  'inline-flex items-center gap-1.5 px-3.5 py-3 text-[13px] font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors',
+                  on
+                    ? 'text-[var(--ces-graphite)] border-[var(--ces-gold)]'
+                    : 'text-[var(--ces-muted)] border-transparent hover:text-[var(--ces-graphite)]'
+                )}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            )
+          })}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 scrollbar-thin bg-[var(--ces-bg)]">
           {activeTab === 'info' && (
             <div className="space-y-3">
-              {/* General Info */}
               <InfoCard title="Ümumi məlumatlar" icon={Info}>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                   <InfoField label="Texnika kodu" value={equipment.equipmentCode} mono />
                   <InfoField label="Seriya nömrəsi" value={equipment.serialNumber} mono />
                   <InfoField label="Növ / Kateqoriya" value={equipment.type} />
@@ -1002,48 +1026,46 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                 </div>
               </InfoCard>
 
-              {/* Financial */}
               <InfoCard title="Maliyyə" icon={DollarSign}>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                   <InfoField label="Alınma tarixi" value={equipment.purchaseDate ? new Date(equipment.purchaseDate).toLocaleDateString('az-AZ') : null} />
-                  <InfoField label="Alış qiyməti" value={equipment.purchasePrice != null ? `${Number(equipment.purchasePrice).toLocaleString()} ₼` : null} />
-                  <InfoField label="Cari bazar dəyəri" value={equipment.currentMarketValue != null ? `${Number(equipment.currentMarketValue).toLocaleString()} ₼` : null} />
+                  <InfoField label="Alış qiyməti" value={equipment.purchasePrice != null ? `${Number(equipment.purchasePrice).toLocaleString()} ₼` : null} mono />
+                  <InfoField label="Cari bazar dəyəri" value={equipment.currentMarketValue != null ? `${Number(equipment.currentMarketValue).toLocaleString()} ₼` : null} mono />
                   <InfoField label="Amortizasiya" value={equipment.depreciationRate != null ? `${equipment.depreciationRate}%` : null} />
                   {depreciatedValue != null && (
-                    <InfoField label="Amortizasiya dəyəri" value={`${Number(depreciatedValue).toLocaleString()} ₼`} />
+                    <InfoField label="Amortizasiya dəyəri" value={`${Number(depreciatedValue).toLocaleString()} ₼`} mono />
                   )}
                 </div>
               </InfoCard>
 
-              {/* Technical */}
               <InfoCard title="Texniki göstəricilər" icon={Wrench}>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <InfoField label="Saat / KM" value={equipment.hourKmCounter} />
-                  <InfoField label="Moto saatlar" value={equipment.motoHours != null ? `${Number(equipment.motoHours).toLocaleString()} s` : null} />
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                  <InfoField label="Saat / KM" value={equipment.hourKmCounter} mono />
+                  <InfoField label="Moto saatlar" value={equipment.motoHours != null ? `${Number(equipment.motoHours).toLocaleString()} s` : null} mono />
                   <InfoField label="Saxlanma yeri" value={equipment.storageLocation} />
                   <InfoField label="Məsul şəxs" value={equipment.responsibleUserName} />
                 </div>
               </InfoCard>
 
-              {/* Inspection */}
               <InfoCard title="Texniki baxış" icon={ClipboardCheck}>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                   <InfoField label="Son texniki baxış" value={equipment.lastInspectionDate ? new Date(equipment.lastInspectionDate).toLocaleDateString('az-AZ') : null} />
                   <InfoField label="Növbəti texniki baxış" value={equipment.nextInspectionDate ? new Date(equipment.nextInspectionDate).toLocaleDateString('az-AZ') : null} />
                 </div>
                 {nextInsp && (
-                  <div className={clsx('mt-2 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium inline-block', nextInsp.cls)}>
+                  <div className={clsx('mt-3 px-3 py-1.5 rounded-full text-[11.5px] font-bold inline-flex items-center gap-1.5', nextInsp.cls)}>
+                    <CalendarClock size={11} />
                     {nextInsp.label}
                   </div>
                 )}
               </InfoCard>
 
-              {/* Status & Ownership */}
               <InfoCard title="Status və mülkiyyət" icon={Building2}>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500">Status</span>
-                    <span className={clsx('inline-flex self-start px-2 py-0.5 rounded text-[10px] font-semibold border', status.cls)}>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.12em]">Status</span>
+                    <span className={clsx('inline-flex self-start items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-bold', status.cls)}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
                       {status.label}
                     </span>
                   </div>
@@ -1051,30 +1073,27 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                 </div>
               </InfoCard>
 
-              {/* Investor details */}
               {equipment.ownershipType === 'INVESTOR' && (
                 <InfoCard title="İnvestor məlumatları" icon={User}>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                     <InfoField label="Ad, soyad" value={equipment.ownerInvestorName} />
                     <InfoField label="VÖEN" value={equipment.ownerInvestorVoen} mono />
-                    <InfoField label="Əlaqə nömrəsi" value={equipment.ownerInvestorPhone} />
+                    <InfoField label="Əlaqə nömrəsi" value={equipment.ownerInvestorPhone} mono />
                   </div>
                 </InfoCard>
               )}
 
-              {/* Contractor details */}
               {equipment.ownershipType === 'CONTRACTOR' && (
                 <InfoCard title="Podratçı məlumatları" icon={Building2}>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                     <InfoField label="Podratçı adı" value={equipment.ownerContractorName} />
                     <InfoField label="VÖEN" value={equipment.ownerContractorVoen} mono />
-                    <InfoField label="Əlaqə nömrəsi" value={equipment.ownerContractorPhone} />
+                    <InfoField label="Əlaqə nömrəsi" value={equipment.ownerContractorPhone} mono />
                     <InfoField label="Əlaqədar şəxs" value={equipment.ownerContractorContact} />
                   </div>
                 </InfoCard>
               )}
 
-              {/* Safety Equipment */}
               {safetyTypes.length > 0 && (
                 <InfoCard title="Təhlükəsizlik avadanlıqları" icon={ShieldCheck}>
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -1082,16 +1101,16 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                       const checked = safetyIds.includes(st.id)
                       return (
                         <label key={st.id} className={clsx(
-                          'flex items-center gap-2 cursor-pointer rounded-lg border p-2 transition-all text-xs',
+                          'flex items-center gap-2 cursor-pointer rounded-[10px] border p-2.5 transition-all text-[12px]',
                           checked
-                            ? 'border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800/50 text-green-700 dark:text-green-300 font-medium'
-                            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300'
+                            ? 'border-[var(--ces-ok)] bg-[var(--ces-ok-100)] text-[var(--ces-ok)] font-bold'
+                            : 'border-[var(--ces-line)] bg-white text-[var(--ces-muted)] hover:border-[var(--ces-graphite)]'
                         )}>
                           <input type="checkbox" checked={checked}
                             onChange={() => setSafetyIds(prev =>
                               checked ? prev.filter(id => id !== st.id) : [...prev, st.id]
                             )}
-                            className="accent-green-600 w-3.5 h-3.5 shrink-0" />
+                            className="accent-[var(--ces-ok)] w-3.5 h-3.5 shrink-0" />
                           {st.key}
                         </label>
                       )
@@ -1101,7 +1120,7 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                     <button
                       onClick={handleSaveSafety}
                       disabled={savingSafety}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-60 px-3 py-1.5 rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 text-[12px] font-bold text-white bg-[var(--ces-ok)] hover:bg-[#0c855a] disabled:opacity-60 px-3 py-1.5 rounded-[8px] transition-colors"
                     >
                       <Save size={12} />
                       {savingSafety ? 'Saxlanılır...' : 'Yadda saxla'}
@@ -1110,10 +1129,9 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                 </InfoCard>
               )}
 
-              {/* Notes */}
               {equipment.notes && (
                 <InfoCard title="Qeydlər" icon={FileText}>
-                  <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{equipment.notes}</p>
+                  <p className="text-[13px] text-[var(--ces-ink)] leading-relaxed whitespace-pre-wrap">{equipment.notes}</p>
                 </InfoCard>
               )}
             </div>

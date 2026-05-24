@@ -1,125 +1,80 @@
 import { useNavigate } from 'react-router-dom'
-import { Receipt, BarChart3, TrendingDown, TrendingUp, Wrench } from 'lucide-react'
+import { Receipt, BarChart3, TrendingDown, TrendingUp, Wrench, ArrowRight } from 'lucide-react'
+import { PageHeader, Pill } from './_shared'
+import { PILL_STYLES } from './_constants'
 
 const CARDS = [
-  {
-    id: 'invoices',
-    title: 'Qaimələr',
-    description: 'E-qaimələrin idarə edilməsi, təsdiqlənməsi və izlənməsi',
-    icon: Receipt,
-    color: 'amber',
-    path: '/accounting/invoices',
-  },
-  {
-    id: 'reports',
-    title: 'Hesabat',
-    description: 'Maliyyə analitikası, statistikalar və hesabatlar',
-    icon: BarChart3,
-    color: 'indigo',
-    path: '/accounting/reports',
-  },
-  {
-    id: 'debitor',
-    title: 'Debitor',
-    description: 'Müştəri borclarının izlənməsi və ödəniş təqibi',
-    icon: TrendingDown,
-    color: 'emerald',
-    path: '/accounting/debitor',
-  },
-  {
-    id: 'kreditor',
-    title: 'Kreditor',
-    description: 'Podratçı və investor ödənişlərinin izlənməsi',
-    icon: TrendingUp,
-    color: 'rose',
-    path: '/accounting/kreditor',
-  },
-  {
-    id: 'service-accounting',
-    title: 'Texniki Servis Mühasibatı',
-    description: 'Texniki servis və baxış xərclərinin mühasibat uçotu',
-    icon: Wrench,
-    color: 'orange',
-    path: null,
-    disabled: true,
-  },
+  { id: 'invoices',           title: 'Qaimələr',                    description: 'E-qaimələrin idarə edilməsi, təsdiqlənməsi və izlənməsi', icon: Receipt,      path: '/accounting/invoices',  tone: 'gold' },
+  { id: 'reports',            title: 'Hesabat',                     description: 'Maliyyə analitikası, statistikalar və hesabatlar',         icon: BarChart3,    path: '/accounting/reports',   tone: 'info' },
+  { id: 'debitor',            title: 'Debitor',                     description: 'Müştəri borclarının izlənməsi və ödəniş təqibi',           icon: TrendingDown, path: '/accounting/debitor',   tone: 'ok' },
+  { id: 'kreditor',           title: 'Kreditor',                    description: 'Podratçı və investor ödənişlərinin izlənməsi',             icon: TrendingUp,   path: '/accounting/kreditor',  tone: 'danger' },
+  { id: 'service-accounting', title: 'Texniki Servis Mühasibatı',   description: 'Texniki servis və baxış xərclərinin mühasibat uçotu',      icon: Wrench,       path: null,                    tone: 'warn', disabled: true },
 ]
-
-const COLOR_MAP = {
-  amber: {
-    bg: 'bg-amber-50 dark:bg-amber-900/20',
-    border: 'border-amber-200 dark:border-amber-800',
-    hover: 'hover:border-amber-400 hover:shadow-lg hover:shadow-amber-100/50',
-    icon: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
-    title: 'text-amber-900 dark:text-amber-200',
-  },
-  indigo: {
-    bg: 'bg-indigo-50 dark:bg-indigo-900/20',
-    border: 'border-indigo-200 dark:border-indigo-800',
-    hover: 'hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-100/50',
-    icon: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400',
-    title: 'text-indigo-900 dark:text-indigo-200',
-  },
-  emerald: {
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-    border: 'border-emerald-200 dark:border-emerald-800',
-    hover: 'hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-100/50',
-    icon: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
-    title: 'text-emerald-900 dark:text-emerald-200',
-  },
-  rose: {
-    bg: 'bg-rose-50 dark:bg-rose-900/20',
-    border: 'border-rose-200 dark:border-rose-800',
-    hover: 'hover:border-rose-400 hover:shadow-lg hover:shadow-rose-100/50',
-    icon: 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400',
-    title: 'text-rose-900 dark:text-rose-200',
-  },
-  orange: {
-    bg: 'bg-orange-50 dark:bg-orange-900/20',
-    border: 'border-orange-200 dark:border-orange-800',
-    hover: 'hover:border-orange-400 hover:shadow-lg hover:shadow-orange-100/50',
-    icon: 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400',
-    title: 'text-orange-900 dark:text-orange-200',
-  },
-}
 
 export default function AccountingPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Mühasibatlıq</h1>
-        <p className="text-sm text-gray-400 mt-1">Maliyyə əməliyyatlarının idarə edilməsi</p>
-      </div>
+    <div style={{ color: 'var(--ces-ink)' }}>
+      <PageHeader
+        eyebrow="Maliyyə"
+        title="Mühasibatlıq"
+        subtitle="Maliyyə əməliyyatlarının idarə edilməsi"
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {CARDS.map(card => {
-          const c = COLOR_MAP[card.color]
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {CARDS.map((card) => {
+          const t = PILL_STYLES[card.tone] || PILL_STYLES.muted
           const Icon = card.icon
           return (
             <button
               key={card.id}
               onClick={() => card.path && navigate(card.path)}
               disabled={card.disabled}
-              className={`
-                relative text-left rounded-2xl border p-6 transition-all duration-200
-                ${c.bg} ${c.border}
-                ${card.disabled
-                  ? 'opacity-50 cursor-not-allowed'
-                  : `cursor-pointer ${c.hover}`
-                }
-              `}
+              className="group relative text-left transition-all"
+              style={{
+                background: 'var(--ces-surface)',
+                border: '1px solid var(--ces-line)',
+                borderRadius: 'var(--ces-radius-lg)',
+                padding: '24px',
+                boxShadow: 'var(--ces-shadow-sm)',
+                cursor: card.disabled ? 'not-allowed' : 'pointer',
+                opacity: card.disabled ? 0.55 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (card.disabled) return
+                e.currentTarget.style.borderColor = 'var(--ces-graphite)'
+                e.currentTarget.style.boxShadow = 'var(--ces-shadow)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--ces-line)'
+                e.currentTarget.style.boxShadow = 'var(--ces-shadow-sm)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
             >
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${c.icon}`}>
-                <Icon size={22} />
+              <div
+                className="w-12 h-12 rounded-[12px] grid place-items-center mb-4 transition-transform group-hover:scale-110"
+                style={{ background: t.bg, color: t.color }}
+              >
+                {Icon && <Icon size={22} />}
               </div>
-              <h3 className={`text-sm font-bold mb-1 ${c.title}`}>{card.title}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{card.description}</p>
-              {card.disabled && (
-                <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full">
-                  Soon
+              <h3 className="text-[16px] font-extrabold mb-1" style={{ color: 'var(--ces-graphite-900)' }}>
+                {card.title}
+              </h3>
+              <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--ces-muted)' }}>
+                {card.description}
+              </p>
+              {card.disabled ? (
+                <span className="absolute top-5 right-5">
+                  <Pill tone="muted" sm>Tezliklə</Pill>
                 </span>
+              ) : (
+                <ArrowRight
+                  size={14}
+                  className="absolute top-6 right-6 transition-transform group-hover:translate-x-0.5"
+                  style={{ color: 'var(--ces-mute2)' }}
+                />
               )}
             </button>
           )

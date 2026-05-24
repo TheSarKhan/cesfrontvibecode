@@ -46,8 +46,8 @@ export default function ServiceCompleteModal({ record, mode = 'repair', onClose,
             description: `${isInspection ? 'Baxış' : 'Servis'} xərci: ${record.serviceType} — ${record.equipmentName}${record.plateNumber ? ` (${record.plateNumber})` : ''}`,
             notes: `Servis ID: ${record.id}`,
           })
-        } catch {
-          toast.error('Mühasibatlığa göndərmə uğursuz oldu, amma tamamlandı')
+        } catch (err) {
+          if (!err._toasted) toast.error(err?.response?.data?.message || 'Mühasibatlığa göndərmə uğursuz oldu, amma tamamlandı')
         }
       }
 

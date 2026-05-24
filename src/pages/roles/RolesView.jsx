@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search, Shield } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { useAuthStore } from '../../store/authStore'
-
-const SUPER_ADMIN_ROLE = 'Super Admin'
 import RoleModal from './RoleModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -12,6 +10,8 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
+const SUPER_ADMIN_ROLE = 'Super Admin'
+
 const PERM_LABELS = [
   { key: 'canGet', label: 'Oxumaq' },
   { key: 'canPost', label: 'Yazmaq' },
@@ -19,42 +19,83 @@ const PERM_LABELS = [
   { key: 'canDelete', label: 'Silmək' },
 ]
 
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-purple-500', 'bg-emerald-500',
-  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
-]
+function initials(name) {
+  const parts = (name || '').trim().split(/\s+/)
+  return parts.length >= 2
+    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    : ((name || '?')[0] || '?').toUpperCase()
+}
 
 function UserAvatar({ user }) {
-  const name = user.fullName || ''
-  const parts = name.trim().split(/\s+/)
-  const initials = parts.length >= 2
-    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-    : (name[0] || '?').toUpperCase()
-  const color = AVATAR_COLORS[user.id % AVATAR_COLORS.length]
   return (
-    <div
-      className={clsx(color, 'w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold ring-2 ring-white dark:ring-gray-800')}
-      title={name}
+    <span
+      title={user.fullName}
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 999,
+        background: 'var(--ces-graphite)',
+        color: 'var(--ces-gold)',
+        display: 'inline-grid',
+        placeItems: 'center',
+        fontSize: 11,
+        fontWeight: 700,
+        border: '2px solid #fff',
+        boxShadow: '0 0 0 1px var(--ces-line)',
+      }}
     >
-      {initials}
-    </div>
+      {initials(user.fullName)}
+    </span>
   )
 }
 
 function AvatarStack({ users }) {
-  if (!users.length) return <span className="text-xs text-gray-400 dark:text-gray-500">İstifadəçi yoxdur</span>
+  if (!users.length) return <span className="text-xs" style={{ color: 'var(--ces-mute2)' }}>İstifadəçi yoxdur</span>
   return (
     <div className="flex items-center gap-2">
-      <div className="flex -space-x-2">
-        {users.slice(0, 4).map((u) => <UserAvatar key={u.id} user={u} />)}
+      <div className="inline-flex">
+        {users.slice(0, 4).map((u, i) => (
+          <span key={u.id} style={{ marginLeft: i === 0 ? 0 : -10 }}>
+            <UserAvatar user={u} />
+          </span>
+        ))}
         {users.length > 4 && (
-          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 font-semibold ring-2 ring-white dark:ring-gray-800">
+          <span
+            style={{
+              marginLeft: -10,
+              width: 28,
+              height: 28,
+              borderRadius: 999,
+              background: 'var(--ces-graphite-100)',
+              color: 'var(--ces-muted)',
+              display: 'inline-grid',
+              placeItems: 'center',
+              fontSize: 11,
+              fontWeight: 700,
+              border: '2px solid #fff',
+              boxShadow: '0 0 0 1px var(--ces-line)',
+            }}
+          >
             +{users.length - 4}
-          </div>
+          </span>
         )}
       </div>
-      <span className="text-xs text-gray-500 dark:text-gray-400">{users.length} nəfər</span>
+      <span className="text-xs" style={{ color: 'var(--ces-muted)' }}>{users.length} nəfər</span>
     </div>
+  )
+}
+
+function PermPill({ active, children, accent }) {
+  return (
+    <span
+      className={clsx('ces-pill sm', accent === 'purple'
+        ? (active ? 'ces-p-info' : 'ces-p-mute')
+        : (active ? 'ces-p-gold' : 'ces-p-mute'))}
+      style={!active ? { opacity: 0.55 } : undefined}
+    >
+      <span className="d" />
+      {children}
+    </span>
   )
 }
 
@@ -64,39 +105,36 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
 
   return (
     <>
-      <tr className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-        <td className="py-3 px-4">
+      <tr>
+        <td>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="text-amber-600 hover:text-amber-700 transition-colors"
+              className="inline-grid place-items-center w-6 h-6 rounded-md transition-colors"
+              style={{
+                background: expanded ? 'var(--ces-gold-100)' : 'transparent',
+                color: expanded ? 'var(--ces-gold-700)' : 'var(--ces-muted)',
+              }}
+              title={expanded ? 'Yığ' : 'Aç'}
             >
-              {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </button>
-            <span className="font-medium text-gray-800 dark:text-gray-100 text-sm">{role.name}</span>
+            <span className="font-semibold text-[var(--ces-ink)]">{role.name}</span>
           </div>
         </td>
-        <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{role.description || '—'}</td>
-        <td className="py-3 px-4">
+        <td style={{ color: 'var(--ces-muted)' }}>{role.description || '—'}</td>
+        <td>
           <AvatarStack users={roleUsers} />
         </td>
-        <td className="py-3 px-4">
+        <td>
           <div className="flex items-center gap-1 justify-end">
             {canEdit && (
-              <button
-                onClick={onEdit}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                title="Redaktə et"
-              >
+              <button onClick={onEdit} className="ces-row-act gold" title="Redaktə et">
                 <Pencil size={15} />
               </button>
             )}
             {canDelete && (
-              <button
-                onClick={onDelete}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                title="Sil"
-              >
+              <button onClick={onDelete} className="ces-row-act danger" title="Sil">
                 <Trash2 size={15} />
               </button>
             )}
@@ -104,47 +142,33 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
         </td>
       </tr>
 
-      {expanded && role.permissions?.length > 0 && (
-        role.permissions.map((perm) => (
-          <tr key={perm.moduleId} className="bg-amber-50/40 dark:bg-amber-900/10 border-b border-amber-100/60 dark:border-amber-800/30">
-            <td className="py-2 px-4 pl-10">
-              <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">{perm.moduleNameAz}</span>
-            </td>
-            <td className="py-2 px-4" colSpan={3}>
-              <div className="flex items-center gap-6 flex-wrap">
-                {PERM_LABELS.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-1.5 cursor-default">
-                    <input
-                      type="checkbox"
-                      readOnly
-                      checked={perm[key]}
-                      className="accent-amber-600 w-3.5 h-3.5 cursor-default"
-                    />
-                    <span className="text-xs text-gray-600 dark:text-gray-400">{label}</span>
-                  </label>
-                ))}
-                {perm.canSendToCoordinator && (
-                  <label className="flex items-center gap-1.5 cursor-default">
-                    <input type="checkbox" readOnly checked className="accent-purple-600 w-3.5 h-3.5 cursor-default" />
-                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Kordinatora göndər</span>
-                  </label>
-                )}
-                {perm.canSubmitOffer && (
-                  <label className="flex items-center gap-1.5 cursor-default">
-                    <input type="checkbox" readOnly checked className="accent-purple-600 w-3.5 h-3.5 cursor-default" />
-                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Təklif göndər</span>
-                  </label>
-                )}
-              </div>
-            </td>
-          </tr>
-        ))
-      )}
+      {expanded && role.permissions?.length > 0 && role.permissions.map((perm) => (
+        <tr key={perm.moduleId} style={{ background: 'var(--ces-gold-50)' }}>
+          <td style={{ paddingLeft: 50 }}>
+            <span className="text-xs font-semibold" style={{ color: 'var(--ces-gold-700)' }}>
+              {perm.moduleNameAz}
+            </span>
+          </td>
+          <td colSpan={3}>
+            <div className="flex items-center gap-2 flex-wrap py-1">
+              {PERM_LABELS.map(({ key, label }) => (
+                <PermPill key={key} active={perm[key]}>{label}</PermPill>
+              ))}
+              {perm.canSendToCoordinator && <PermPill active accent="purple">Kordinatora göndər</PermPill>}
+              {perm.canSubmitOffer && <PermPill active accent="purple">Təklif göndər</PermPill>}
+              {perm.canSendToAccounting && <PermPill active accent="purple">Mühasibatlığa göndər</PermPill>}
+              {perm.canReturnToProject && <PermPill active accent="purple">Layihəyə qaytar</PermPill>}
+            </div>
+          </td>
+        </tr>
+      ))}
 
       {expanded && (!role.permissions || role.permissions.length === 0) && (
-        <tr className="bg-amber-50/40 dark:bg-amber-900/10 border-b border-amber-100/60 dark:border-amber-800/30">
-          <td colSpan={4} className="py-2 px-4 pl-10">
-            <span className="text-xs text-gray-400 dark:text-gray-500">Bu rola heç bir icazə verilməyib</span>
+        <tr style={{ background: 'var(--ces-gold-50)' }}>
+          <td colSpan={4} style={{ paddingLeft: 50 }}>
+            <span className="text-xs italic" style={{ color: 'var(--ces-mute2)' }}>
+              Bu rola heç bir icazə verilməyib
+            </span>
           </td>
         </tr>
       )}
@@ -187,15 +211,14 @@ export default function RolesView({ dept, users, departments, onBack }) {
       if (search) params.q = search
       const res = await rolesApi.getAllPaged(params)
       setData(res.data.data || res.data)
-    } catch {
-      toast.error('Rollar yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Rollar yüklənmədi')
     } finally {
       setLoading(false)
     }
   }, [dept.id, page, pageSize, search])
 
   useEffect(() => { loadRoles() }, [loadRoles])
-  // Reset page when department changes
   useEffect(() => {
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.delete('page'); return n }, { replace: true })
   }, [dept.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -206,85 +229,93 @@ export default function RolesView({ dept, users, departments, onBack }) {
       await rolesApi.delete(role.id)
       toast.success('Rol silindi')
       loadRoles()
-    } catch {
-      toast.error('Silmə əməliyyatı uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silmə əməliyyatı uğursuz oldu')
     }
   }
 
-  const roles = isSuperAdmin
-    ? data.content
-    : data.content.filter((r) => r.name !== SUPER_ADMIN_ROLE)
+  const roles = isSuperAdmin ? data.content : data.content.filter((r) => r.name !== SUPER_ADMIN_ROLE)
 
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-3">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-amber-600 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors px-2 py-1 rounded-md"
+          style={{ color: 'var(--ces-muted)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ces-gold-700)'; e.currentTarget.style.background = 'var(--ces-gold-50)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ces-muted)'; e.currentTarget.style.background = 'transparent' }}
         >
           <ChevronLeft size={16} />
           Şöbələr
         </button>
-        <span className="text-gray-300 dark:text-gray-600">/</span>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{dept.name}</span>
+        <span style={{ color: 'var(--ces-mute2)' }}>/</span>
+        <span className="text-sm font-semibold text-[var(--ces-ink)]">{dept.name}</span>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">İcazələrin tənzimlənməsi</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} rol</p>
+      {/* Header */}
+      <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="ces-m-ic gold">
+            <Shield size={20} />
+          </div>
+          <div>
+            <h1 className="ces-page-title">İcazələrin tənzimlənməsi</h1>
+            <p className="ces-page-sub">
+              {dept.name} · {data.totalElements} rol
+            </p>
+          </div>
         </div>
         {canCreate && (
           <button
             onClick={() => setRoleModal({ open: true, editing: null })}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            className="ces-btn ces-btn-primary"
           >
             <Plus size={16} />
-            Yeni rol əlavə et
+            Yeni rol
           </button>
         )}
       </div>
 
       {/* Search */}
-      <div className="mb-4">
-        <div className="relative max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="mb-5 flex">
+        <div className="ces-input has-icon sm" style={{ maxWidth: 360, width: '100%' }}>
+          <Search size={15} />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rol axtar..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="ces-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
+          <table className="ces-tbl" style={{ minWidth: 760 }}>
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Rolun adı</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Rolun təsviri</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">İstifadəçilər</th>
-                <th className="py-3 px-4" />
+              <tr>
+                <th>Rolun adı</th>
+                <th>Təsvir</th>
+                <th>İstifadəçilər</th>
+                <th className="r" style={{ width: 110 }}>Əməliyyat</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i}>
                     {[1, 2, 3, 4].map((j) => (
-                      <td key={j} className="py-3 px-4">
-                        <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+                      <td key={j}>
+                        <div className="h-3.5 rounded" style={{ background: 'var(--ces-graphite-100)' }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : roles.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+                  <td colSpan={4} className="py-10 text-center text-sm" style={{ color: 'var(--ces-muted)' }}>
                     {search ? 'Axtarış nəticəsi tapılmadı' : 'Bu şöbədə hələ rol yoxdur'}
                   </td>
                 </tr>
@@ -304,15 +335,16 @@ export default function RolesView({ dept, users, departments, onBack }) {
             </tbody>
           </table>
         </div>
-        <Pagination
-          page={data.page + 1}
-          pageSize={data.size}
-          totalPages={data.totalPages}
-          totalElements={data.totalElements}
-          onPage={(p) => setPage(p - 1)}
-          onPageSize={(s) => { setPageSize(s); setPage(0) }}
-        />
-
+        {data.totalPages > 1 && (
+          <Pagination
+            page={data.page + 1}
+            pageSize={data.size}
+            totalPages={data.totalPages}
+            totalElements={data.totalElements}
+            onPage={(p) => setPage(p - 1)}
+            onPageSize={(s) => { setPageSize(s); setPage(0) }}
+          />
+        )}
       </div>
 
       {roleModal.open && (

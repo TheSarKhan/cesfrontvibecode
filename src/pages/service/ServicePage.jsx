@@ -416,8 +416,8 @@ export default function ServicePage() {
         const combined = [...defList, ...inRepList.filter(e => !defList.some(d => d.id === e.id))]
         setPendingDefective(combined)
       }
-    } catch {
-      toast.error('Məlumatlar yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Məlumatlar yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -439,8 +439,8 @@ export default function ServicePage() {
       await serviceApi.delete(rec.id)
       toast.success('Qeyd silindi')
       load()
-    } catch {
-      toast.error('Silmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silmə uğursuz oldu')
     }
   }
 
@@ -457,8 +457,8 @@ export default function ServicePage() {
         // REPAIR və ya köhnə (null) qeydlər → Tab 2
         setRepairRecords(prev => prev.map(r => r.id === rec.id ? updated : r))
       }
-    } catch {
-      toast.error('Yeniləmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Yeniləmə uğursuz oldu')
     } finally {
       setChecklistLoading(prev => ({ ...prev, [itemId]: false }))
     }

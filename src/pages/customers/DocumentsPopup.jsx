@@ -3,6 +3,7 @@ import { X, Upload, Download, Trash2, FileText, Loader2 } from 'lucide-react'
 import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { validateFileUpload } from '../../utils/fileValidation'
 
 function formatDate(dt) {
   if (!dt) return '—'
@@ -19,6 +20,8 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
   const handleUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); fileRef.current.value = ''; return }
     setUploading(true)
     try {
       const res = await customersApi.uploadDocument(customer.id, file, docName.trim() || file.name)
@@ -26,8 +29,8 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
       setDocName('')
       toast.success('Sənəd yükləndi')
       onUpdated?.()
-    } catch {
-      toast.error('Yükləmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd yüklənə bilmədi')
     } finally {
       setUploading(false)
       fileRef.current.value = ''
@@ -41,42 +44,46 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
       setDocs((prev) => prev.filter((d) => d.id !== docId))
       toast.success('Sənəd silindi')
       onUpdated?.()
-    } catch {
-      toast.error('Silmə uğursuz oldu')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinə bilmədi')
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Sənədlər</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{customer.companyName}</p>
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
+      <div className="ces-modal" style={{ maxWidth: 520 }}>
+        <div className="ces-m-head">
+          <div className="ces-m-ic gold"><FileText size={20} /></div>
+          <div className="flex-1 min-w-0">
+            <h3>Sənədlər</h3>
+            <p className="truncate">{customer.companyName}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors"
-          >
-            <X size={14} className="text-white" />
+          <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
         </div>
 
-        {/* Upload */}
-        <div className="p-5 border-b border-gray-100 dark:border-gray-700 space-y-2">
-          <input
-            type="text"
-            value={docName}
-            onChange={(e) => setDocName(e.target.value)}
-            placeholder="Sənəd adı (ixtiyari)"
-            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
+        <div style={{ padding: 22, borderBottom: '1px solid var(--ces-line)' }} className="space-y-3">
+          <div className="ces-input sm">
+            <input
+              value={docName}
+              onChange={(e) => setDocName(e.target.value)}
+              placeholder="Sənəd adı (ixtiyari)"
+            />
+          </div>
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
-            className="flex items-center gap-2 w-full justify-center px-4 py-2 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400 hover:border-amber-400 hover:text-amber-600 transition-colors disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2"
+            style={{
+              padding: '12px 16px', borderRadius: 12,
+              border: '2px dashed var(--ces-line)', background: 'var(--ces-surface)',
+              fontSize: 14, fontWeight: 600,
+              color: 'var(--ces-muted)',
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              opacity: uploading ? .6 : 1,
+            }}
           >
             {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
             {uploading ? 'Yüklənir...' : 'Fayl seç və yüklə'}
@@ -84,32 +91,30 @@ export default function DocumentsPopup({ customer, onClose, onUpdated }) {
           <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} />
         </div>
 
-        {/* Doc list */}
-        <div className="max-h-64 overflow-y-auto">
+        <div style={{ maxHeight: 320, overflowY: 'auto' }}>
           {docs.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">Hələ sənəd yoxdur</p>
+            <p className="py-8 text-center text-sm" style={{ color: 'var(--ces-mute2)' }}>Hələ sənəd yoxdur</p>
           ) : (
             docs.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-              >
-                <FileText size={16} className="text-amber-500 shrink-0" />
+              <div key={doc.id} className="flex items-center gap-3" style={{ padding: '14px 22px', borderBottom: '1px solid var(--ces-line-2)' }}>
+                <div className="ces-m-ic gold" style={{ width: 36, height: 36, borderRadius: 10 }}>
+                  <FileText size={16} />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{doc.documentName || '—'}</p>
-                  <p className="text-xs text-gray-400">{doc.fileType} · {formatDate(doc.createdAt)}</p>
+                  <p className="truncate" style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-ink)' }}>{doc.documentName || '—'}</p>
+                  <p style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{doc.fileType} · {formatDate(doc.createdAt)}</p>
                 </div>
                 <a
                   href={customersApi.getDocumentDownloadUrl(customer.id, doc.id)}
                   download
-                  className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+                  className="ces-row-act gold"
                   title="Yüklə"
                 >
                   <Download size={15} />
                 </a>
                 <button
                   onClick={() => handleDelete(doc.id)}
-                  className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
+                  className="ces-row-act danger"
                   title="Sil"
                 >
                   <Trash2 size={15} />

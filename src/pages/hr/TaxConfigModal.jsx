@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { X, Settings } from 'lucide-react'
+import { Settings, Pencil, Shield, Briefcase, Activity, Heart, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
+import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { Field, Input, Textarea, ModalShell, FormSection } from './_shared'
 
 const empty = {
   year: new Date().getFullYear(),
@@ -9,14 +11,15 @@ const empty = {
   employeePensionThreshold: 200, employeePensionRateBelow: 0.03, employeePensionRateAbove: 0.10,
   employerPensionThreshold: 200, employerPensionRateBelow: 0.22, employerPensionRateAbove: 0.15,
   employeeUnemploymentRate: 0.005, employerUnemploymentRate: 0.005,
-  employeeMedicalThreshold: 8000, employeeMedicalRateBelow: 0.02, employeeMedicalRateAbove: 0.005,
-  employerMedicalThreshold: 8000, employerMedicalRateBelow: 0.02, employerMedicalRateAbove: 0.005,
+  employeeMedicalThreshold: 2500, employeeMedicalRateBelow: 0.02, employeeMedicalRateAbove: 0.005,
+  employerMedicalThreshold: 2500, employerMedicalRateBelow: 0.02, employerMedicalRateAbove: 0.005,
   incomeTaxThreshold: 8000, incomeTaxRateBelow: 0.00, incomeTaxRateAbove: 0.14,
   nonTaxableMinimum: 0, deductSocialFromTaxBase: false,
   notes: '',
 }
 
 export default function TaxConfigModal({ editing, onClose, onSaved }) {
+  useEscapeKey(onClose)
   const [form, setForm] = useState(editing ? { ...empty, ...editing } : empty)
   const [submitting, setSubmitting] = useState(false)
 
@@ -26,7 +29,7 @@ export default function TaxConfigModal({ editing, onClose, onSaved }) {
     setSubmitting(true)
     try {
       const payload = { ...form }
-      Object.keys(payload).forEach(k => {
+      Object.keys(payload).forEach((k) => {
         if (typeof payload[k] === 'string' && k !== 'notes') {
           const n = Number(payload[k])
           if (!Number.isNaN(n)) payload[k] = n
@@ -40,107 +43,144 @@ export default function TaxConfigModal({ editing, onClose, onSaved }) {
         toast.success('Yaradıldı')
       }
       onSaved()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Xəta') }
-    finally { setSubmitting(false) }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Xəta')
+    } finally { setSubmitting(false) }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl my-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Settings size={18} className="text-violet-600" />
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{editing ? 'Tarifi redaktə et' : 'Yeni illik tarif'}</h2>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600"><X size={18} /></button>
-        </div>
-
-        <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="İl">
-              <input type="number" value={form.year} onChange={(e) => set('year', Number(e.target.value))} className={ipt} />
-            </Field>
-            <Field label="Status">
-              <label className="flex items-center gap-2 px-3 py-2">
-                <input type="checkbox" checked={!!form.active} onChange={(e) => set('active', e.target.checked)} className="accent-violet-600" />
-                <span className="text-sm">Aktiv tarif</span>
-              </label>
-            </Field>
-          </div>
-
-          <Group title="Pensiya Fondu — İşçi">
-            <Bracket form={form} set={set} thrKey="employeePensionThreshold" belowKey="employeePensionRateBelow" aboveKey="employeePensionRateAbove" />
-          </Group>
-          <Group title="Pensiya Fondu — İşəgötürən">
-            <Bracket form={form} set={set} thrKey="employerPensionThreshold" belowKey="employerPensionRateBelow" aboveKey="employerPensionRateAbove" />
-          </Group>
-
-          <Group title="İşsizlik Sığortası">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="İşçi rate"><PctInput value={form.employeeUnemploymentRate} onChange={(v) => set('employeeUnemploymentRate', v)} /></Field>
-              <Field label="İşəgötürən rate"><PctInput value={form.employerUnemploymentRate} onChange={(v) => set('employerUnemploymentRate', v)} /></Field>
-            </div>
-          </Group>
-
-          <Group title="Tibbi Sığorta — İşçi">
-            <Bracket form={form} set={set} thrKey="employeeMedicalThreshold" belowKey="employeeMedicalRateBelow" aboveKey="employeeMedicalRateAbove" />
-          </Group>
-          <Group title="Tibbi Sığorta — İşəgötürən">
-            <Bracket form={form} set={set} thrKey="employerMedicalThreshold" belowKey="employerMedicalRateBelow" aboveKey="employerMedicalRateAbove" />
-          </Group>
-
-          <Group title="Gəlir Vergisi">
-            <Bracket form={form} set={set} thrKey="incomeTaxThreshold" belowKey="incomeTaxRateBelow" aboveKey="incomeTaxRateAbove" />
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <Field label="Qeyri-vergi minimumu (AZN)">
-                <input type="number" step="0.01" value={form.nonTaxableMinimum} onChange={(e) => set('nonTaxableMinimum', Number(e.target.value))} className={ipt} />
-              </Field>
-              <label className="flex items-center gap-2 mt-6">
-                <input type="checkbox" checked={!!form.deductSocialFromTaxBase} onChange={(e) => set('deductSocialFromTaxBase', e.target.checked)} className="accent-violet-600" />
-                <span className="text-xs">Sosial töhfələri vergi base-dan çıx</span>
-              </label>
-            </div>
-          </Group>
-
-          <Field label="Qeyd">
-            <textarea rows={2} value={form.notes || ''} onChange={(e) => set('notes', e.target.value)} className={ipt} />
-          </Field>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Ləğv et</button>
-          <button onClick={submit} disabled={submitting} className="px-5 py-2 text-sm font-semibold bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg">
+    <ModalShell
+      icon={editing ? Pencil : Settings}
+      eyebrow={editing ? 'Redaktə' : 'Yeni qeyd'}
+      title={editing ? `${editing.year} ili tarifi` : 'Yeni illik tarif'}
+      subtitle="Vergi və sığorta faizləri"
+      onClose={onClose}
+      tone={editing ? 'gold' : 'graphite'}
+      maxWidth="900px"
+      footer={
+        <>
+          <button onClick={onClose} className="ces-btn ces-btn-ghost ces-btn-sm">Ləğv et</button>
+          <button onClick={submit} disabled={submitting} className="ces-btn ces-btn-primary">
+            {submitting && (
+              <span className="w-3.5 h-3.5 rounded-full animate-spin"
+                style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: 'var(--ces-on-primary)' }} />
+            )}
             {submitting ? '...' : 'Yadda saxla'}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div className="p-6 space-y-6">
+
+        {/* Year + Active toggle */}
+        <FormSection icon={Settings} title="Əsas məlumat" cols={2}>
+          <Field label="İl" required>
+            <Input type="number" value={form.year} onChange={(e) => set('year', Number(e.target.value))} />
+          </Field>
+          <Field label="Status">
+            <label
+              className="flex items-center gap-2 px-3"
+              style={{
+                background: 'var(--ces-surface)',
+                border: '1px solid var(--ces-line)',
+                borderRadius: '11px',
+                minHeight: '44px',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={!!form.active}
+                onChange={(e) => set('active', e.target.checked)}
+                className="w-4 h-4"
+                style={{ accentColor: 'var(--ces-gold)' }}
+              />
+              <span className="text-[13.5px] font-semibold" style={{ color: 'var(--ces-ink)' }}>
+                Aktiv tarif kimi seç
+              </span>
+            </label>
+          </Field>
+        </FormSection>
+
+        <FormSection icon={Shield} title="Pensiya Fondu — İşçi" cols={1}>
+          <Bracket form={form} set={set} thrKey="employeePensionThreshold" belowKey="employeePensionRateBelow" aboveKey="employeePensionRateAbove" />
+        </FormSection>
+
+        <FormSection icon={Briefcase} title="Pensiya Fondu — İşəgötürən" cols={1}>
+          <Bracket form={form} set={set} thrKey="employerPensionThreshold" belowKey="employerPensionRateBelow" aboveKey="employerPensionRateAbove" />
+        </FormSection>
+
+        <FormSection icon={Activity} title="İşsizlik Sığortası" cols={2}>
+          <Field label="İşçi rate">
+            <PctInput value={form.employeeUnemploymentRate} onChange={(v) => set('employeeUnemploymentRate', v)} />
+          </Field>
+          <Field label="İşəgötürən rate">
+            <PctInput value={form.employerUnemploymentRate} onChange={(v) => set('employerUnemploymentRate', v)} />
+          </Field>
+        </FormSection>
+
+        <FormSection icon={Heart} title="Tibbi Sığorta — İşçi" cols={1}>
+          <Bracket form={form} set={set} thrKey="employeeMedicalThreshold" belowKey="employeeMedicalRateBelow" aboveKey="employeeMedicalRateAbove" />
+        </FormSection>
+
+        <FormSection icon={Heart} title="Tibbi Sığorta — İşəgötürən" cols={1}>
+          <Bracket form={form} set={set} thrKey="employerMedicalThreshold" belowKey="employerMedicalRateBelow" aboveKey="employerMedicalRateAbove" />
+        </FormSection>
+
+        <FormSection icon={FileText} title="Gəlir Vergisi" cols={1}>
+          <Bracket form={form} set={set} thrKey="incomeTaxThreshold" belowKey="incomeTaxRateBelow" aboveKey="incomeTaxRateAbove" />
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <Field label="Qeyri-vergi minimumu" hint="AZN — base-dan çıxılır">
+              <Input type="number" step="0.01" value={form.nonTaxableMinimum} onChange={(e) => set('nonTaxableMinimum', Number(e.target.value))} suffix="₼" />
+            </Field>
+            <Field label="Tax base">
+              <label
+                className="flex items-center gap-2 px-3"
+                style={{
+                  background: 'var(--ces-surface)',
+                  border: '1px solid var(--ces-line)',
+                  borderRadius: '11px',
+                  minHeight: '44px',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!form.deductSocialFromTaxBase}
+                  onChange={(e) => set('deductSocialFromTaxBase', e.target.checked)}
+                  className="w-4 h-4"
+                  style={{ accentColor: 'var(--ces-gold)' }}
+                />
+                <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ces-ink)' }}>
+                  Sosial töhfələri base-dan çıx
+                </span>
+              </label>
+            </Field>
+          </div>
+        </FormSection>
+
+        <FormSection icon={FileText} title="Qeyd" cols={1}>
+          <Field label="Əlavə açıqlama">
+            <Textarea value={form.notes || ''} onChange={(e) => set('notes', e.target.value)} rows={2} />
+          </Field>
+        </FormSection>
       </div>
-    </div>
-  )
-}
-
-const ipt = "w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500"
-
-function Field({ label, children }) {
-  return <div><label className="block text-xs text-gray-500 mb-1">{label}</label>{children}</div>
-}
-
-function Group({ title, children }) {
-  return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{title}</h3>
-      {children}
-    </div>
+    </ModalShell>
   )
 }
 
 function Bracket({ form, set, thrKey, belowKey, aboveKey }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <Field label="Threshold (AZN)">
-        <input type="number" step="0.01" value={form[thrKey]} onChange={(e) => set(thrKey, Number(e.target.value))} className={ipt} />
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <Field label="Threshold">
+        <Input type="number" step="0.01" value={form[thrKey]} onChange={(e) => set(thrKey, Number(e.target.value))} suffix="₼" />
       </Field>
-      <Field label="Threshold-dan aşağı %"><PctInput value={form[belowKey]} onChange={(v) => set(belowKey, v)} /></Field>
-      <Field label="Threshold-dan yuxarı %"><PctInput value={form[aboveKey]} onChange={(v) => set(aboveKey, v)} /></Field>
+      <Field label="Threshold-dan aşağı">
+        <PctInput value={form[belowKey]} onChange={(v) => set(belowKey, v)} />
+      </Field>
+      <Field label="Threshold-dan yuxarı">
+        <PctInput value={form[aboveKey]} onChange={(v) => set(aboveKey, v)} />
+      </Field>
     </div>
   )
 }
@@ -152,10 +192,5 @@ function PctInput({ value, onChange }) {
     const n = Number(e.target.value)
     if (!Number.isNaN(n)) onChange(n / 100)
   }
-  return (
-    <div className="relative">
-      <input value={input} onChange={handleChange} className={ipt + ' pr-7'} />
-      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
-    </div>
-  )
+  return <Input value={input} onChange={handleChange} suffix="%" />
 }

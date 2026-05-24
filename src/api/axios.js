@@ -9,11 +9,28 @@ export const axiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// ── Auth tələb etməyən endpointlər ──────────────────────────────────────────
+const PUBLIC_ENDPOINTS = [
+  '/auth/login',
+  '/auth/forgot-password',
+  '/auth/verify-otp',
+  '/auth/reset-password',
+  '/auth/refresh',
+]
+
 // ── Request interceptor: token yoxla, lazımsa refresh et ─────────────────────
 axiosInstance.interceptors.request.use(
   async (config) => {
+    const isPublic = PUBLIC_ENDPOINTS.some((ep) => config.url?.includes(ep))
+
     const accessToken = localStorage.getItem('accessToken')
     const refreshToken = localStorage.getItem('refreshToken')
+
+    // Public endpoint-lərdə token yoxlanışı lazım deyil
+    if (isPublic) {
+      if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
+      return config
+    }
 
     // Hər ikisi yoxdursa — login-ə
     if (!accessToken && !refreshToken) {

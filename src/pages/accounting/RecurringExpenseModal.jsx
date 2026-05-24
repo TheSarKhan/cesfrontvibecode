@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, RefreshCw } from 'lucide-react'
+import { RefreshCw, Pencil } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { expenseCategoryApi, expenseSourceApi } from '../../api/expenseConfig'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-
-const inputCls = 'w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500'
-const selectCls = inputCls
+import { Field, Input, Textarea, Select, ModalShell } from './_shared'
 
 const FREQ_OPTIONS = [
   { value: 'MONTHLY',   label: 'Aylıq' },
@@ -21,10 +19,10 @@ const EMPTY = {
 
 export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
-  const [form, setForm]       = useState(EMPTY)
-  const [saving, setSaving]   = useState(false)
-  const [categories, setCategories] = useState([])   // EXPENSE_CATEGORY items
-  const [allSources, setAllSources] = useState([])   // EXPENSE_SOURCE items
+  const [form, setForm] = useState(EMPTY)
+  const [saving, setSaving] = useState(false)
+  const [categories, setCategories] = useState([])
+  const [allSources, setAllSources] = useState([])
   const [loadingCfg, setLoadingCfg] = useState(true)
 
   useEffect(() => {
@@ -51,27 +49,20 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
         notes:         editing.notes         || '',
         active:        editing.active !== false,
       })
-    } else {
-      setForm(EMPTY)
-    }
+    } else { setForm(EMPTY) }
   }, [editing])
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
 
-  // Sources filtered by selected category code
-  const filteredSources = allSources.filter(s =>
-    !form.categoryKey || s.categoryCode === form.categoryKey
-  )
+  const filteredSources = allSources.filter(s => !form.categoryKey || s.categoryCode === form.categoryKey)
 
   const handleCategoryChange = (catCode) => {
     const catItem = categories.find(c => c.code === catCode)
     set('categoryKey', catCode)
     set('categoryLabel', catItem?.name || catCode)
-    // Reset source when category changes
     set('sourceKey', '')
     set('sourceLabel', '')
   }
-
   const handleSourceChange = (srcCode) => {
     const srcItem = allSources.find(s => s.code === srcCode)
     set('sourceKey', srcCode)
@@ -79,10 +70,10 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!form.name.trim())       return toast.error('Ad daxil edin')
-    if (!form.categoryKey)       return toast.error('Kateqoriya seçin')
-    if (!form.sourceKey)         return toast.error('Mənbə seçin')
+    e?.preventDefault?.()
+    if (!form.name.trim()) return toast.error('Ad daxil edin')
+    if (!form.categoryKey) return toast.error('Kateqoriya seçin')
+    if (!form.sourceKey)   return toast.error('Mənbə seçin')
 
     setSaving(true)
     try {
@@ -98,192 +89,109 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
         notes:         form.notes || null,
         active:        form.active,
       }
-      if (editing) {
-        await accountingApi.updateRecurring(editing.id, payload)
-        toast.success('Daimi ödəniş yeniləndi')
-      } else {
-        await accountingApi.createRecurring(payload)
-        toast.success('Daimi ödəniş yaradıldı')
-      }
+      if (editing) { await accountingApi.updateRecurring(editing.id, payload); toast.success('Daimi ödəniş yeniləndi') }
+      else { await accountingApi.createRecurring(payload); toast.success('Daimi ödəniş yaradıldı') }
       onSaved()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Xəta baş verdi')
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              <RefreshCw size={15} className="text-amber-500" />
-              {editing ? 'Daimi Ödənişi Redaktə Et' : 'Yeni Daimi Ödəniş'}
-            </h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">Hər dövr üçün qaimə şablonu</p>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-            <X size={14} className="text-gray-500" />
+    <ModalShell
+      icon={editing ? Pencil : RefreshCw}
+      eyebrow={editing ? 'Redaktə' : 'Yeni qeyd'}
+      title={editing ? 'Daimi ödənişi redaktə et' : 'Yeni daimi ödəniş'}
+      subtitle="Hər dövr üçün qaimə şablonu"
+      onClose={onClose}
+      tone={editing ? 'gold' : 'graphite'}
+      maxWidth="480px"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost ces-btn-sm">Ləğv et</button>
+          <button onClick={handleSubmit} disabled={saving} className="ces-btn ces-btn-primary">
+            {saving && (
+              <span className="w-3.5 h-3.5 rounded-full animate-spin"
+                style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: 'var(--ces-on-primary)' }} />
+            )}
+            {editing ? 'Yadda saxla' : 'Yarat'}
           </button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <Field label="Ad" required>
+          <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Məs: Azercell Korporativ İnternet" autoFocus />
+        </Field>
+
+        <Field label="Kateqoriya" required>
+          {loadingCfg ? (
+            <div className="h-11 rounded-[11px] animate-pulse" style={{ background: 'var(--ces-graphite-50)' }} />
+          ) : categories.length === 0 ? (
+            <div className="text-[12px] p-3" style={{ background: 'var(--ces-gold-50)', color: 'var(--ces-gold-700)', borderRadius: '10px', border: '1px solid var(--ces-gold-100)' }}>
+              Kateqoriya tapılmadı. Konfiqurasiya panelindən <strong>EXPENSE_CATEGORY</strong> əlavə edin.
+            </div>
+          ) : (
+            <Select value={form.categoryKey} onChange={(e) => handleCategoryChange(e.target.value)}>
+              <option value="">Kateqoriya seçin</option>
+              {categories.map(c => <option key={c.id} value={c.code}>{c.name}</option>)}
+            </Select>
+          )}
+        </Field>
+
+        <Field label="Mənbə" required>
+          {loadingCfg ? (
+            <div className="h-11 rounded-[11px] animate-pulse" style={{ background: 'var(--ces-graphite-50)' }} />
+          ) : filteredSources.length === 0 ? (
+            <div className="text-[12px] p-3" style={{ background: 'var(--ces-gold-50)', color: 'var(--ces-gold-700)', borderRadius: '10px', border: '1px solid var(--ces-gold-100)' }}>
+              {form.categoryKey
+                ? `Bu kateqoriya üçün mənbə tapılmadı. Konfiqurasiya panelindən EXPENSE_SOURCE əlavə edin (description: "${form.categoryKey}").`
+                : 'Əvvəlcə kateqoriya seçin.'}
+            </div>
+          ) : (
+            <Select value={form.sourceKey} onChange={(e) => handleSourceChange(e.target.value)} disabled={!form.categoryKey}>
+              <option value="">Mənbə seçin</option>
+              {filteredSources.map(s => <option key={s.id} value={s.code}>{s.name}</option>)}
+            </Select>
+          )}
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Məbləğ" hint="Boş = dəyişkən məbləğ">
+            <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => set('amount', e.target.value)} placeholder="0.00" suffix="₼" />
+          </Field>
+          <Field label="Tezlik" required>
+            <Select value={form.frequency} onChange={(e) => set('frequency', e.target.value)}>
+              {FREQ_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </Select>
+          </Field>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Name */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-              Ad <span className="text-red-500">*</span>
-            </label>
-            <input
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
-              placeholder="Məs: Azercell Korporativ İnternet"
-              className={inputCls}
-            />
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-              Kateqoriya <span className="text-red-500">*</span>
-            </label>
-            {loadingCfg ? (
-              <div className="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
-            ) : categories.length === 0 ? (
-              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3">
-                Kateqoriya tapılmadı. Konfiqurasiya panelindən <strong>EXPENSE_CATEGORY</strong> əlavə edin.
-              </p>
-            ) : (
-              <select
-                value={form.categoryKey}
-                onChange={e => handleCategoryChange(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Kateqoriya seçin</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.code}>{c.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Source */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-              Mənbə <span className="text-red-500">*</span>
-            </label>
-            {loadingCfg ? (
-              <div className="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
-            ) : filteredSources.length === 0 ? (
-              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3">
-                {form.categoryKey
-                  ? `Bu kateqoriya üçün mənbə tapılmadı. Konfiqurasiya panelindən EXPENSE_SOURCE əlavə edin (description: "${form.categoryKey}").`
-                  : 'Əvvəlcə kateqoriya seçin.'}
-              </p>
-            ) : (
-              <select
-                value={form.sourceKey}
-                onChange={e => handleSourceChange(e.target.value)}
-                disabled={!form.categoryKey}
-                className={selectCls}
-              >
-                <option value="">Mənbə seçin</option>
-                {filteredSources.map(s => (
-                  <option key={s.id} value={s.code}>{s.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Amount + Frequency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                Məbləğ <span className="text-gray-400 font-normal">(boş = dəyişkən)</span>
-              </label>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Ödəniş günü" hint="1-31">
+            <Input type="number" min="1" max="31" value={form.dayOfMonth} onChange={(e) => set('dayOfMonth', e.target.value)} placeholder="—" />
+          </Field>
+          <Field label="Status">
+            <label
+              className="flex items-center gap-2 px-3 cursor-pointer"
+              style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '11px', minHeight: '44px' }}
+            >
               <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.amount}
-                onChange={e => set('amount', e.target.value)}
-                placeholder="0.00"
-                className={inputCls}
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => set('active', e.target.checked)}
+                className="w-4 h-4"
+                style={{ accentColor: 'var(--ces-gold)' }}
               />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                Tezlik <span className="text-red-500">*</span>
-              </label>
-              <select value={form.frequency} onChange={e => set('frequency', e.target.value)} className={selectCls}>
-                {FREQ_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Day of Month + Active */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-                Ödəniş günü <span className="text-gray-400 font-normal">(1-31)</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                value={form.dayOfMonth}
-                onChange={e => set('dayOfMonth', e.target.value)}
-                placeholder="—"
-                className={inputCls}
-              />
-            </div>
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={e => set('active', e.target.checked)}
-                  className="accent-amber-600 w-4 h-4"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Aktivdir</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Qeyd</label>
-            <textarea
-              value={form.notes}
-              onChange={e => set('notes', e.target.value)}
-              rows={2}
-              placeholder="Əlavə məlumat..."
-              className={`${inputCls} resize-none`}
-            />
-          </div>
-        </form>
-
-        {/* Footer */}
-        <div className="flex gap-2 px-6 pb-5">
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="flex-1 py-2.5 text-sm font-semibold bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {saving && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            {editing ? 'Yadda Saxla' : 'Yarat'}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            Ləğv et
-          </button>
+              <span className="text-[13.5px] font-semibold" style={{ color: 'var(--ces-ink)' }}>Aktivdir</span>
+            </label>
+          </Field>
         </div>
-      </div>
-    </div>
+
+        <Field label="Qeyd">
+          <Textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={2} placeholder="Əlavə məlumat..." />
+        </Field>
+      </form>
+    </ModalShell>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Plus, Search, Shield } from 'lucide-react'
+import { Plus, Search, Shield, Building2 } from 'lucide-react'
 import { departmentsApi } from '../../api/departments'
 import { rolesApi } from '../../api/roles'
 import { usersApi } from '../../api/users'
@@ -45,7 +45,6 @@ export default function RolesPage() {
       setDepartments(depts)
       setUsers(userRes.data.data || [])
 
-      // Compute role counts from single fetch instead of N requests
       const counts = {}
       depts.forEach(d => { counts[d.id] = 0 })
       allRoles.forEach(r => {
@@ -88,7 +87,8 @@ export default function RolesPage() {
     }
   }
 
-  // ── Roles view
+  const totalRoles = Object.values(roleCounts).reduce((a, b) => a + b, 0)
+
   if (selectedDept) {
     return (
       <RolesView
@@ -100,18 +100,20 @@ export default function RolesPage() {
     )
   }
 
-  // ── Departments view
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
+      {/* Header */}
+      <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Rolların idarə edilməsi</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{departments.length} şöbə</p>
+          <h1 className="ces-page-title">Rollar və İcazələr</h1>
+          <p className="ces-page-sub">
+            {departments.length} şöbə · {totalRoles} rol · {users.length} istifadəçi
+          </p>
         </div>
         {canCreate && (
           <button
             onClick={() => setDeptModal({ open: true, editing: null })}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            className="ces-btn ces-btn-primary"
           >
             <Plus size={16} />
             Yeni şöbə
@@ -120,15 +122,14 @@ export default function RolesPage() {
       </div>
 
       {/* Search */}
-      <div className="mb-4">
-        <div className="relative max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="mb-5 flex">
+        <div className="ces-input has-icon sm" style={{ maxWidth: 360, width: '100%' }}>
+          <Search size={15} />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Şöbə axtar..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
       </div>
@@ -136,21 +137,37 @@ export default function RolesPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 h-32 animate-pulse">
-              <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-1/2 mb-3" />
-              <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-1/3 mb-4" />
-              <div className="flex -space-x-2">
-                {[1, 2, 3].map(j => <div key={j} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 ring-2 ring-white dark:ring-gray-800" />)}
-              </div>
-            </div>
+            <div
+              key={i}
+              className="rounded-2xl"
+              style={{
+                background: 'var(--ces-graphite-50)',
+                border: '1px solid var(--ces-line)',
+                height: 148,
+              }}
+            />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <Shield size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">
-            {search ? 'Axtarış nəticəsi tapılmadı' : 'Hələ heç bir şöbə yoxdur. Yeni şöbə əlavə edin.'}
+        <div className="ces-card" style={{ padding: 56, textAlign: 'center' }}>
+          <div className="inline-flex w-14 h-14 rounded-full mb-3 items-center justify-center" style={{ background: 'var(--ces-graphite-50)', color: 'var(--ces-mute2)' }}>
+            <Building2 size={26} />
+          </div>
+          <h3 className="text-lg font-bold text-[var(--ces-ink)] m-0">
+            {search ? 'Şöbə tapılmadı' : 'Hələ şöbə yoxdur'}
+          </h3>
+          <p className="text-sm text-[var(--ces-muted)] mt-1 mb-4">
+            {search ? 'Axtarış şərtlərini dəyişin' : 'Başlamaq üçün yeni şöbə əlavə edin'}
           </p>
+          {!search && canCreate && (
+            <button
+              onClick={() => setDeptModal({ open: true, editing: null })}
+              className="ces-btn ces-btn-primary"
+            >
+              <Plus size={16} />
+              Yeni şöbə
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -161,7 +178,10 @@ export default function RolesPage() {
               users={users.filter((u) => u.departmentId === dept.id)}
               roleCount={roleCounts[dept.id]}
               onSelect={() => setSelectedDept(dept)}
-              onEdit={canEdit ? () => setDeptModal({ open: true, editing: dept }) : null}
+              onEdit={() => {
+                if (!canEdit) { toast.error('Redaktə icazəniz yoxdur'); return }
+                setDeptModal({ open: true, editing: dept })
+              }}
               onDelete={canDelete ? () => handleDeleteDept(dept) : null}
             />
           ))}
@@ -175,11 +195,9 @@ export default function RolesPage() {
           onSaved={(newDept) => {
             setDeptModal({ open: false, editing: null })
             if (newDept) {
-              // New dept created — append to state without full reload
               setDepartments(prev => [...prev, newDept])
               setRoleCounts(prev => ({ ...prev, [newDept.id]: 0 }))
             }
-            // null = edit was pending approval, state unchanged
           }}
         />
       )}

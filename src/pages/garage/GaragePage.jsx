@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Plus, Pencil, Trash2, Search, ChevronDown, ChevronRight,
-  FileText, Image, Truck, Download, LayoutGrid, List,
+  FileText, Image as ImageIcon, Truck, Download, LayoutGrid, List,
   ChevronUp, Wrench, CheckCircle, AlertTriangle, XCircle, Eye,
   ChevronsLeft, ChevronsRight, ChevronLeft, RefreshCw, SlidersHorizontal,
-  Copy, Columns, X, Scale, CalendarClock, Save, Bookmark,
+  Copy, X, Scale, CalendarClock, Save, Bookmark,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useSearchParams } from 'react-router-dom'
@@ -13,6 +13,7 @@ import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
 import { configApi } from '../../api/config'
 import { useAuthStore } from '../../store/authStore'
+import { useColumnStore, COLUMN_LABELS } from '../../store/columnStore'
 import EquipmentModal from './EquipmentModal'
 import EquipmentSlideOver, { AuthImage } from './EquipmentSlideOver'
 import StatusChangeModal from './StatusChangeModal'
@@ -27,94 +28,113 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, INSPECTION_THRESHOLDS } from '../../constants/garage'
 import { useGarageWebSocket } from '../../hooks/useGarageWebSocket'
 
-/* ─── Sabitlər ───────────────────────────────────────────────────────────── */
 const PAGE_SIZES = [15, 25, 50, 100]
 
 const STAT_CARDS = [
-  { id: 'ALL',            label: 'Cəmi',              icon: Truck,         color: 'text-gray-700 dark:text-gray-200' },
-  { id: 'AVAILABLE',      label: 'Mövcud',            icon: CheckCircle,   color: 'text-emerald-600 dark:text-emerald-400' },
-  { id: 'RENTED',         label: 'İcarədə',           icon: Wrench,        color: 'text-blue-600 dark:text-blue-400' },
-  { id: 'IN_TRANSIT',     label: 'Yolda',             icon: Truck,         color: 'text-orange-600 dark:text-orange-400' },
-  { id: 'IN_INSPECTION',  label: 'Servisdədir',        icon: Search,        color: 'text-purple-600 dark:text-purple-400' },
-  { id: 'UNDER_CHECK',    label: 'Baxışda',           icon: Eye,           color: 'text-indigo-600 dark:text-indigo-400' },
-  { id: 'IN_REPAIR',      label: 'Təmirdə',           icon: Wrench,        color: 'text-orange-600 dark:text-orange-400' },
-  { id: 'DEFECTIVE',      label: 'Nasaz',             icon: AlertTriangle, color: 'text-red-500 dark:text-red-400' },
-  { id: 'OUT_OF_SERVICE', label: 'Xidmətdən kənarda', icon: XCircle,       color: 'text-gray-500 dark:text-gray-400' },
+  { id: 'ALL',            label: 'Cəmi',              icon: Truck,         tone: 'graphite' },
+  { id: 'AVAILABLE',      label: 'Mövcud',            icon: CheckCircle,   tone: 'ok' },
+  { id: 'RENTED',         label: 'İcarədə',           icon: Wrench,        tone: 'info' },
+  { id: 'IN_TRANSIT',     label: 'Yolda',             icon: Truck,         tone: 'warn' },
+  { id: 'IN_INSPECTION',  label: 'Servisdədir',        icon: Search,        tone: 'gold' },
+  { id: 'UNDER_CHECK',    label: 'Baxışda',           icon: Eye,           tone: 'violet' },
+  { id: 'IN_REPAIR',      label: 'Təmirdə',           icon: Wrench,        tone: 'warn' },
+  { id: 'DEFECTIVE',      label: 'Nasaz',             icon: AlertTriangle, tone: 'danger' },
+  { id: 'OUT_OF_SERVICE', label: 'Xidmətdən kənarda', icon: XCircle,       tone: 'mute' },
 ]
 
-const ALL_COLUMNS = [
-  { id: 'name',            label: 'Texnika',       field: 'name',              alwaysVisible: true },
-  { id: 'type',            label: 'Növ',           field: 'type' },
-  { id: 'brand',           label: 'Brend / Model', field: 'brand' },
-  { id: 'motoHours',       label: 'Moto saat',     field: 'motoHours' },
-  { id: 'status',          label: 'Status' },
-  { id: 'ownership',       label: 'Mülkiyyət' },
-  { id: 'storageLocation', label: 'Saxlanma yeri' },
-  { id: 'inspection',      label: 'Son baxış',     field: 'lastInspectionDate' },
-]
-const DEFAULT_COLS = ALL_COLUMNS.map(c => c.id)
-
-function getStoredCols() {
-  try { const v = JSON.parse(localStorage.getItem('garage_columns')); return Array.isArray(v) ? v : DEFAULT_COLS } catch { return DEFAULT_COLS }
+const TONE_CLS = {
+  graphite: 'bg-[var(--ces-graphite-50)] text-[var(--ces-graphite)]',
+  ok:       'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]',
+  info:     'bg-[var(--ces-info-100)] text-[var(--ces-info)]',
+  warn:     'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]',
+  gold:     'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]',
+  violet:   'bg-[#ece4ff] text-[#5e3bbf]',
+  danger:   'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]',
+  mute:     'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]',
 }
 
-/* ─── Genişləndirilmiş sıra ──────────────────────────────────────────────── */
-function ExpandedRow({ item }) {
+/* Cədvəl indi sabit qruplara bölünür — sütun toggle yoxdur,
+   hər qrup özündə bir neçə key:value satrı saxlayır. */
+
+function KV({ k, v, mono, bold, gold, accent }) {
+  return (
+    <div className="flex items-baseline gap-2 text-[11.5px] leading-[1.35]">
+      <span className="text-[var(--ces-muted)] font-medium shrink-0">{k}:</span>
+      <span className={clsx(
+        'truncate',
+        bold ? 'font-bold' : 'font-semibold',
+        gold ? 'text-[var(--ces-gold-700)]' : accent || 'text-[var(--ces-ink)]',
+        mono && 'font-mono tabular-nums'
+      )}>{v ?? '—'}</span>
+    </div>
+  )
+}
+
+/* ─── Genişləndirilmiş sıra (extra sahələr) ──────────────────────────────── */
+function ExpandedRow({ item, colSpan }) {
   return (
     <tr>
-      <td colSpan={99} className="border-b border-amber-100 dark:border-amber-900/40 bg-amber-50/40 dark:bg-gray-900/40 p-0">
-        <div className="px-10 py-3 grid grid-cols-3 gap-3">
-          <div className="grid grid-cols-2 col-span-2 gap-3">
-            <Block title="Maliyyə">
-              <FR l="Alış qiyməti"  v={fmtMoney(item.purchasePrice)} />
-              <FR l="Bazar dəyəri"  v={fmtMoney(item.currentMarketValue)} />
-              <FR l="Amortizasiya"  v={item.depreciationRate != null ? `${item.depreciationRate}%` : '—'} />
-              <FR l="Saat / KM"     v={dash(item.hourKmCounter)} />
-              <FR l="Moto saatlar"  v={dash(item.motoHours)} last />
-            </Block>
-            <Block title="Texniki baxış">
-              <FR l="Son baxış"     v={fmtDate(item.lastInspectionDate)} />
-              <FR l="Növbəti baxış" v={fmtDate(item.nextInspectionDate)} />
-              <FR l="Saxlanma yeri" v={dash(item.storageLocation)} last />
-            </Block>
-            <Block title="Mülkiyyət məlumatları" className="col-span-2">
-              {item.ownershipType === 'INVESTOR' && (
-                <div className="grid grid-cols-3 gap-x-6">
-                  <FR l="Ad, soyad" v={dash(item.ownerInvestorName)} />
-                  <FR l="VÖEN"      v={dash(item.ownerInvestorVoen)} />
-                  <FR l="Telefon"   v={dash(item.ownerInvestorPhone)} last />
-                </div>
-              )}
-              {item.ownershipType === 'CONTRACTOR' && (
-                <div className="grid grid-cols-4 gap-x-6">
-                  <FR l="Podratçı"  v={dash(item.ownerContractorName)} />
-                  <FR l="VÖEN"      v={dash(item.ownerContractorVoen)} />
-                  <FR l="Tel"       v={dash(item.ownerContractorPhone)} />
-                  <FR l="Əlaqədar"  v={dash(item.ownerContractorContact)} last />
-                </div>
-              )}
-              {item.ownershipType === 'COMPANY' && (
-                <p className="text-xs text-gray-400 italic">Şirkətin öz texnikasıdır</p>
-              )}
-            </Block>
-          </div>
-          <div className="flex flex-col gap-3">
-            {item.notes && (
-              <Block title="Qeydlər" className="flex-1">
-                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{item.notes}</p>
-              </Block>
+      <td colSpan={colSpan} className="border-b border-[var(--ces-line-2)] bg-[var(--ces-gold-50)] p-0">
+        <div className="px-8 py-5 grid grid-cols-12 gap-4">
+          <Block title="Maliyyə detalları" className="col-span-4">
+            <div className="space-y-1.5">
+              <KV k="Alınma tarixi"     v={fmtDate(item.purchaseDate)} mono />
+              <KV k="Alış qiyməti"      v={fmtMoney(item.purchasePrice)} mono />
+              <KV k="Bazar dəyəri"      v={fmtMoney(item.currentMarketValue)} mono />
+              <KV k="Amortizasiya"      v={item.depreciationRate != null ? `${item.depreciationRate}%` : '—'} mono />
+              <KV k="Saat / KM"         v={dash(item.hourKmCounter)} mono />
+              <KV k="Seriya №"          v={dash(item.serialNumber)} mono />
+            </div>
+          </Block>
+
+          <Block title="Mülkiyyət məlumatları" className="col-span-4">
+            {item.ownershipType === 'INVESTOR' && (
+              <div className="space-y-1.5">
+                <KV k="Tip"       v="İnvestor" gold />
+                <KV k="Ad, soyad" v={dash(item.ownerInvestorName)} />
+                <KV k="VÖEN"      v={dash(item.ownerInvestorVoen)} mono />
+                <KV k="Telefon"   v={dash(item.ownerInvestorPhone)} mono />
+              </div>
             )}
-            <Block title="Fayllar">
-              <div className="flex gap-4">
-                <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <FileText size={12} className="text-amber-500" /> {item.documents?.length ?? 0} sənəd
+            {item.ownershipType === 'CONTRACTOR' && (
+              <div className="space-y-1.5">
+                <KV k="Tip"       v="Podratçı" gold />
+                <KV k="Şirkət"    v={dash(item.ownerContractorName)} />
+                <KV k="VÖEN"      v={dash(item.ownerContractorVoen)} mono />
+                <KV k="Telefon"   v={dash(item.ownerContractorPhone)} mono />
+                <KV k="Əlaqədar"  v={dash(item.ownerContractorContact)} />
+              </div>
+            )}
+            {item.ownershipType === 'COMPANY' && (
+              <div className="space-y-1.5">
+                <KV k="Tip" v="Şirkət" gold />
+                <p className="text-[11.5px] text-[var(--ces-muted)] italic mt-1">Şirkətin öz texnikasıdır</p>
+              </div>
+            )}
+          </Block>
+
+          <Block title="Əlavə" className="col-span-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3 text-[11.5px] font-semibold text-[var(--ces-muted)]">
+                <span className="inline-flex items-center gap-1.5">
+                  <FileText size={12} className="text-[var(--ces-gold-700)]" />
+                  <span className="text-[var(--ces-ink)] font-bold tabular-nums">{item.documents?.length ?? 0}</span> sənəd
                 </span>
-                <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <Image size={12} className="text-amber-500" /> {item.images?.length ?? 0} şəkil
+                <span className="inline-flex items-center gap-1.5">
+                  <ImageIcon size={12} className="text-[var(--ces-gold-700)]" />
+                  <span className="text-[var(--ces-ink)] font-bold tabular-nums">{item.images?.length ?? 0}</span> şəkil
                 </span>
               </div>
-            </Block>
-          </div>
+              {item.notes ? (
+                <div className="mt-2 pt-2 border-t border-dashed border-[var(--ces-line)]">
+                  <p className="text-[10px] tracking-[0.12em] uppercase font-bold text-[var(--ces-muted)] mb-1">Qeyd</p>
+                  <p className="text-[11.5px] text-[var(--ces-ink)] leading-relaxed">{item.notes}</p>
+                </div>
+              ) : (
+                <p className="text-[11.5px] text-[var(--ces-muted)] italic mt-1">Qeyd yoxdur</p>
+              )}
+            </div>
+          </Block>
         </div>
       </td>
     </tr>
@@ -123,17 +143,9 @@ function ExpandedRow({ item }) {
 
 function Block({ title, children, className }) {
   return (
-    <div className={clsx('bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-2.5', className)}>
-      <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mb-2">{title}</p>
+    <div className={clsx('bg-white rounded-[12px] border border-[var(--ces-line)] p-3.5', className)}>
+      <p className="text-[10px] font-bold text-[var(--ces-gold-700)] uppercase tracking-[0.16em] mb-3">{title}</p>
       {children}
-    </div>
-  )
-}
-function FR({ l, v, last }) {
-  return (
-    <div className={clsx('flex justify-between items-baseline py-0.5', !last && 'border-b border-gray-50 dark:border-gray-700/50')}>
-      <span className="text-[10px] text-gray-400 shrink-0 pr-2">{l}</span>
-      <span className="text-[10px] font-medium text-gray-700 dark:text-gray-200 text-right truncate max-w-[55%]">{v}</span>
     </div>
   )
 }
@@ -144,51 +156,44 @@ function EquipmentCard({ item, firstImage, onOpen, onEdit, onDelete, canEdit, ca
   return (
     <div
       onClick={() => onOpen(item)}
-      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg hover:border-amber-200 dark:hover:border-amber-700 transition-all cursor-pointer group"
+      className="bg-[var(--ces-surface)] rounded-[16px] border border-[var(--ces-line)] overflow-hidden hover:shadow-[0_8px_24px_-12px_rgba(58,58,58,0.18)] hover:border-[var(--ces-gold-100)] hover:-translate-y-[1px] transition-all cursor-pointer group"
     >
-      <div className="h-36 bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+      <div className="h-36 bg-[var(--ces-graphite-50)] flex items-center justify-center overflow-hidden">
         {firstImage
           ? <AuthImage equipmentId={item.id} imageId={firstImage.id} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-          : <Truck size={32} className="text-gray-300 dark:text-gray-600" />
+          : <Truck size={32} className="text-[var(--ces-mute2)]" />
         }
       </div>
-      <div className="p-3">
+      <div className="p-3.5">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{item.name}</p>
-            <p className="text-[10px] font-mono text-gray-400">{item.equipmentCode}</p>
+            <p className="text-sm font-bold text-[var(--ces-ink)] truncate">{item.name}</p>
+            <p className="text-[10.5px] font-mono text-[var(--ces-muted)] mt-0.5">{item.equipmentCode}</p>
           </div>
-          <span className={clsx('px-1.5 py-0.5 rounded text-[9px] font-semibold border shrink-0', status.cls)}>
+          <span className={clsx('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0', status.cls)}>
+            <span className="w-1 h-1 rounded-full bg-current" />
             {status.label}
           </span>
         </div>
-        <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+        <div className="space-y-0.5 text-[11.5px] text-[var(--ces-muted)] font-medium">
           {item.brand && <p>{item.brand} {item.model || ''}</p>}
-          {item.type && <p className="text-gray-400">{item.type}</p>}
+          {item.type && <p className="text-[var(--ces-mute2)]">{item.type}</p>}
         </div>
-        <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
-          <div className="flex items-center gap-2 text-[10px] text-gray-400">
+        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[var(--ces-line)]">
+          <div className="flex items-center gap-2 text-[10.5px] font-semibold text-[var(--ces-muted)]">
             <span>{OWN_LABEL[item.ownershipType] || '—'}</span>
             <span>·</span>
             <span className="flex items-center gap-0.5"><FileText size={9} />{item.documents?.length ?? 0}</span>
-            <span className="flex items-center gap-0.5"><Image size={9} />{item.images?.length ?? 0}</span>
+            <span className="flex items-center gap-0.5"><ImageIcon size={9} />{item.images?.length ?? 0}</span>
           </div>
           <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
             {canEdit && (
-              <button
-                onClick={() => onStatusChange(item)}
-                className={clsx('text-[10px] py-0.5 px-1.5 border rounded font-medium hover:ring-1 hover:ring-amber-400 transition-all', (STATUS_CFG[item.status] || STATUS_CFG.AVAILABLE).cls)}
-              >
-                {(STATUS_CFG[item.status] || STATUS_CFG.AVAILABLE).label}
-              </button>
-            )}
-            {canEdit && (
-              <button onClick={() => onEdit(item)} className="p-1 rounded text-gray-400 hover:text-amber-600 transition-colors" title="Redaktə">
+              <button onClick={() => onEdit(item)} className="w-7 h-7 grid place-items-center rounded-[6px] text-[var(--ces-muted)] hover:bg-[var(--ces-gold-100)] hover:text-[var(--ces-gold-700)] transition-colors" title="Redaktə">
                 <Pencil size={12} />
               </button>
             )}
             {canDelete && (
-              <button onClick={() => onDelete(item)} className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors" title="Sil">
+              <button onClick={() => onDelete(item)} className="w-7 h-7 grid place-items-center rounded-[6px] text-[var(--ces-muted)] hover:bg-[var(--ces-danger-100)] hover:text-[var(--ces-danger)] transition-colors" title="Sil">
                 <Trash2 size={12} />
               </button>
             )}
@@ -201,10 +206,10 @@ function EquipmentCard({ item, firstImage, onOpen, onEdit, onDelete, canEdit, ca
 
 /* ─── Sort Icon ──────────────────────────────────────────────────────────── */
 function SortIcon({ field, sortField, sortDir }) {
-  if (sortField !== field) return <ChevronUp size={12} className="text-gray-300 dark:text-gray-600" />
+  if (sortField !== field) return <ChevronUp size={11} className="text-[var(--ces-mute2)] opacity-50" />
   return sortDir === 'asc'
-    ? <ChevronUp size={12} className="text-amber-500" />
-    : <ChevronDown size={12} className="text-amber-500" />
+    ? <ChevronUp size={11} className="text-[var(--ces-gold)]" />
+    : <ChevronDown size={11} className="text-[var(--ces-gold)]" />
 }
 
 /* ─── GaragePage ──────────────────────────────────────────────────────────── */
@@ -214,6 +219,15 @@ export default function GaragePage() {
   const canEdit   = hasPermission('GARAGE', 'canPut')
   const canDelete = hasPermission('GARAGE', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
+
+  const isVisible = useColumnStore(s => s.isVisible)
+  const isColVisible = (key) =>
+    Object.prototype.hasOwnProperty.call(COLUMN_LABELS.garage || {}, key)
+      ? isVisible('garage', key)
+      : true
+
+  const TOGGLEABLE_COL_KEYS = ['name', 'code', 'type', 'brand', 'model', 'motoHours', 'status', 'ownership', 'storageLocation', 'lastInspection', 'nextInspection']
+  const visibleColCount = 2 + TOGGLEABLE_COL_KEYS.filter(isColVisible).length
 
   const [equipment, setEquipment] = useState([])
   const [loading, setLoading] = useState(true)
@@ -245,23 +259,8 @@ export default function GaragePage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef(null)
 
-  // Column visibility
-  const [visibleCols, setVisibleCols] = useState(getStoredCols)
-  const [colMenuOpen, setColMenuOpen] = useState(false)
-  const colMenuRef = useRef(null)
-  const toggleCol = (colId) => {
-    setVisibleCols(prev => {
-      const next = prev.includes(colId) ? prev.filter(c => c !== colId) : [...prev, colId]
-      localStorage.setItem('garage_columns', JSON.stringify(next))
-      return next
-    })
-  }
-  const isColVisible = (colId) => visibleCols.includes(colId)
-
-  // Compare
   const [compareOpen, setCompareOpen] = useState(false)
 
-  // URL-based filters sync
   const [searchParams, setSearchParams] = useSearchParams()
 
   usePageShortcuts({
@@ -269,7 +268,6 @@ export default function GaragePage() {
     searchRef,
   })
 
-  // Read URL params on mount
   useEffect(() => {
     const p = Object.fromEntries(searchParams)
     if (p.q) setSearch(p.q)
@@ -281,7 +279,6 @@ export default function GaragePage() {
     if (p.quick && p.quick !== 'ALL') setQuickFilter(p.quick)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync filters → URL
   useEffect(() => {
     const p = {}
     if (search) p.q = search
@@ -294,25 +291,20 @@ export default function GaragePage() {
     setSearchParams(p, { replace: true })
   }, [search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close popovers on click outside
   useEffect(() => {
-    if (!filterOpen && !colMenuOpen) return
+    if (!filterOpen) return
     const handler = (e) => {
-      if (filterOpen && filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false)
-      if (colMenuOpen && colMenuRef.current && !colMenuRef.current.contains(e.target)) setColMenuOpen(false)
+      if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [filterOpen, colMenuOpen])
+  }, [filterOpen])
 
-  // Server-side pagination state
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
-  // All equipment for stats (lightweight fetch on mount)
   const [allEquipment, setAllEquipment] = useState([])
 
-  // Modal reference data — fetched once, reused across modal opens
   const [contractors, setContractors] = useState([])
   const [investors, setInvestors] = useState([])
   const [safetyTypes, setSafetyTypes] = useState([])
@@ -323,14 +315,10 @@ export default function GaragePage() {
     configApi.getActiveByCategory('SAFETY_EQUIPMENT').then(r => setSafetyTypes(r.data.data || [])).catch(() => {})
   }, [])
 
-  // Filter presets
   const [presets, setPresets] = useState(() => {
     try { return JSON.parse(localStorage.getItem('garage_filter_presets')) || [] } catch { return [] }
   })
-  const [presetMenuOpen, setPresetMenuOpen] = useState(false)
-  const presetMenuRef = useRef(null)
 
-  // Bulk edit modal
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [inspectionPopoverOpen, setInspectionPopoverOpen] = useState(false)
 
@@ -371,33 +359,38 @@ export default function GaragePage() {
       setTotalPages(paged.totalPages || 1)
       setSelected(new Set())
       setSlideOver(prev => prev ? ((paged.content || []).find(e => e.id === prev.id) ?? prev) : null)
-    } catch {}
+    } catch { /* silent */ }
     finally { setLoading(false) }
   }, [page, pageSize, sortField, sortDir, search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { loadStats() }, [loadStats])
 
-  // WebSocket — auto-reload on changes from other users
-  useGarageWebSocket(useCallback((msg) => {
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    garageApi.getById(Number(openId))
+      .then(res => setSlideOver(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useGarageWebSocket(useCallback(() => {
     load()
     loadStats()
   }, [load, loadStats]))
 
-  /* ── Unique values for filter dropdowns (from full dataset) ── */
   const uniqueTypes = useMemo(() => [...new Set(allEquipment.map(e => e.type).filter(Boolean))].sort(), [allEquipment])
   const uniqueLocations = useMemo(() => [...new Set(allEquipment.map(e => e.storageLocation).filter(Boolean))].sort(), [allEquipment])
   const uniqueBrands = useMemo(() => [...new Set(allEquipment.map(e => e.brand).filter(Boolean))].sort(), [allEquipment])
   const uniqueYears = useMemo(() => [...new Set(allEquipment.map(e => e.manufactureYear).filter(Boolean))].sort((a, b) => b - a), [allEquipment])
 
-  /* ── Stats (from full dataset) ── */
   const stats = useMemo(() => {
     const s = { ALL: allEquipment.length }
     Object.keys(STATUS_CFG).forEach(k => { s[k] = allEquipment.filter(e => e.status === k).length })
     return s
   }, [allEquipment])
 
-  /* ── Mini stats ── */
   const miniStats = useMemo(() => {
     if (!allEquipment.length) return null
     const totalValue = allEquipment.reduce((s, e) => s + (Number(e.currentMarketValue) || 0), 0)
@@ -406,7 +399,6 @@ export default function GaragePage() {
     return { totalValue, avgMoto }
   }, [allEquipment])
 
-  /* ── Inspection warnings ── */
   const inspectionWarnings = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     return allEquipment.filter(e => {
@@ -417,22 +409,17 @@ export default function GaragePage() {
     })
   }, [allEquipment])
 
-  /* ── Sort handler ── */
   const handleSort = (field) => {
     setSortDir(prev => sortField === field ? (prev === 'asc' ? 'desc' : 'asc') : 'asc')
     setSortField(field)
   }
 
-  /* ── Aliases for server-paged data ── */
-  const filtered = equipment
-  const sorted = equipment
   const paged = equipment
+  const sorted = equipment
   const safePage = page
 
-  // Reset page on filter/search change
   useEffect(() => { setPage(1) }, [search, statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, quickFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax, pageSize])
 
-  /* ── Filter presets ── */
   const savePreset = () => {
     const name = prompt('Filter preset adı:')
     if (!name?.trim()) return
@@ -460,7 +447,6 @@ export default function GaragePage() {
     setYearMax(f.yearMax || '')
     setMotoMin(f.motoMin || '')
     setMotoMax(f.motoMax || '')
-    setPresetMenuOpen(false)
     toast.success(`"${preset.name}" tətbiq edildi`)
   }
 
@@ -470,7 +456,6 @@ export default function GaragePage() {
     localStorage.setItem('garage_filter_presets', JSON.stringify(updated))
   }
 
-  /* ── Selection ── */
   const toggleExpand = (id) => setExpanded(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s
   })
@@ -480,7 +465,6 @@ export default function GaragePage() {
   const toggleAll = () =>
     setSelected(selected.size === paged.length ? new Set() : new Set(paged.map(e => e.id)))
 
-  /* ── Actions ── */
   const handleDelete = async (item) => {
     if (!(await confirm({ title: 'Texnikanı sil', message: `"${item.name}" silmək istəyirsiniz?` }))) return
     try {
@@ -492,7 +476,7 @@ export default function GaragePage() {
   }
 
   const handleBulkDelete = async () => {
-    if (!(await confirm({ title: 'Toplu silmə', message: `${selected.size} texnika silinsin?` }))) return
+    if (!(await confirm({ title: 'Toplu silmə', message: `${selected.size} texnika silinsin?`, confirmText: 'Sil' }))) return
     setBulkLoading(true)
     let ok = 0, pending = 0, fail = 0
     for (const id of [...selected]) {
@@ -513,7 +497,6 @@ export default function GaragePage() {
   }
 
   const handleStatusChange = async (item, newStatus, reason) => {
-    // Optimistic update
     const prevEquipment = [...equipment]
     setEquipment(prev => prev.map(e => e.id === item.id ? { ...e, status: newStatus } : e))
     if (slideOver?.id === item.id) setSlideOver(prev => ({ ...prev, status: newStatus }))
@@ -522,7 +505,6 @@ export default function GaragePage() {
       toast.success(`Status: ${STATUS_CFG[newStatus]?.label}`)
       load()
     } catch (err) {
-      // Rollback
       setEquipment(prevEquipment)
       if (slideOver?.id === item.id) setSlideOver(prev => ({ ...prev, status: item.status }))
       throw err
@@ -555,9 +537,8 @@ export default function GaragePage() {
   }
   const firstImg = (item) => item.images?.length ? item.images[0] : null
 
-  /* ── Excel export (uses full dataset) ── */
   const exportExcel = async () => {
-    let exportData = allEquipment
+    const exportData = allEquipment
     if (totalElements > allEquipment.length) {
       toast('Bütün data yüklənir...', { icon: '⏳' })
     }
@@ -585,53 +566,56 @@ export default function GaragePage() {
   }
 
   const activeFilterCount = [statusFilter, ownershipFilter, typeFilter, locationFilter, brandFilter, priceMin, priceMax, yearMin, yearMax, motoMin, motoMax].filter(Boolean).length
-  const hasAnyFilter = search || activeFilterCount > 0
   const clearFilters = () => { setSearch(''); setStatusFilter(''); setOwnershipFilter(''); setTypeFilter(''); setLocationFilter(''); setBrandFilter(''); setPriceMin(''); setPriceMax(''); setYearMin(''); setYearMax(''); setMotoMin(''); setMotoMax(''); setFilterOpen(false) }
 
   /* ── TH component ── */
-  const TH = ({ children, className, field }) => (
+  const TH = ({ children, className, field, width }) => (
     <th
       onClick={field ? () => handleSort(field) : undefined}
       className={clsx(
-        'sticky top-0 z-10 py-2.5 px-3 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-left whitespace-nowrap',
-        'bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700',
-        field && 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none',
+        'sticky top-0 z-10 py-2.5 px-3 text-[10.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.12em] text-left whitespace-nowrap align-bottom',
+        'bg-white border-b border-[var(--ces-line)]',
+        field && 'cursor-pointer hover:text-[var(--ces-graphite)] select-none',
+        width,
         className
       )}
     >
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         {children}
         {field && <SortIcon field={field} sortField={sortField} sortDir={sortDir} />}
       </div>
     </th>
   )
 
+  const selectCls = 'w-full px-3 py-2 text-[12.5px] bg-white border border-[var(--ces-line)] rounded-[10px] text-[var(--ces-ink)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all cursor-pointer'
+  const numInputCls = 'w-full px-3 py-2 text-[12.5px] bg-white border border-[var(--ces-line)] rounded-[10px] text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all'
+
   return (
-    <div className="flex flex-col h-full" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="ces-font flex flex-col h-full" style={{ height: 'calc(100vh - 80px)' }}>
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between mb-3 shrink-0">
+      <div className="flex items-end justify-between mb-5 shrink-0">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100">Qaraj</h1>
+            <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--ces-ink)] leading-tight">Qaraj</h1>
             {inspectionWarnings.length > 0 && (
               <div className="relative">
                 <button
                   onClick={() => setInspectionPopoverOpen(v => !v)}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse hover:animate-none hover:bg-red-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[var(--ces-danger-100)] text-[var(--ces-danger)] hover:bg-[#fad8e0] animate-pulse hover:animate-none transition-colors"
                 >
                   <CalendarClock size={11} />
                   {inspectionWarnings.length} baxış yaxınlaşır
                 </button>
                 {inspectionPopoverOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl w-72 overflow-hidden">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">Yaxınlaşan baxışlar</span>
-                      <button onClick={() => setInspectionPopoverOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <X size={13} />
+                  <div className="absolute left-0 top-full mt-2 z-50 bg-white border border-[var(--ces-line)] rounded-[14px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] w-80 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--ces-line)]">
+                      <span className="text-[12.5px] font-bold text-[var(--ces-ink)]">Yaxınlaşan baxışlar</span>
+                      <button onClick={() => setInspectionPopoverOpen(false)} className="text-[var(--ces-muted)] hover:text-[var(--ces-graphite)]">
+                        <X size={14} />
                       </button>
                     </div>
-                    <div className="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/50">
+                    <div className="max-h-72 overflow-y-auto divide-y divide-[var(--ces-line-2)]">
                       {inspectionWarnings
                         .slice()
                         .sort((a, b) => new Date(a.nextInspectionDate) - new Date(b.nextInspectionDate))
@@ -644,17 +628,17 @@ export default function GaragePage() {
                             <button
                               key={e.id}
                               onClick={() => { setSlideOver(e); setInspectionPopoverOpen(false) }}
-                              className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left transition-colors"
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-[var(--ces-graphite-50)] text-left transition-colors"
                             >
                               <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{e.name}</p>
-                                <p className="text-[10px] text-gray-400 font-mono">{e.equipmentCode}</p>
+                                <p className="text-[12.5px] font-bold text-[var(--ces-ink)] truncate">{e.name}</p>
+                                <p className="text-[10.5px] text-[var(--ces-muted)] font-mono mt-0.5">{e.equipmentCode}</p>
                               </div>
                               <span className={clsx(
-                                'ml-2 shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold border',
+                                'ml-2 shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold',
                                 urgent
-                                  ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800'
-                                  : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+                                  ? 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]'
+                                  : 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]'
                               )}>
                                 {urgent ? 'Vaxtı keçib' : `${diff} gün`}
                               </span>
@@ -667,16 +651,16 @@ export default function GaragePage() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-gray-400">
-            <span>{allEquipment.length} texnika · {totalElements} göstərilir</span>
+          <div className="flex items-center gap-3 text-[12px] text-[var(--ces-muted)] mt-1.5">
+            <span><span className="font-semibold text-[var(--ces-ink)]">{allEquipment.length}</span> texnika · <span className="font-semibold text-[var(--ces-ink)]">{totalElements}</span> göstərilir</span>
             {miniStats && (
               <>
                 <span>·</span>
-                <span>Ümumi dəyər: <strong className="text-gray-600 dark:text-gray-300">{Number(miniStats.totalValue).toLocaleString()} ₼</strong></span>
+                <span>Ümumi dəyər: <strong className="text-[var(--ces-ink)] font-bold tabular-nums">{Number(miniStats.totalValue).toLocaleString()} ₼</strong></span>
                 {miniStats.avgMoto > 0 && (
                   <>
                     <span>·</span>
-                    <span>Ort. moto: <strong className="text-gray-600 dark:text-gray-300">{miniStats.avgMoto.toLocaleString()} s</strong></span>
+                    <span>Ort. moto: <strong className="text-[var(--ces-ink)] font-bold tabular-nums">{miniStats.avgMoto.toLocaleString()} s</strong></span>
                   </>
                 )}
               </>
@@ -684,156 +668,128 @@ export default function GaragePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+          <div className="inline-flex items-center bg-[var(--ces-graphite-50)] p-1 rounded-[10px]">
             <button
               onClick={() => setViewMode('table')}
-              className={clsx('p-1.5 transition-colors', viewMode === 'table' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700')}
+              className={clsx('w-8 h-8 grid place-items-center rounded-[7px] transition-colors',
+                viewMode === 'table' ? 'bg-white text-[var(--ces-graphite)] shadow-[0_1px_2px_rgba(58,58,58,0.06)]' : 'text-[var(--ces-muted)] hover:text-[var(--ces-graphite)]'
+              )}
               title="Cədvəl"
             >
               <List size={14} />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={clsx('p-1.5 transition-colors', viewMode === 'grid' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700')}
+              className={clsx('w-8 h-8 grid place-items-center rounded-[7px] transition-colors',
+                viewMode === 'grid' ? 'bg-white text-[var(--ces-graphite)] shadow-[0_1px_2px_rgba(58,58,58,0.06)]' : 'text-[var(--ces-muted)] hover:text-[var(--ces-graphite)]'
+              )}
               title="Kartlar"
             >
               <LayoutGrid size={14} />
             </button>
           </div>
-          {/* Column toggle */}
-          {viewMode === 'table' && (
-            <div className="relative" ref={colMenuRef}>
-              <button
-                onClick={() => setColMenuOpen(p => !p)}
-                className="p-1.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                title="Sütunlar"
-              >
-                <Columns size={14} />
-              </button>
-              {colMenuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 z-30 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 space-y-1">
-                  <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Sütunlar</p>
-                  {ALL_COLUMNS.map(col => (
-                    <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={visibleCols.includes(col.id)}
-                        disabled={col.alwaysVisible}
-                        onChange={() => toggleCol(col.id)}
-                        className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 focus:ring-1 disabled:opacity-40"
-                      />
-                      <span className="text-xs text-gray-700 dark:text-gray-300">{col.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {/* Compare */}
+
           {selected.size >= 2 && selected.size <= 5 && (
             <button
               onClick={() => setCompareOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-purple-300 dark:border-purple-600 rounded-lg text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[12.5px] font-bold border border-[#d9c4ff] bg-[#ece4ff] text-[#5e3bbf] rounded-[10px] hover:bg-[#dfd0ff] transition-colors"
             >
               <Scale size={13} /> Müqayisə ({selected.size})
             </button>
           )}
           <button
             onClick={exportExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] rounded-[10px] hover:border-[var(--ces-graphite)] transition-colors"
           >
-            <Download size={13} /> Excel
+            <Download size={14} /> Excel
           </button>
           {canCreate && (
             <button
               onClick={() => setModal({ open: true, editing: null })}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors shrink-0"
+              className="inline-flex items-center gap-2 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] text-[var(--ces-on-gold)] text-sm font-semibold px-4 py-2.5 rounded-[10px] transition-colors shadow-[0_8px_24px_-12px_rgba(200,147,42,0.55)]"
             >
-              <Plus size={14} /> Yeni texnika
+              <Plus size={16} /> Yeni texnika
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Stat cards ── */}
-      <div className="flex gap-2 mb-3 shrink-0 overflow-x-auto scrollbar-none">
+      {/* ── Stat cards (compact strip) ── */}
+      <div className="flex gap-2.5 mb-4 shrink-0 overflow-x-auto scrollbar-none pb-1">
         {STAT_CARDS.map(s => {
           const Icon = s.icon
+          const on = quickFilter === s.id
           return (
             <button
               key={s.id}
               onClick={() => setQuickFilter(s.id)}
               className={clsx(
-                'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[100px]',
-                quickFilter === s.id
-                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-700'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700'
+                'rounded-[14px] border px-3.5 py-2.5 text-left transition-all shrink-0 min-w-[112px] bg-[var(--ces-surface)]',
+                on
+                  ? 'border-[var(--ces-graphite)] shadow-[0_8px_24px_-12px_rgba(58,58,58,0.18)] -translate-y-[1px]'
+                  : 'border-[var(--ces-line)] hover:border-[var(--ces-graphite)]'
               )}
             >
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <Icon size={10} className={s.color} />
-                {s.label}
-              </p>
-              <p className={clsx('text-lg font-bold mt-0.5', s.color)}>{stats[s.id] ?? 0}</p>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={clsx('w-6 h-6 rounded-[7px] grid place-items-center', TONE_CLS[s.tone])}>
+                  <Icon size={12} />
+                </span>
+                <span className="text-[10.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">{s.label}</span>
+              </div>
+              <p className="text-[20px] font-extrabold tracking-tight leading-none text-[var(--ces-ink)] tabular-nums">{stats[s.id] ?? 0}</p>
             </button>
           )
         })}
       </div>
 
       {/* ── Search + Filter popover ── */}
-      <div className="flex gap-2 mb-3 shrink-0">
+      <div className="flex gap-2 mb-4 shrink-0">
         <div className="relative flex-1 min-w-0">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ces-mute2)]" />
           <input
             ref={searchRef}
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Ad, marka, kod, seriya, yer..."
-            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full pl-10 pr-3 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all"
           />
         </div>
         <div className="relative" ref={filterRef}>
           <button
             onClick={() => setFilterOpen(p => !p)}
             className={clsx(
-              'flex items-center gap-1.5 px-2.5 py-1.5 text-xs border rounded-lg transition-colors',
+              'inline-flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-[11px] transition-colors',
               activeFilterCount > 0
-                ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
-                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                ? 'bg-[var(--ces-gold)] text-[var(--ces-on-gold)] hover:bg-[var(--ces-gold-700)]'
+                : 'bg-white text-[var(--ces-graphite)] border border-[var(--ces-line)] hover:border-[var(--ces-graphite)]'
             )}
           >
-            <SlidersHorizontal size={13} />
+            <SlidersHorizontal size={14} />
             Filtrlər
             {activeFilterCount > 0 && (
-              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-amber-600 text-white text-[9px] font-bold">{activeFilterCount}</span>
+              <span className="w-5 h-5 grid place-items-center rounded-full bg-white text-[var(--ces-gold-700)] text-[10px] font-extrabold">{activeFilterCount}</span>
             )}
           </button>
           {filterOpen && (
-            <div className="absolute right-0 top-full mt-1.5 z-30 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 max-h-[70vh] overflow-y-auto space-y-3">
-              {/* Status */}
+            <div className="absolute right-0 top-full mt-2 z-30 w-96 bg-white border border-[var(--ces-line)] rounded-[14px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] p-5 max-h-[75vh] overflow-y-auto space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Status</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
                   <option value="">Hamısı</option>
                   {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
-              {/* Mülkiyyət */}
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Mülkiyyət</label>
-                <select value={ownershipFilter} onChange={(e) => setOwnershipFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Mülkiyyət</label>
+                <select value={ownershipFilter} onChange={(e) => setOwnershipFilter(e.target.value)} className={selectCls}>
                   <option value="">Hamısı</option>
                   {Object.entries(OWN_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
-              {/* Növ + Brend yan-yana */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {uniqueTypes.length > 0 && (
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Növ</label>
-                    <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Növ</label>
+                    <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectCls}>
                       <option value="">Hamısı</option>
                       {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -841,119 +797,91 @@ export default function GaragePage() {
                 )}
                 {uniqueBrands.length > 0 && (
                   <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Brend</label>
-                    <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Brend</label>
+                    <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} className={selectCls}>
                       <option value="">Hamısı</option>
                       {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                 )}
               </div>
-              {/* Saxlanma yeri */}
               {uniqueLocations.length > 0 && (
                 <div>
-                  <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Saxlanma yeri</label>
-                  <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                  <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Saxlanma yeri</label>
+                  <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className={selectCls}>
                     <option value="">Hamısı</option>
                     {uniqueLocations.map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
                 </div>
               )}
-              {/* Qiymət aralığı */}
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Alış qiyməti (₼)</label>
+                <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Alış qiyməti (₼)</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="number" value={priceMin} onChange={(e) => setPriceMin(e.target.value)}
-                    placeholder="Min" min="0"
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                  <input type="number" value={priceMax} onChange={(e) => setPriceMax(e.target.value)}
-                    placeholder="Max" min="0"
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <input type="number" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} placeholder="Min" min="0" className={numInputCls} />
+                  <input type="number" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} placeholder="Max" min="0" className={numInputCls} />
                 </div>
               </div>
-              {/* İstehsal ili aralığı */}
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">İstehsal ili</label>
+                <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">İstehsal ili</label>
                 <div className="grid grid-cols-2 gap-2">
                   <select value={yearMin}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setYearMin(val)
-                      if (yearMax && val && Number(val) > Number(yearMax)) setYearMax('')
-                    }}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    onChange={(e) => { const val = e.target.value; setYearMin(val); if (yearMax && val && Number(val) > Number(yearMax)) setYearMax('') }}
+                    className={selectCls}>
                     <option value="">Min</option>
-                    {uniqueYears
-                      .filter(y => !yearMax || y <= Number(yearMax))
-                      .map(y => <option key={y} value={y}>{y}</option>)}
+                    {uniqueYears.filter(y => !yearMax || y <= Number(yearMax)).map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                   <select value={yearMax}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setYearMax(val)
-                      if (yearMin && val && Number(val) < Number(yearMin)) setYearMin('')
-                    }}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    onChange={(e) => { const val = e.target.value; setYearMax(val); if (yearMin && val && Number(val) < Number(yearMin)) setYearMin('') }}
+                    className={selectCls}>
                     <option value="">Max</option>
-                    {uniqueYears
-                      .filter(y => !yearMin || y >= Number(yearMin))
-                      .map(y => <option key={y} value={y}>{y}</option>)}
+                    {uniqueYears.filter(y => !yearMin || y >= Number(yearMin)).map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
               </div>
-              {/* Moto saatlar aralığı */}
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Moto saatlar</label>
+                <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Moto saatlar</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="number" value={motoMin} onChange={(e) => setMotoMin(e.target.value)}
-                    placeholder="Min" min="0"
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                  <input type="number" value={motoMax} onChange={(e) => setMotoMax(e.target.value)}
-                    placeholder="Max" min="0"
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                  <input type="number" value={motoMin} onChange={(e) => setMotoMin(e.target.value)} placeholder="Min" min="0" className={numInputCls} />
+                  <input type="number" value={motoMax} onChange={(e) => setMotoMax(e.target.value)} placeholder="Max" min="0" className={numInputCls} />
                 </div>
               </div>
-              {/* Presets */}
               {presets.length > 0 && (
                 <div>
-                  <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Saxlanmış filtrlər</label>
+                  <label className="block text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--ces-muted)] mb-1.5">Saxlanmış filtrlər</label>
                   <div className="space-y-1">
                     {presets.map(p => (
                       <div key={p.name} className="flex items-center gap-1">
                         <button
                           onClick={() => loadPreset(p)}
-                          className="flex-1 text-left px-2 py-1 text-xs rounded hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-700 dark:text-gray-300 transition-colors"
+                          className="flex-1 text-left px-2.5 py-1.5 text-[12.5px] rounded-[8px] hover:bg-[var(--ces-gold-50)] text-[var(--ces-ink)] font-semibold transition-colors"
                         >
-                          <Bookmark size={10} className="inline mr-1 text-amber-500" />{p.name}
+                          <Bookmark size={11} className="inline mr-1 text-[var(--ces-gold)]" />{p.name}
                         </button>
-                        <button onClick={() => deletePreset(p.name)} className="p-0.5 text-gray-400 hover:text-red-500 transition-colors">
-                          <X size={10} />
+                        <button onClick={() => deletePreset(p.name)} className="p-1 text-[var(--ces-muted)] hover:text-[var(--ces-danger)] transition-colors">
+                          <X size={11} />
                         </button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between pt-3 border-t border-[var(--ces-line)]">
+                <div className="flex items-center gap-3">
                   {activeFilterCount > 0 && (
                     <button onClick={clearFilters}
-                      className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
+                      className="text-[12px] text-[var(--ces-danger)] hover:text-[#b62b4a] font-bold transition-colors">
                       Filtrləri təmizlə
                     </button>
                   )}
                   {activeFilterCount > 0 && (
                     <button onClick={savePreset}
-                      className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors">
-                      <Save size={10} /> Preset saxla
+                      className="inline-flex items-center gap-1 text-[12px] text-[var(--ces-info)] hover:text-[#1d4fa8] font-bold transition-colors">
+                      <Save size={11} /> Preset saxla
                     </button>
                   )}
                 </div>
                 <button onClick={() => setFilterOpen(false)}
-                  className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold transition-colors">
+                  className="text-[12px] text-[var(--ces-graphite)] hover:text-[var(--ces-ink)] font-bold transition-colors">
                   Bağla
                 </button>
               </div>
@@ -964,8 +892,8 @@ export default function GaragePage() {
 
       {/* Bulk action toolbar */}
       {(canDelete || canEdit) && selected.size > 0 && viewMode === 'table' && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl mb-3 shrink-0">
-          <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+        <div className="flex items-center gap-3 px-4 py-3 bg-[var(--ces-gold-50)] border border-[var(--ces-gold-100)] rounded-[14px] mb-4 shrink-0">
+          <span className="text-sm font-bold text-[var(--ces-gold-700)]">
             {selected.size} element seçildi
           </span>
           <div className="flex-1" />
@@ -973,7 +901,7 @@ export default function GaragePage() {
             <button
               onClick={() => setBulkStatusModal(true)}
               disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] text-[var(--ces-on-gold)] text-xs font-bold rounded-[8px] transition-colors disabled:opacity-60"
             >
               <RefreshCw size={13} /> Status dəyiş ({selected.size})
             </button>
@@ -982,7 +910,7 @@ export default function GaragePage() {
             <button
               onClick={() => setBulkEditOpen(true)}
               disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[var(--ces-info)] hover:bg-[#1d4fa8] text-white text-xs font-bold rounded-[8px] transition-colors disabled:opacity-60"
             >
               <Pencil size={13} /> Toplu redaktə ({selected.size})
             </button>
@@ -991,13 +919,13 @@ export default function GaragePage() {
             <button
               onClick={handleBulkDelete}
               disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[var(--ces-danger)] hover:bg-[#b62b4a] text-white text-xs font-bold rounded-[8px] transition-colors disabled:opacity-60"
             >
               {bulkLoading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
-              Seçilənləri sil ({selected.size})
+              Sil ({selected.size})
             </button>
           )}
-          <button onClick={() => setSelected(new Set())} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+          <button onClick={() => setSelected(new Set())} className="text-xs font-semibold text-[var(--ces-muted)] hover:text-[var(--ces-graphite)]">
             Ləğv et
           </button>
         </div>
@@ -1005,26 +933,27 @@ export default function GaragePage() {
 
       {/* ── Content ── */}
       {viewMode === 'grid' ? (
-        /* ── Grid View ── */
         <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 h-64 animate-pulse">
-                  <div className="h-36 bg-gray-100 dark:bg-gray-700" />
+                <div key={i} className="bg-[var(--ces-surface)] rounded-[16px] border border-[var(--ces-line)] h-64 animate-pulse">
+                  <div className="h-36 bg-[var(--ces-graphite-100)]" />
                   <div className="p-3 space-y-2">
-                    <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4" />
-                    <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-1/2" />
+                    <div className="h-4 bg-[var(--ces-graphite-100)] rounded w-3/4" />
+                    <div className="h-3 bg-[var(--ces-graphite-100)] rounded w-1/2" />
                   </div>
                 </div>
               ))}
             </div>
           ) : sorted.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Truck size={40} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Texnika tapılmadı</p>
-                <p className="text-xs text-gray-400 mt-1">Axtarış şərtlərini dəyişin və ya yeni texnika əlavə edin</p>
+              <div className="text-center bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[16px] p-12">
+                <div className="w-16 h-16 rounded-[18px] bg-[var(--ces-gold-50)] grid place-items-center mx-auto mb-4 border border-[var(--ces-gold-100)]">
+                  <Truck size={28} className="text-[var(--ces-gold-700)]" />
+                </div>
+                <h3 className="text-[17px] font-extrabold text-[var(--ces-ink)] tracking-tight">Texnika tapılmadı</h3>
+                <p className="text-[13px] text-[var(--ces-muted)] mt-1.5">Axtarış şərtlərini dəyişin və ya yeni texnika əlavə edin</p>
               </div>
             </div>
           ) : (
@@ -1047,31 +976,39 @@ export default function GaragePage() {
         </div>
       ) : (
         /* ── Table View ── */
-        <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800">
+        <div className="flex-1 min-h-0 flex flex-col rounded-[20px] border border-[var(--ces-line)] overflow-hidden bg-[var(--ces-surface)] shadow-[0_1px_2px_rgba(58,58,58,0.06),0_1px_1px_rgba(58,58,58,0.04)]">
           <div className="flex-1 overflow-auto">
-            <table className="w-full border-collapse text-xs">
+            <table className="w-full border-collapse text-[12.5px] table-fixed">
+              <colgroup>
+                <col style={{ width: '44px' }} />
+                <col />
+                <col />
+                <col />
+                <col />
+                <col />
+                <col />
+                <col style={{ width: '110px' }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <TH className="w-10">
+                  <TH className="px-2">
                     <input type="checkbox" checked={selected.size === paged.length && paged.length > 0}
                       onChange={toggleAll}
-                      className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 focus:ring-1" />
+                      className="w-3.5 h-3.5 accent-[var(--ces-graphite)] cursor-pointer" />
                   </TH>
-                  {isColVisible('name') && <TH field="name">Texnika</TH>}
-                  {isColVisible('type') && <TH field="type">Növ</TH>}
-                  {isColVisible('brand') && <TH field="brand">Brend / Model</TH>}
-                  {isColVisible('motoHours') && <TH field="motoHours">Moto saat</TH>}
-                  {isColVisible('status') && <TH>Status</TH>}
-                  {isColVisible('ownership') && <TH>Mülkiyyət</TH>}
-                  {isColVisible('storageLocation') && <TH field="storageLocation">Saxlanma yeri</TH>}
-                  {isColVisible('inspection') && <TH field="lastInspectionDate">Son baxış</TH>}
-                  <TH className="text-center w-20">Əməliyyat</TH>
+                  <TH field="name">Texnika</TH>
+                  <TH>Texniki məlumat</TH>
+                  <TH>İstismar</TH>
+                  <TH>Status</TH>
+                  <TH>Mülkiyyət</TH>
+                  <TH>Texniki baxış</TH>
+                  <TH className="text-center">Əməliyyat</TH>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
-                  <TableSkeleton cols={visibleCols.length + 2} rows={7} />
+                  <TableSkeleton cols={visibleColCount} rows={7} />
                 ) : paged.length === 0 ? (
                   <EmptyState
                     icon={Truck}
@@ -1087,120 +1024,156 @@ export default function GaragePage() {
                     const status = STATUS_CFG[item.status] || STATUS_CFG.AVAILABLE
                     const firstImage = firstImg(item)
 
+                    const ownerName = item.ownershipType === 'INVESTOR'
+                      ? item.ownerInvestorName
+                      : item.ownershipType === 'CONTRACTOR'
+                        ? item.ownerContractorName
+                        : null
+
                     const mainRow = (
                       <tr
                         key={item.id}
                         className={clsx(
-                          'border-b border-gray-100 dark:border-gray-700 transition-colors',
-                          isExp ? 'bg-amber-50/40 dark:bg-amber-900/5' : 'hover:bg-gray-50/70 dark:hover:bg-gray-700/30',
-                          isSel && !isExp && 'bg-amber-50/60 dark:bg-amber-900/10'
+                          'border-b border-[var(--ces-line-2)] transition-colors',
+                          isExp
+                            ? 'bg-[var(--ces-gold-50)]'
+                            : isSel
+                              ? 'bg-[var(--ces-gold-50)]/60'
+                              : 'hover:bg-[var(--ces-graphite-50)]'
                         )}
                       >
-                        <td className="py-2 px-3 align-middle w-10" onClick={(e) => e.stopPropagation()}>
+                        {/* checkbox */}
+                        <td className="py-3 px-2 align-top" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={isSel} onChange={() => toggleSelect(item.id)}
-                            className="rounded border-gray-300 text-amber-500 focus:ring-amber-500 focus:ring-1" />
+                            className="w-3.5 h-3.5 accent-[var(--ces-graphite)] cursor-pointer mt-1" />
                         </td>
-                        {isColVisible('name') && (
-                          <td className="py-2 px-3 cursor-pointer align-middle" onClick={() => toggleExpand(item.id)}>
-                            <div className="flex items-center gap-2">
-                              <span className="shrink-0 text-gray-300 dark:text-gray-600">
-                                {isExp ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                              </span>
-                              <div className="w-9 h-7 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 shrink-0 flex items-center justify-center">
-                                {firstImage
-                                  ? <AuthImage equipmentId={item.id} imageId={firstImage.id} alt="" className="w-full h-full object-cover" />
-                                  : <Truck size={12} className="text-gray-300 dark:text-gray-600" />
-                                }
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">{item.name}</p>
-                                <p className="text-[10px] text-gray-400 font-mono leading-tight">{item.equipmentCode}</p>
-                              </div>
+
+                        {/* Texnika — thumbnail + ad + kod + status */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="flex gap-3">
+                            <div className="w-12 h-12 rounded-[8px] overflow-hidden bg-[var(--ces-graphite-50)] shrink-0 grid place-items-center">
+                              {firstImage
+                                ? <AuthImage equipmentId={item.id} imageId={firstImage.id} alt="" className="w-full h-full object-cover" />
+                                : <Truck size={16} className="text-[var(--ces-mute2)]" />
+                              }
                             </div>
-                          </td>
-                        )}
-                        {isColVisible('type') && (
-                          <td className="py-2 px-3 align-middle">
-                            <span className="text-gray-600 dark:text-gray-300 truncate block">{item.type || '—'}</span>
-                          </td>
-                        )}
-                        {isColVisible('brand') && (
-                          <td className="py-2 px-3 align-middle">
-                            <p className="font-medium text-gray-700 dark:text-gray-200 truncate">{item.brand || '—'}</p>
-                            <p className="text-[10px] text-gray-400 truncate">{item.model || ''}</p>
-                          </td>
-                        )}
-                        {isColVisible('motoHours') && (
-                          <td className="py-2 px-3 align-middle">
-                            <span className="text-gray-600 dark:text-gray-300 tabular-nums">{item.motoHours != null ? `${Number(item.motoHours).toLocaleString()} s` : '—'}</span>
-                          </td>
-                        )}
-                        {isColVisible('status') && (
-                          <td className="py-2 px-3 align-middle" onClick={e => e.stopPropagation()}>
-                            {canEdit ? (
-                              <button
-                                onClick={() => setStatusModal(item)}
-                                className={clsx('px-2 py-0.5 rounded text-[9px] font-semibold border cursor-pointer hover:ring-2 hover:ring-amber-300 dark:hover:ring-amber-600 transition-all', status.cls)}
-                                title="Status dəyişdir"
-                              >
-                                {status.label}
-                              </button>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-[13.5px] text-[var(--ces-ink)] truncate leading-tight">{item.name}</p>
+                              <p className="text-[11px] font-mono text-[var(--ces-muted)] truncate mt-0.5">{item.equipmentCode}</p>
+                              {canEdit ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setStatusModal(item) }}
+                                  className={clsx('mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-bold hover:ring-2 hover:ring-[rgba(58,58,58,0.15)] transition-all whitespace-nowrap', status.cls)}
+                                >
+                                  <span className="w-1 h-1 rounded-full bg-current" />
+                                  {status.label}
+                                </button>
+                              ) : (
+                                <span className={clsx('mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-bold whitespace-nowrap', status.cls)}>
+                                  <span className="w-1 h-1 rounded-full bg-current" />
+                                  {status.label}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Texniki məlumat — Növ, Brend, Model, İstehsal ili */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="space-y-1">
+                            <KV k="Növ"    v={dash(item.type)} />
+                            <KV k="Brend"  v={dash(item.brand)} />
+                            <KV k="Model"  v={dash(item.model)} />
+                            <KV k="İl"     v={dash(item.manufactureYear)} mono />
+                          </div>
+                        </td>
+
+                        {/* İstismar — Moto, Saat/KM, Saxlanma */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="space-y-1">
+                            <KV k="Moto"     v={item.motoHours != null ? `${Number(item.motoHours).toLocaleString()} s` : '—'} mono />
+                            <KV k="Saat/KM"  v={dash(item.hourKmCounter)} mono />
+                            <KV k="Saxlanma" v={dash(item.storageLocation)} />
+                          </div>
+                        </td>
+
+                        {/* Status & Qiymət — Bazar dəyəri */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="space-y-1">
+                            <KV k="Alış"    v={fmtMoney(item.purchasePrice)} mono />
+                            <KV k="Bazar"   v={fmtMoney(item.currentMarketValue)} mono gold />
+                            <KV k="Amort."  v={item.depreciationRate != null ? `${item.depreciationRate}%` : '—'} mono />
+                          </div>
+                        </td>
+
+                        {/* Mülkiyyət — Tip + Sahib */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="space-y-1">
+                            <KV k="Tip" v={OWN_LABEL[item.ownershipType] || '—'} gold />
+                            {item.ownershipType === 'COMPANY' ? (
+                              <p className="text-[11px] text-[var(--ces-muted)] italic">Şirkətin texnikası</p>
                             ) : (
-                              <span className={clsx('px-2 py-0.5 rounded text-[9px] font-semibold border block w-fit', status.cls)}>
-                                {status.label}
-                              </span>
+                              <>
+                                <KV k="Sahib" v={dash(ownerName)} />
+                                <KV
+                                  k="VÖEN"
+                                  v={dash(item.ownershipType === 'INVESTOR' ? item.ownerInvestorVoen : item.ownerContractorVoen)}
+                                  mono
+                                />
+                              </>
                             )}
-                          </td>
-                        )}
-                        {isColVisible('ownership') && (
-                          <td className="py-2 px-3 align-middle">
-                            <p className="font-medium text-gray-700 dark:text-gray-200 text-[11px]">{OWN_LABEL[item.ownershipType] || '—'}</p>
-                            {item.ownerContractorName && <p className="text-[10px] text-gray-400 truncate">{item.ownerContractorName}</p>}
-                            {item.ownerInvestorName && <p className="text-[10px] text-gray-400 truncate">{item.ownerInvestorName}</p>}
-                          </td>
-                        )}
-                        {isColVisible('storageLocation') && (
-                          <td className="py-2 px-3 align-middle">
-                            <span className="text-gray-600 dark:text-gray-300 text-[11px] truncate block max-w-[120px]">{item.storageLocation || '—'}</span>
-                          </td>
-                        )}
-                        {isColVisible('inspection') && (
-                          <td className="py-2 px-3 align-middle">
-                            <p className="text-gray-600 dark:text-gray-300 text-[11px]">{fmtDate(item.lastInspectionDate)}</p>
-                            {item.nextInspectionDate && <p className="text-[10px] text-amber-500">{fmtDate(item.nextInspectionDate)}</p>}
-                          </td>
-                        )}
-                        <td className="py-2 px-2 align-middle" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-0.5">
+                          </div>
+                        </td>
+
+                        {/* Texniki baxış — Son / Növbəti countdown */}
+                        <td className="py-3 px-3 align-top">
+                          <div className="space-y-1">
+                            <KV k="Son"     v={item.lastInspectionDate ? fmtDate(item.lastInspectionDate) : '—'} mono />
+                            <KV k="Növbəti" v={item.nextInspectionDate ? fmtDate(item.nextInspectionDate) : '—'} mono gold />
+                          </div>
+                        </td>
+
+                        {/* Actions + expand */}
+                        <td className="py-3 px-2 align-top" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-0.5">
                             <button onClick={() => setSlideOver(item)} title="Ətraflı"
-                              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors">
-                              <Eye size={14} />
+                              className="w-7 h-7 grid place-items-center rounded-[6px] text-[var(--ces-muted)] hover:bg-white hover:text-[var(--ces-graphite)] transition-colors">
+                              <Eye size={13} />
                             </button>
-                            {canCreate && (
-                              <button onClick={() => openClone(item)} title="Kopyala"
-                                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-500 transition-colors">
-                                <Copy size={13} />
-                              </button>
-                            )}
                             {canEdit && (
                               <button onClick={() => openEdit(item)} title="Redaktə"
-                                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors">
-                                <Pencil size={13} />
+                                className="w-7 h-7 grid place-items-center rounded-[6px] text-[var(--ces-muted)] hover:bg-[var(--ces-gold-100)] hover:text-[var(--ces-gold-700)] transition-colors">
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                            {canCreate && (
+                              <button onClick={() => openClone(item)} title="Kopyala"
+                                className="w-7 h-7 grid place-items-center rounded-[6px] text-[var(--ces-muted)] hover:bg-[var(--ces-info-100)] hover:text-[var(--ces-info)] transition-colors">
+                                <Copy size={12} />
                               </button>
                             )}
                             {canDelete && (
                               <button onClick={() => handleDelete(item)} title="Sil"
-                                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors">
-                                <Trash2 size={13} />
+                                className="w-7 h-7 grid place-items-center rounded-[6px] text-[var(--ces-muted)] hover:bg-[var(--ces-danger-100)] hover:text-[var(--ces-danger)] transition-colors">
+                                <Trash2 size={12} />
                               </button>
                             )}
+                            <button onClick={() => toggleExpand(item.id)} title={isExp ? 'Bağla' : 'Genişləndir'}
+                              className={clsx(
+                                'w-7 h-7 grid place-items-center rounded-[6px] transition-colors ml-0.5',
+                                isExp
+                                  ? 'bg-[var(--ces-graphite)] text-[var(--ces-on-primary)]'
+                                  : 'text-[var(--ces-muted)] hover:bg-white hover:text-[var(--ces-graphite)]'
+                              )}>
+                              {isExp ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
                           </div>
                         </td>
                       </tr>
                     )
 
                     return isExp
-                      ? [mainRow, <ExpandedRow key={`exp-${item.id}`} item={item} />]
+                      ? [mainRow, <ExpandedRow key={`exp-${item.id}`} item={item} colSpan={8} />]
                       : [mainRow]
                   })
                 )}
@@ -1210,70 +1183,49 @@ export default function GaragePage() {
 
           {/* ── Pagination ── */}
           {!loading && totalElements > 0 && (
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 shrink-0">
-              <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                <span>{totalElements} nəticədən {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, totalElements)}</span>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--ces-line)] bg-white shrink-0">
+              <div className="flex items-center gap-3 text-[12.5px] text-[var(--ces-muted)]">
+                <span><span className="font-semibold text-[var(--ces-ink)] tabular-nums">{totalElements}</span> nəticədən <span className="font-semibold text-[var(--ces-ink)] tabular-nums">{(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, totalElements)}</span></span>
                 <select
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="px-1.5 py-0.5 text-[11px] border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none"
+                  className="px-2 py-1 text-[12px] bg-white border border-[var(--ces-line)] rounded-[7px] text-[var(--ces-graphite)] font-semibold focus:outline-none cursor-pointer"
                 >
                   {PAGE_SIZES.map(s => <option key={s} value={s}>{s} / səhifə</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(1)}
-                  disabled={safePage === 1}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
+                <button onClick={() => setPage(1)} disabled={safePage === 1} className="w-8 h-8 grid place-items-center rounded-[7px] bg-white border border-[var(--ces-line)] text-[var(--ces-graphite)] hover:border-[var(--ces-graphite)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronsLeft size={14} />
                 </button>
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={safePage === 1}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} className="w-8 h-8 grid place-items-center rounded-[7px] bg-white border border-[var(--ces-line)] text-[var(--ces-graphite)] hover:border-[var(--ces-graphite)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft size={14} />
                 </button>
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (safePage <= 3) {
-                    pageNum = i + 1
-                  } else if (safePage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = safePage - 2 + i
-                  }
+                  if (totalPages <= 5) pageNum = i + 1
+                  else if (safePage <= 3) pageNum = i + 1
+                  else if (safePage >= totalPages - 2) pageNum = totalPages - 4 + i
+                  else pageNum = safePage - 2 + i
                   return (
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
                       className={clsx(
-                        'w-7 h-7 rounded text-[11px] font-medium transition-colors',
+                        'min-w-8 h-8 px-2.5 rounded-[7px] text-[12.5px] font-bold transition-colors',
                         safePage === pageNum
-                          ? 'bg-amber-600 text-white'
-                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                          ? 'bg-[var(--ces-graphite)] text-[var(--ces-on-primary)] border border-[var(--ces-graphite)]'
+                          : 'bg-white border border-[var(--ces-line)] text-[var(--ces-graphite)] hover:border-[var(--ces-graphite)]'
                       )}
                     >
                       {pageNum}
                     </button>
                   )
                 })}
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={safePage === totalPages}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="w-8 h-8 grid place-items-center rounded-[7px] bg-white border border-[var(--ces-line)] text-[var(--ces-graphite)] hover:border-[var(--ces-graphite)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronRight size={14} />
                 </button>
-                <button
-                  onClick={() => setPage(totalPages)}
-                  disabled={safePage === totalPages}
-                  className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
+                <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} className="w-8 h-8 grid place-items-center rounded-[7px] bg-white border border-[var(--ces-line)] text-[var(--ces-graphite)] hover:border-[var(--ces-graphite)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                   <ChevronsRight size={14} />
                 </button>
               </div>

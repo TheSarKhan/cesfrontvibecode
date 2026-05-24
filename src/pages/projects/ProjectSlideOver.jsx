@@ -4,8 +4,8 @@ import {
   X, Info, DollarSign, CheckCircle,
   Upload, FileText, Plus, Trash2, Download,
   TrendingUp, TrendingDown, Calendar,
-  AlertCircle, Phone, User, MapPin, Wrench, Building2,
-  Clock
+  AlertCircle, Phone, User, MapPin, Building2,
+  Clock, FolderKanban
 } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import { accountingApi } from '../../api/accounting'
@@ -15,12 +15,14 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { validateFileUpload } from '../../utils/fileValidation'
 import PrintButton from '../../components/common/PrintButton'
 
 const STATUS_CONFIG = {
-  PENDING:   { label: 'Gözləmədə',  cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  ACTIVE:    { label: 'Aktiv',       cls: 'bg-green-50 text-green-700 border-green-200' },
-  COMPLETED: { label: 'Bağlanmış',   cls: 'bg-gray-100 text-gray-600 border-gray-200' },
+  PENDING:   { label: 'Gözləmədə', pill: 'ces-p-info' },
+  ACTIVE:    { label: 'Aktiv',     pill: 'ces-p-ok' },
+  COMPLETED: { label: 'Bağlanmış', pill: 'ces-p-mute' },
 }
 
 const TABS = [
@@ -30,7 +32,11 @@ const TABS = [
   { id: 'complete', label: 'Bağlanış',  icon: CheckCircle },
 ]
 
-const OWNERSHIP = { COMPANY: 'Şirkət', INVESTOR: 'İnvestor', CONTRACTOR: 'Podratçı' }
+const OWNERSHIP_CFG = {
+  COMPANY:    { label: 'Şirkət',    pill: 'ces-p-ok' },
+  INVESTOR:   { label: 'İnvestor',  pill: 'ces-p-info' },
+  CONTRACTOR: { label: 'Podratçı',  pill: 'ces-p-warn' },
+}
 const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 
 function calcDuration(p, overrideStart, overrideEnd) {
@@ -47,49 +53,66 @@ function calcDuration(p, overrideStart, overrideEnd) {
 
 function InfoRow({ label, value, children }) {
   return (
-    <div className="flex justify-between items-start py-2 border-b border-gray-100 last:border-0 gap-4">
-      <span className="text-xs text-gray-500 shrink-0">{label}</span>
-      <span className="text-xs font-medium text-gray-800 text-right">
-        {children ?? (value || '—')}
+    <div
+      style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        gap: 14, padding: '8px 0',
+        borderBottom: '1px dashed var(--ces-line)',
+      }}
+    >
+      <span style={{ fontSize: 12, color: 'var(--ces-muted)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ces-ink)', textAlign: 'right', minWidth: 0 }}>
+        {children ?? (value || <span style={{ color: 'var(--ces-mute2)' }}>—</span>)}
       </span>
     </div>
   )
 }
 
-function Section({ children, title }) {
+function Section({ children, title, icon: Icon }) {
   return (
-    <>
-      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest pt-4 pb-1.5">{title}</p>
-      {children}
-    </>
+    <div style={{ marginTop: 16 }}>
+      <p
+        className="ces-sec-label"
+        style={{ marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+      >
+        {Icon && <Icon size={11} />}
+        {title}
+      </p>
+      <div>{children}</div>
+    </div>
   )
 }
 
-// ─── Start Date Dialog ─────────────────────────────────────────────────────────
+// ─── Start Date Dialog ────────────────────────────────────────────────────────
 
 function StartDateDialog({ onConfirm, onCancel }) {
   const [date, setDate] = useState(new Date().toISOString().substring(0, 10))
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative z-10 bg-white rounded-2xl p-6 w-80 shadow-2xl">
-        <h3 className="text-sm font-bold text-gray-800 mb-1">Başlanğıc tarixini seçin</h3>
-        <p className="text-xs text-gray-400 mb-4">Layihənin başlanğıc tarixi. Boş buraxsanız bu gün istifadə ediləcək.</p>
-        <DateInput
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 mb-4"
-        />
-        <div className="flex gap-2">
-          <button onClick={onCancel}
-            className="flex-1 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-            Ləğv
+    <div className="ces-modal-backdrop" style={{ zIndex: 60 }} onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+      <div className="ces-modal" style={{ maxWidth: 360 }}>
+        <div className="ces-m-head">
+          <div className="ces-m-ic gold"><Calendar size={20} /></div>
+          <div className="flex-1 min-w-0">
+            <h3>Başlanğıc tarixi</h3>
+            <p>Layihənin başlanğıc tarixi seçin</p>
+          </div>
+          <button onClick={onCancel} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
-          <button onClick={() => onConfirm(date)}
-            className="flex-1 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors">
-            Davam et
-          </button>
+        </div>
+        <div className="ces-m-body">
+          <div className="ces-input">
+            <DateInput
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 14, padding: '11px 0', width: '100%' }}
+            />
+          </div>
+        </div>
+        <div className="ces-m-foot">
+          <button onClick={onCancel} className="ces-btn ces-btn-ghost">Ləğv</button>
+          <button onClick={() => onConfirm(date)} className="ces-btn ces-btn-primary">Davam et</button>
         </div>
       </div>
     </div>
@@ -127,30 +150,33 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       link.download = fileName
       link.click()
       URL.revokeObjectURL(link.href)
-    } catch {
-      toast.error('Fayl yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl yüklənə bilmədi')
     }
   }
 
   const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const fileError = validateFileUpload(file)
+    if (fileError) { toast.error(fileError); e.target.value = ''; return }
     setPendingFile(file)
     setShowStartDateDialog(true)
     e.target.value = ''
   }
 
-  const handleContractUpload = async (startDate) => {
+  const handleContractUpload = async (startDateVal) => {
     setShowStartDateDialog(false)
     if (!pendingFile) return
     setUploading(true)
     try {
       const fd = new FormData()
       fd.append('file', pendingFile)
-      await projectsApi.uploadContract(project.id, fd, startDate)
+      await projectsApi.uploadContract(project.id, fd, startDateVal)
       toast.success('Müqavilə yükləndi. Layihə aktiv oldu.')
       onContractUploaded()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Müqavilə yüklənə bilmədi')
     } finally {
       setUploading(false)
       setPendingFile(null)
@@ -165,7 +191,8 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
       toast.success('Bitmə tarixi yeniləndi')
       setEditingDate(false)
       onEndDateUpdated()
-    } catch {
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Tarix yenilənə bilmədi')
     } finally {
       setSavingDate(false)
     }
@@ -187,6 +214,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
 
   const fmt = fmtDate
   const fmtMoney = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
+  const ownership = OWNERSHIP_CFG[project.ownershipType]
 
   return (
     <div>
@@ -197,33 +225,32 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         />
       )}
 
-      {/* Layihə məlumatları */}
-      <Section title="Layihə məlumatları">
+      <Section title="Layihə məlumatları" icon={FolderKanban}>
         <InfoRow label="Şirkət" value={project.companyName} />
         <InfoRow label="Əlaqədar şəxs">
           {project.contactPerson ? (
-            <span className="flex items-center gap-1">
-              <User size={10} className="text-gray-400" />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <User size={11} style={{ color: 'var(--ces-mute2)' }} />
               {project.contactPerson}
             </span>
-          ) : '—'}
+          ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
         </InfoRow>
         <InfoRow label="Telefon">
           {project.contactPhone ? (
-            <a href={`tel:${project.contactPhone}`} className="flex items-center gap-1 text-amber-600 hover:underline">
-              <Phone size={10} />
+            <a href={`tel:${project.contactPhone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ces-gold-700)' }} className="mono">
+              <Phone size={11} />
               {project.contactPhone}
             </a>
-          ) : '—'}
+          ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
         </InfoRow>
         <InfoRow label="Layihə adı" value={project.projectName} />
         <InfoRow label="Bölgə">
           {project.region ? (
-            <span className="flex items-center gap-1">
-              <MapPin size={10} className="text-gray-400" />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <MapPin size={11} style={{ color: 'var(--ces-mute2)' }} />
               {project.region}
             </span>
-          ) : '—'}
+          ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
         </InfoRow>
         <InfoRow label="Növ / Müddət">
           {project.projectType
@@ -232,67 +259,66 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </InfoRow>
         {project.transportationRequired && (
           <InfoRow label="Daşınma">
-            <span className="text-blue-600 font-semibold text-[10px]">Tələb olunur</span>
+            <span className="ces-pill ces-p-info sm">Tələb olunur</span>
           </InfoRow>
         )}
-        {project.requestDate && (
-          <InfoRow label="Sorğu tarixi" value={fmt(project.requestDate)} />
-        )}
+        {project.requestDate && <InfoRow label="Sorğu tarixi" value={fmt(project.requestDate)} />}
       </Section>
 
-      {/* Texniki parametrlər */}
       {project.requestParams?.length > 0 && (
-        <Section title="Texniki parametrlər">
+        <Section title="Texniki parametrlər" icon={Info}>
           {project.requestParams.map((p, i) => (
             <InfoRow key={i} label={p.key} value={p.value} />
           ))}
         </Section>
       )}
 
-      {/* Texnika */}
-      <Section title="Texnika">
+      <Section title="Texnika" icon={Building2}>
         <InfoRow label="Ad" value={project.equipmentName} />
-        <InfoRow label="Kod" value={project.equipmentCode} />
+        <InfoRow label="Kod">
+          {project.equipmentCode ? <span className="mono">{project.equipmentCode}</span> : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
+        </InfoRow>
         {project.equipmentType && <InfoRow label="Növ" value={project.equipmentType} />}
         {project.equipmentBrand && <InfoRow label="Brend" value={project.equipmentBrand} />}
         {project.equipmentModel && <InfoRow label="Model" value={project.equipmentModel} />}
-        {project.equipmentSerialNumber && <InfoRow label="Seriya №" value={project.equipmentSerialNumber} />}
-        {project.equipmentPlateNumber && <InfoRow label="Qeydiyyat nişanı" value={project.equipmentPlateNumber} />}
-        <InfoRow label="Mülkiyyət növü">
-          {project.ownershipType ? (
-            <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-semibold border',
-              project.ownershipType === 'CONTRACTOR' ? 'bg-orange-50 text-orange-600 border-orange-200' :
-              project.ownershipType === 'INVESTOR'   ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                       'bg-green-50 text-green-600 border-green-200'
-            )}>
-              {OWNERSHIP[project.ownershipType] || project.ownershipType}
+        {project.equipmentSerialNumber && (
+          <InfoRow label="Seriya №"><span className="mono">{project.equipmentSerialNumber}</span></InfoRow>
+        )}
+        {project.equipmentPlateNumber && (
+          <InfoRow label="Qeydiyyat №"><span className="mono">{project.equipmentPlateNumber}</span></InfoRow>
+        )}
+        <InfoRow label="Mülkiyyət">
+          {ownership ? (
+            <span className={clsx('ces-pill sm', ownership.pill)}>
+              {ownership.label}
             </span>
-          ) : '—'}
+          ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
         </InfoRow>
       </Section>
 
-      {/* Podratçı məlumatları */}
       {project.ownershipType === 'CONTRACTOR' && (
-        <Section title="Podratçı">
+        <Section title="Podratçı" icon={Building2}>
           <InfoRow label="Şirkət">
-            <span className="flex items-center gap-1">
-              <Building2 size={10} className="text-orange-500" />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Building2 size={11} style={{ color: 'var(--ces-warn)' }} />
               {project.contractorName || '—'}
             </span>
           </InfoRow>
-          {project.contractorVoen && <InfoRow label="VÖEN" value={project.contractorVoen} />}
+          {project.contractorVoen && (
+            <InfoRow label="VÖEN"><span className="mono">{project.contractorVoen}</span></InfoRow>
+          )}
           {project.contractorPhone && (
             <InfoRow label="Telefon">
-              <a href={`tel:${project.contractorPhone}`} className="flex items-center gap-1 text-amber-600 hover:underline">
-                <Phone size={10} />
+              <a href={`tel:${project.contractorPhone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ces-gold-700)' }} className="mono">
+                <Phone size={11} />
                 {project.contractorPhone}
               </a>
             </InfoRow>
           )}
           {project.contractorContactPerson && (
             <InfoRow label="Əlaqədar şəxs">
-              <span className="flex items-center gap-1">
-                <User size={10} className="text-gray-400" />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <User size={11} style={{ color: 'var(--ces-mute2)' }} />
                 {project.contractorContactPerson}
               </span>
             </InfoRow>
@@ -300,15 +326,16 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </Section>
       )}
 
-      {/* İnvestor məlumatları */}
       {project.ownershipType === 'INVESTOR' && (
-        <Section title="İnvestor">
+        <Section title="İnvestor" icon={Building2}>
           <InfoRow label="Ad" value={project.investorName} />
-          {project.investorVoen && <InfoRow label="VÖEN" value={project.investorVoen} />}
+          {project.investorVoen && (
+            <InfoRow label="VÖEN"><span className="mono">{project.investorVoen}</span></InfoRow>
+          )}
           {project.investorPhone && (
             <InfoRow label="Telefon">
-              <a href={`tel:${project.investorPhone}`} className="flex items-center gap-1 text-amber-600 hover:underline">
-                <Phone size={10} />
+              <a href={`tel:${project.investorPhone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ces-gold-700)' }} className="mono">
+                <Phone size={11} />
                 {project.investorPhone}
               </a>
             </InfoRow>
@@ -316,125 +343,131 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </Section>
       )}
 
-      {/* Koordinator planı */}
       {(project.planEquipmentPrice != null || project.operatorName || project.planDayCount) && (
-        <Section title="Koordinator planı">
-          {project.planDayCount && <InfoRow label="Planlaşdırılan gün" value={`${project.planDayCount} gün`} />}
+        <Section title="Koordinator planı" icon={Info}>
+          {project.planDayCount && <InfoRow label="Plan gün" value={`${project.planDayCount} gün`} />}
           {project.planStartDate && <InfoRow label="Plan başlanğıc" value={fmt(project.planStartDate)} />}
           {project.planEndDate && <InfoRow label="Plan bitmə" value={fmt(project.planEndDate)} />}
           {project.operatorName && (
             <InfoRow label="Operator">
-              <span className="flex items-center gap-1">
-                <User size={10} className="text-gray-400" />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <User size={11} style={{ color: 'var(--ces-mute2)' }} />
                 {project.operatorName}
               </span>
             </InfoRow>
           )}
           {project.planEquipmentPrice != null && (
-            <InfoRow label={project.projectType === 'DAILY' ? 'Texnika qiyməti (gündəlik)' : 'Texnika qiyməti'}>
+            <InfoRow label={project.projectType === 'DAILY' ? 'Texnika qiyməti (gün)' : 'Texnika qiyməti'}>
               {project.projectType === 'DAILY' && project.planDayCount > 0 ? (
-                <span className="text-amber-600 font-semibold text-right">
-                  {fmtMoney(project.planEquipmentPrice)} × {project.planDayCount} gün = {fmtMoney(project.planEquipmentTotal)}
+                <span style={{ color: 'var(--ces-gold-700)', fontWeight: 700 }} className="mono">
+                  {fmtMoney(project.planEquipmentPrice)} × {project.planDayCount} = {fmtMoney(project.planEquipmentTotal)}
                 </span>
               ) : (
-                <span className="text-amber-600 font-semibold">{fmtMoney(project.planEquipmentTotal ?? project.planEquipmentPrice)}</span>
+                <span style={{ color: 'var(--ces-gold-700)', fontWeight: 700 }} className="mono">
+                  {fmtMoney(project.planEquipmentTotal ?? project.planEquipmentPrice)}
+                </span>
               )}
             </InfoRow>
           )}
           {project.planTransportationPrice != null && (
             <InfoRow label="Nəqliyyat xərci">
-              <span className="font-semibold">{fmtMoney(project.planTransportationPrice)}</span>
+              <span className="mono" style={{ fontWeight: 700 }}>{fmtMoney(project.planTransportationPrice)}</span>
             </InfoRow>
           )}
           {project.planOperatorPayment != null && (
             <InfoRow label="Operator haqqı">
-              <span className="font-semibold">{fmtMoney(project.planOperatorPayment)}</span>
+              <span className="mono" style={{ fontWeight: 700 }}>{fmtMoney(project.planOperatorPayment)}</span>
             </InfoRow>
           )}
           {project.planNotes && <InfoRow label="Qeyd" value={project.planNotes} />}
         </Section>
       )}
 
-      {/* Müddət */}
-      <Section title="Müddət">
-        <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-4">
-          <span className="text-xs text-gray-500 shrink-0">Başlanğıc tarixi</span>
+      <Section title="Müddət" icon={Calendar}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px dashed var(--ces-line)' }}>
+          <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>Başlanğıc</span>
           {project.status !== 'COMPLETED' ? (
             editingStartDate ? (
               <div className="flex items-center gap-1.5">
-                <DateInput
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-                <button onClick={saveStartDate} disabled={savingStartDate}
-                  className="text-xs text-green-600 font-semibold hover:text-green-700 disabled:opacity-50">
+                <div className="ces-input sm" style={{ minHeight: 30, padding: '0 8px' }}>
+                  <DateInput
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 12.5, padding: '6px 0', width: 120 }}
+                  />
+                </div>
+                <button onClick={saveStartDate} disabled={savingStartDate} className="ces-btn ces-btn-xs" style={{ background: 'var(--ces-ok)', color: '#fff' }}>
                   {savingStartDate ? '...' : 'Saxla'}
                 </button>
-                <button onClick={() => setEditingStartDate(false)} className="text-xs text-gray-400 hover:text-gray-600">Ləğv</button>
+                <button onClick={() => setEditingStartDate(false)} className="ces-btn ces-btn-xs ces-btn-ghost">Ləğv</button>
               </div>
             ) : (
-              <button onClick={() => setEditingStartDate(true)}
-                className="flex items-center gap-1 text-xs font-medium text-gray-800 hover:text-amber-600 transition-colors">
-                <Calendar size={11} className="text-gray-400" />
-                {fmt(project.startDate ?? project.planStartDate)}
-                <span className="text-[10px] text-amber-600 ml-1">(dəyiş)</span>
+              <button
+                onClick={() => setEditingStartDate(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 500, color: 'var(--ces-ink)', background: 'transparent', border: 0, cursor: 'pointer' }}
+              >
+                <Calendar size={11} style={{ color: 'var(--ces-mute2)' }} />
+                <span className="mono">{fmt(project.startDate ?? project.planStartDate)}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--ces-gold-700)', marginLeft: 4 }}>(dəyiş)</span>
               </button>
             )
           ) : (
-            <span className="text-xs font-medium text-gray-800">{fmt(project.startDate ?? project.planStartDate)}</span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{fmt(project.startDate ?? project.planStartDate)}</span>
           )}
         </div>
-        <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-4">
-          <span className="text-xs text-gray-500 shrink-0">Bitmə tarixi</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px dashed var(--ces-line)' }}>
+          <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>Bitmə</span>
           {project.status !== 'COMPLETED' ? (
             editingDate ? (
               <div className="flex items-center gap-1.5">
-                <DateInput
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-                <button onClick={saveDate} disabled={savingDate}
-                  className="text-xs text-green-600 font-semibold hover:text-green-700 disabled:opacity-50">
+                <div className="ces-input sm" style={{ minHeight: 30, padding: '0 8px' }}>
+                  <DateInput
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 12.5, padding: '6px 0', width: 120 }}
+                  />
+                </div>
+                <button onClick={saveDate} disabled={savingDate} className="ces-btn ces-btn-xs" style={{ background: 'var(--ces-ok)', color: '#fff' }}>
                   {savingDate ? '...' : 'Saxla'}
                 </button>
-                <button onClick={() => setEditingDate(false)} className="text-xs text-gray-400 hover:text-gray-600">Ləğv</button>
+                <button onClick={() => setEditingDate(false)} className="ces-btn ces-btn-xs ces-btn-ghost">Ləğv</button>
               </div>
             ) : (
-              <button onClick={() => setEditingDate(true)}
-                className="flex items-center gap-1 text-xs font-medium text-gray-800 hover:text-amber-600 transition-colors">
-                <Calendar size={11} className="text-gray-400" />
-                {fmt(project.endDate ?? project.planEndDate)}
-                <span className="text-[10px] text-amber-600 ml-1">(dəyiş)</span>
+              <button
+                onClick={() => setEditingDate(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 500, color: 'var(--ces-ink)', background: 'transparent', border: 0, cursor: 'pointer' }}
+              >
+                <Calendar size={11} style={{ color: 'var(--ces-mute2)' }} />
+                <span className="mono">{fmt(project.endDate ?? project.planEndDate)}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--ces-gold-700)', marginLeft: 4 }}>(dəyiş)</span>
               </button>
             )
           ) : (
-            <span className="text-xs font-medium text-gray-800">{fmt(project.endDate ?? project.planEndDate)}</span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{fmt(project.endDate ?? project.planEndDate)}</span>
           )}
         </div>
       </Section>
 
-      {/* Müqavilə */}
-      <Section title="Müqavilə">
+      <Section title="Müqavilə" icon={FileText}>
         <InfoRow label="Status">
           {project.hasContract ? (
             <span className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-green-600 font-semibold">
-                <FileText size={11} />
+              <span className="ces-pill ces-p-ok sm">
+                <FileText size={10} />
                 Yüklənib
               </span>
               <button
                 onClick={handleDownloadContract}
-                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                className="ces-btn ces-btn-xs ces-btn-ghost"
+                style={{ color: 'var(--ces-gold-700)' }}
               >
                 <Download size={11} />
                 Endir
               </button>
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-amber-600">
-              <AlertCircle size={11} />
+            <span className="ces-pill ces-p-warn sm">
+              <AlertCircle size={10} />
               Gözlənilir
             </span>
           )}
@@ -443,49 +476,57 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
           <InfoRow label="Fayl adı" value={project.contractFileName} />
         )}
         {project.status === 'PENDING' && (
-          <div className="pt-2">
-            <input ref={inputRef} type="file" className="hidden"
-              accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileSelected} />
+          <div style={{ paddingTop: 12 }}>
+            <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileSelected} />
             <button
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
-              className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-amber-300 rounded-xl text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '12px 16px',
+                border: '1.5px dashed var(--ces-gold)',
+                borderRadius: 12, background: '#fffdf6',
+                color: 'var(--ces-gold-700)', fontWeight: 600, fontSize: 13,
+                cursor: uploading ? 'not-allowed' : 'pointer',
+                opacity: uploading ? 0.6 : 1,
+                transition: 'background .15s',
+              }}
             >
-              <Upload size={13} />
+              <Upload size={14} />
               {uploading ? 'Yüklənir...' : 'Müqavilə sənədini yüklə'}
             </button>
           </div>
         )}
       </Section>
 
-      {/* Bağlanış nəticəsi (COMPLETED) */}
       {project.status === 'COMPLETED' && (
-        <Section title="Bağlanış məlumatları">
-          <InfoRow label="Evakuator xərci">
-            <span className="text-red-500 font-semibold">{fmtMoney(project.evacuationCost)}</span>
+        <Section title="Bağlanış" icon={CheckCircle}>
+          <InfoRow label="Evakuator">
+            <span className="mono" style={{ color: 'var(--ces-danger)', fontWeight: 700 }}>{fmtMoney(project.evacuationCost)}</span>
           </InfoRow>
-          <InfoRow label="Planlaşdırılan saat">
+          <InfoRow label="Plan saat">
             {project.scheduledHours != null ? `${project.scheduledHours} saat` : '—'}
           </InfoRow>
           <InfoRow label="Faktiki saat">
             {project.actualHours != null ? (
-              <span className={clsx('font-semibold',
-                parseFloat(project.actualHours) >= parseFloat(project.scheduledHours)
-                  ? 'text-green-600' : 'text-red-500')}>
+              <span style={{
+                fontWeight: 700,
+                color: parseFloat(project.actualHours) >= parseFloat(project.scheduledHours) ? 'var(--ces-ok)' : 'var(--ces-danger)',
+              }}>
                 {project.actualHours} saat
               </span>
             ) : '—'}
           </InfoRow>
           {project.overtimeHours > 0 && (
             <>
-              <InfoRow label="Əlavə vaxt saatı">
-                <span className="text-orange-600 font-semibold">{project.overtimeHours} saat</span>
+              <InfoRow label="Əlavə saat">
+                <span style={{ color: 'var(--ces-warn)', fontWeight: 700 }}>{project.overtimeHours} saat</span>
               </InfoRow>
-              <InfoRow label="Əlavə vaxt dərəcəsi">
-                <span className="text-orange-600 font-semibold">{project.overtimeRate}×</span>
+              <InfoRow label="Əlavə dərəcə">
+                <span style={{ color: 'var(--ces-warn)', fontWeight: 700 }}>{project.overtimeRate}×</span>
               </InfoRow>
-              <InfoRow label="Əlavə vaxt haqqı">
-                <span className="text-orange-600 font-semibold">{fmtMoney(project.overtimePay)}</span>
+              <InfoRow label="Əlavə haqqı">
+                <span className="mono" style={{ color: 'var(--ces-warn)', fontWeight: 700 }}>{fmtMoney(project.overtimePay)}</span>
               </InfoRow>
             </>
           )}
@@ -563,142 +604,194 @@ function FinanceTab({ project }) {
 
   const fmtMoney = (v) => parseFloat(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
 
-  if (loading) return <div className="py-10 text-center text-sm text-gray-400">Yüklənir...</div>
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+        <span style={{ width: 22, height: 22, border: '2px solid var(--ces-line)', borderTopColor: 'var(--ces-gold)', borderRadius: 999, animation: 'ces-spin .8s linear infinite' }} />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Xərclər */}
-      <div className="rounded-xl border border-red-100 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5 bg-red-50">
-          <div className="flex items-center gap-1.5">
-            <TrendingDown size={13} className="text-red-500" />
-            <span className="text-xs font-semibold text-red-700">Xərclər</span>
+      <div style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: 14, overflow: 'hidden' }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', background: 'var(--ces-danger-100)', borderBottom: '1px solid #fce4ea',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TrendingDown size={14} style={{ color: 'var(--ces-danger)' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ces-danger)' }}>Xərclər</span>
           </div>
-          <span className="text-xs font-bold text-red-600">{fmtMoney(totalExp)} ₼</span>
+          <span className="mono" style={{ fontSize: 13, fontWeight: 800, color: 'var(--ces-danger)' }}>{fmtMoney(totalExp)} ₼</span>
         </div>
-        <div className="divide-y divide-gray-100">
-          {/* Plan xərcləri */}
+        <div>
           {project.planTransportationPrice > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/50">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600">Daşınma <span className="text-[10px] text-amber-500">(plan)</span></p>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', background: 'var(--ces-gold-50)', borderBottom: '1px solid var(--ces-line-2)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ces-graphite)' }}>
+                  Daşınma <span style={{ fontSize: 10, color: 'var(--ces-gold-700)' }}>(plan)</span>
+                </p>
               </div>
-              <span className="text-xs font-semibold text-red-500 whitespace-nowrap">{fmtMoney(project.planTransportationPrice)} ₼</span>
+              <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-danger)' }}>{fmtMoney(project.planTransportationPrice)} ₼</span>
             </div>
           )}
           {project.planOperatorPayment > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50/50">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-600">Operator haqqı <span className="text-[10px] text-amber-500">(plan)</span></p>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', background: 'var(--ces-gold-50)', borderBottom: '1px solid var(--ces-line-2)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ces-graphite)' }}>
+                  Operator haqqı <span style={{ fontSize: 10, color: 'var(--ces-gold-700)' }}>(plan)</span>
+                </p>
               </div>
-              <span className="text-xs font-semibold text-red-500 whitespace-nowrap">{fmtMoney(project.planOperatorPayment)} ₼</span>
+              <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-danger)' }}>{fmtMoney(project.planOperatorPayment)} ₼</span>
             </div>
           )}
           {finances.expenses?.length === 0 && planExpenses === 0 && (
-            <p className="text-xs text-gray-400 py-3 text-center">Hələ xərc yoxdur</p>
+            <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)', textAlign: 'center', padding: 14 }}>Hələ xərc yoxdur</p>
           )}
           {finances.expenses?.map((e) => (
-            <div key={e.id} className="flex items-center gap-2 px-3 py-2 bg-white">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">{e.key}</p>
-                <p className="text-[10px] text-gray-400">
-                  {e.date ? fmtDate(e.date) : ''}
-                </p>
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid var(--ces-line-2)', background: 'var(--ces-surface)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ces-ink)' }} className="truncate">{e.key}</p>
+                {e.date && <p className="mono" style={{ fontSize: 10.5, color: 'var(--ces-mute2)' }}>{fmtDate(e.date)}</p>}
               </div>
-              <span className="text-xs font-semibold text-red-600 whitespace-nowrap">{fmtMoney(e.value)} ₼</span>
+              <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-danger)' }}>{fmtMoney(e.value)} ₼</span>
               {!readOnly && (
-                <button onClick={() => delExpense(e.id)}
-                  className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                  <Trash2 size={12} />
+                <button onClick={() => delExpense(e.id)} className="ces-row-act danger">
+                  <Trash2 size={13} />
                 </button>
               )}
             </div>
           ))}
         </div>
         {!readOnly && (
-          <div className="flex gap-2 px-3 py-2.5 border-t border-red-100 bg-white">
-            <input value={expKey} onChange={(e) => setExpKey(e.target.value)}
-              placeholder="Növ (Benzin...)" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
-              className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            <input type="number" value={expVal} onChange={(e) => setExpVal(e.target.value)}
-              placeholder="AZN" min="0" step="0.01" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
-              className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            <button onClick={addExpense} disabled={addingExp}
-              className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg transition-colors">
-              <Plus size={13} />
+          <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderTop: '1px solid #fce4ea', background: 'var(--ces-surface)' }}>
+            <div className="ces-input sm" style={{ flex: 1, minWidth: 0 }}>
+              <input
+                value={expKey}
+                onChange={(e) => setExpKey(e.target.value)}
+                placeholder="Növ (Benzin...)"
+                onKeyDown={(e) => e.key === 'Enter' && addExpense()}
+              />
+            </div>
+            <div className="ces-input sm" style={{ width: 90 }}>
+              <input
+                className="mono"
+                type="number"
+                value={expVal}
+                onChange={(e) => setExpVal(e.target.value)}
+                placeholder="AZN"
+                min="0" step="0.01"
+                onKeyDown={(e) => e.key === 'Enter' && addExpense()}
+              />
+            </div>
+            <button
+              onClick={addExpense}
+              disabled={addingExp}
+              className="ces-btn ces-btn-sm"
+              style={{ background: 'var(--ces-danger)', color: '#fff' }}
+            >
+              <Plus size={14} />
             </button>
           </div>
         )}
       </div>
 
       {/* Gəlirlər */}
-      <div className="rounded-xl border border-green-100 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5 bg-green-50">
-          <div className="flex items-center gap-1.5">
-            <TrendingUp size={13} className="text-green-600" />
-            <span className="text-xs font-semibold text-green-700">Gəlirlər</span>
+      <div style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: 14, overflow: 'hidden' }}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', background: 'var(--ces-ok-100)', borderBottom: '1px solid #d8f3d0',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TrendingUp size={14} style={{ color: 'var(--ces-ok)' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ces-ok)' }}>Gəlirlər</span>
           </div>
-          <span className="text-xs font-bold text-green-600">{fmtMoney(totalRev)} ₼</span>
+          <span className="mono" style={{ fontSize: 13, fontWeight: 800, color: 'var(--ces-ok)' }}>{fmtMoney(totalRev)} ₼</span>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div>
           {finances.revenues?.length === 0 && (
-            <p className="text-xs text-gray-400 py-3 text-center">Hələ gəlir yoxdur</p>
+            <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)', textAlign: 'center', padding: 14 }}>Hələ gəlir yoxdur</p>
           )}
           {finances.revenues?.map((r) => (
-            <div key={r.id} className="flex items-center gap-2 px-3 py-2 bg-white">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">{r.key}</p>
-                <p className="text-[10px] text-gray-400">
-                  {r.date ? fmtDate(r.date) : ''}
-                </p>
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid var(--ces-line-2)', background: 'var(--ces-surface)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ces-ink)' }} className="truncate">{r.key}</p>
+                {r.date && <p className="mono" style={{ fontSize: 10.5, color: 'var(--ces-mute2)' }}>{fmtDate(r.date)}</p>}
               </div>
-              <span className="text-xs font-semibold text-green-600 whitespace-nowrap">{fmtMoney(r.value)} ₼</span>
+              <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-ok)' }}>{fmtMoney(r.value)} ₼</span>
               {!readOnly && !r.key?.startsWith('Qaimə:') && (
-                <button onClick={() => delRevenue(r.id)}
-                  className="p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-                  <Trash2 size={12} />
+                <button onClick={() => delRevenue(r.id)} className="ces-row-act danger">
+                  <Trash2 size={13} />
                 </button>
               )}
             </div>
           ))}
         </div>
         {!readOnly && (
-          <div className="flex gap-2 px-3 py-2.5 border-t border-green-100 bg-white">
-            <input value={revKey} onChange={(e) => setRevKey(e.target.value)}
-              placeholder="Növ (Texnika icarəsi...)" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
-              className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            <input type="number" value={revVal} onChange={(e) => setRevVal(e.target.value)}
-              placeholder="AZN" min="0" step="0.01" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
-              className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            <button onClick={addRevenue} disabled={addingRev}
-              className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors">
-              <Plus size={13} />
+          <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderTop: '1px solid #d8f3d0', background: 'var(--ces-surface)' }}>
+            <div className="ces-input sm" style={{ flex: 1, minWidth: 0 }}>
+              <input
+                value={revKey}
+                onChange={(e) => setRevKey(e.target.value)}
+                placeholder="Növ (Texnika icarəsi...)"
+                onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
+              />
+            </div>
+            <div className="ces-input sm" style={{ width: 90 }}>
+              <input
+                className="mono"
+                type="number"
+                value={revVal}
+                onChange={(e) => setRevVal(e.target.value)}
+                placeholder="AZN"
+                min="0" step="0.01"
+                onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
+              />
+            </div>
+            <button
+              onClick={addRevenue}
+              disabled={addingRev}
+              className="ces-btn ces-btn-sm"
+              style={{ background: 'var(--ces-ok)', color: '#fff' }}
+            >
+              <Plus size={14} />
             </button>
           </div>
         )}
       </div>
 
       {/* Xalis gəlir */}
-      <div className={clsx(
-        'rounded-xl px-4 py-3 border space-y-1.5',
-        net >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
-      )}>
-        <div className="flex justify-between text-xs text-gray-500">
+      <div
+        style={{
+          borderRadius: 14, padding: '14px 16px',
+          border: '1px solid ' + (net >= 0 ? '#d8f3d0' : '#fce4ea'),
+          background: net >= 0 ? 'var(--ces-ok-100)' : 'var(--ces-danger-100)',
+          display: 'flex', flexDirection: 'column', gap: 6,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--ces-muted)' }}>
           <span>Ümumi gəlir</span>
-          <span className="font-semibold text-green-600">
-            +{fmtMoney(totalRev)} ₼
-          </span>
+          <span className="mono" style={{ fontWeight: 700, color: 'var(--ces-ok)' }}>+{fmtMoney(totalRev)} ₼</span>
         </div>
-        <div className="flex justify-between text-xs text-gray-500">
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--ces-muted)' }}>
           <span>Ümumi xərc</span>
-          <span className="font-semibold text-red-500">
-            −{fmtMoney(totalExp)} ₼
-          </span>
+          <span className="mono" style={{ fontWeight: 700, color: 'var(--ces-danger)' }}>−{fmtMoney(totalExp)} ₼</span>
         </div>
-        <div className={clsx('flex items-center justify-between border-t pt-1.5',
-          net >= 0 ? 'border-green-200' : 'border-red-200')}>
-          <span className="text-sm font-semibold text-gray-700">Xalis Gəlir</span>
-          <span className={clsx('text-lg font-bold', net >= 0 ? 'text-green-600' : 'text-red-600')}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            borderTop: '1px solid ' + (net >= 0 ? '#d8f3d0' : '#fce4ea'),
+            paddingTop: 8,
+          }}
+        >
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ces-graphite)' }}>Xalis gəlir</span>
+          <span className="mono" style={{ fontSize: 18, fontWeight: 800, color: net >= 0 ? 'var(--ces-ok)' : 'var(--ces-danger)' }}>
             {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
           </span>
         </div>
@@ -710,11 +803,11 @@ function FinanceTab({ project }) {
 
 // ─── Bağlanış Tab ─────────────────────────────────────────────────────────────
 
-function SummaryRow({ label, value, valueClass = '' }) {
+function SummaryRow({ label, value, valueColor }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
-      <span className="text-[11px] text-gray-500">{label}</span>
-      <span className={clsx('text-[11px] font-semibold text-gray-800', valueClass)}>{value}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--ces-line-2)' }}>
+      <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{label}</span>
+      <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: valueColor || 'var(--ces-ink)' }}>{value}</span>
     </div>
   )
 }
@@ -733,9 +826,7 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const effectiveDays = project.startDate && project.endDate
     ? Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
     : (project.planDayCount || project.dayCount || 0)
-  const scheduledHours = effectiveDays * 9
 
-  // Maliyyə xülasəsi — DAILY: unitPrice × dayCount, MONTHLY: sabit unitPrice
   const planRevenue  = parseFloat(project.planEquipmentTotal || project.planEquipmentPrice || 0)
   const planExpenses = parseFloat(project.planTransportationPrice || 0)
                      + parseFloat(project.planOperatorPayment || 0)
@@ -744,7 +835,6 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const evacCost      = isCompleted ? parseFloat(project.evacuationCost || 0) : parseFloat(form.evacuationCost || 0)
   const netProfit     = actualRevenue - actualExpense - (isCompleted ? evacCost : 0)
 
-  // Qaimə sayları
   useEffect(() => {
     accountingApi.getByProject(project.id)
       .then(res => {
@@ -792,140 +882,169 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
 
   if (project.status === 'PENDING') {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <AlertCircle size={36} className="text-amber-400 mb-3" />
-        <p className="text-sm font-medium text-gray-600">Layihə hələ aktiv deyil</p>
-        <p className="text-xs text-gray-400 mt-1">Əvvəlcə müqavilə sənədi yükləyin</p>
+      <div style={{ textAlign: 'center', padding: '60px 24px' }}>
+        <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--ces-warn-100, #fff4dc)', color: 'var(--ces-warn)', display: 'inline-grid', placeItems: 'center', marginBottom: 12 }}>
+          <AlertCircle size={28} />
+        </div>
+        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-graphite)' }}>Layihə hələ aktiv deyil</p>
+        <p style={{ fontSize: 12.5, color: 'var(--ces-muted)', marginTop: 4 }}>Əvvəlcə müqavilə sənədi yükləyin</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Status banner */}
       {isCompleted ? (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-          <CheckCircle size={15} className="text-green-600 shrink-0" />
-          <p className="text-xs text-green-700 font-medium">Layihə bağlanmışdır. Mühasibatlıq moduluna yönləndirilmişdir.</p>
+        <div className="ces-alert" style={{ borderLeftColor: 'var(--ces-ok)', background: 'var(--ces-ok-100)' }}>
+          <div className="ces-al-ic" style={{ background: '#e8fbe5', color: 'var(--ces-ok)' }}>
+            <CheckCircle size={18} />
+          </div>
+          <p style={{ fontSize: 12.5, color: 'var(--ces-ok)', fontWeight: 600 }}>
+            Layihə bağlanmışdır. Mühasibatlıq moduluna yönləndirilmişdir.
+          </p>
         </div>
       ) : (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700">
+        <div className="ces-alert gold">
+          <div className="ces-al-ic">
+            <AlertCircle size={18} />
+          </div>
+          <p style={{ fontSize: 12.5, color: 'var(--ces-gold-700)' }}>
             Bağlamadan əvvəl bütün qaimələrin <strong>Qaimələr</strong> tabında əlavə edildiyinə əmin olun.
           </p>
         </div>
       )}
 
-      {/* ── Layihə xülasəsi ── */}
-      <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-0.5">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Layihə xülasəsi</p>
+      {/* Layihə xülasəsi */}
+      <div className="ces-card" style={{ padding: 16 }}>
+        <p className="ces-sec-label" style={{ marginBottom: 10 }}>Layihə xülasəsi</p>
         <SummaryRow label="Şirkət" value={project.companyName || '—'} />
         {project.projectName && <SummaryRow label="Layihə" value={project.projectName} />}
         {project.region && <SummaryRow label="Bölgə" value={project.region} />}
         {project.equipmentName && (
           <SummaryRow label="Texnika" value={`${project.equipmentName}${project.equipmentCode ? ` (${project.equipmentCode})` : ''}`} />
         )}
-        <SummaryRow label="Tip"
-          value={project.projectType === 'MONTHLY' ? 'Aylıq' : project.projectType === 'DAILY' ? 'Günlük' : '—'} />
+        <SummaryRow label="Tip" value={PROJ_TYPE[project.projectType] || '—'} />
         <SummaryRow label="Başlanğıc" value={fmt(project.startDate ?? project.planStartDate)} />
         <SummaryRow label="Bitmə"     value={fmt(project.endDate ?? project.planEndDate)} />
-        <SummaryRow label="Müddət"
-          value={effectiveDays > 0
+        <SummaryRow label="Müddət" value={
+          effectiveDays > 0
             ? (project.projectType === 'MONTHLY' ? `${Math.round(effectiveDays / 30)} ay` : `${effectiveDays} gün`)
-            : '—'} />
+            : '—'
+        } />
       </div>
 
-      {/* ── Qaimə statusu ── */}
+      {/* Qaimə statusu */}
       {invoiceCounts !== null && (
-        <div className="bg-white rounded-xl border border-gray-100 px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Qaimələr</p>
-            <span className="text-xs font-bold text-gray-700">{invoiceCounts.total} ədəd · {fmtMoney(invoiceCounts.totalAmt)}</span>
+        <div className="ces-card" style={{ padding: 16 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+            <p className="ces-sec-label" style={{ margin: 0 }}>Qaimələr</p>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ces-ink)' }}>
+              {invoiceCounts.total} ədəd · <span className="mono">{fmtMoney(invoiceCounts.totalAmt)}</span>
+            </span>
           </div>
           {invoiceCounts.total === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-2">Hələ qaimə yoxdur</p>
+            <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)', textAlign: 'center', padding: 8 }}>Hələ qaimə yoxdur</p>
           ) : (
             <div className="flex gap-2 flex-wrap">
               {invoiceCounts.approved > 0 && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[11px] font-semibold">
-                  <CheckCircle size={10} /> Təsdiq: {invoiceCounts.approved}
+                <span className="ces-pill ces-p-ok sm">
+                  <CheckCircle size={11} /> Təsdiq: {invoiceCounts.approved}
                 </span>
               )}
               {invoiceCounts.sent > 0 && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[11px] font-semibold">
-                  <Clock size={10} /> Göndərilib: {invoiceCounts.sent}
+                <span className="ces-pill ces-p-warn sm">
+                  <Clock size={11} /> Göndərilib: {invoiceCounts.sent}
                 </span>
               )}
               {invoiceCounts.draft > 0 && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-[11px] font-semibold">
-                  <AlertCircle size={10} /> Qaralama: {invoiceCounts.draft}
+                <span className="ces-pill ces-p-mute sm">
+                  <AlertCircle size={11} /> Qaralama: {invoiceCounts.draft}
                 </span>
               )}
               {invoiceCounts.returned > 0 && (
-                <span className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-600 rounded-lg text-[11px] font-semibold">
-                  <AlertCircle size={10} /> Qaytarılıb: {invoiceCounts.returned}
+                <span className="ces-pill ces-p-danger sm">
+                  <AlertCircle size={11} /> Qaytarılıb: {invoiceCounts.returned}
                 </span>
               )}
             </div>
           )}
           {!isCompleted && invoiceCounts.total > 0 && invoiceCounts.approved === 0 && (
-            <p className="text-[10px] text-red-500 mt-2">⚠ Heç bir qaimə hələ təsdiqlənməyib</p>
+            <p style={{ fontSize: 11, color: 'var(--ces-danger)', marginTop: 8 }}>⚠ Heç bir qaimə hələ təsdiqlənməyib</p>
           )}
         </div>
       )}
 
-      {/* ── Maliyyə xülasəsi ── */}
-      <div className="rounded-xl border border-gray-100 overflow-hidden">
-        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Maliyyə xülasəsi</p>
+      {/* Maliyyə xülasəsi */}
+      <div style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ padding: '10px 16px', background: 'var(--ces-graphite-50)', borderBottom: '1px solid var(--ces-line)' }}>
+          <p className="ces-sec-label" style={{ margin: 0 }}>Maliyyə xülasəsi</p>
         </div>
-        <div className="px-4 py-2 divide-y divide-gray-50">
-          <SummaryRow label="Plan gəlir (texnika)" value={fmtMoney(planRevenue)} valueClass="text-green-600" />
+        <div style={{ padding: '10px 16px' }}>
+          <SummaryRow label="Plan gəlir (texnika)" value={fmtMoney(planRevenue)} valueColor="var(--ces-ok)" />
           {parseFloat(project.planTransportationPrice || 0) > 0 && (
-            <SummaryRow label="Daşınma xərci" value={`−${fmtMoney(project.planTransportationPrice)}`} valueClass="text-red-500" />
+            <SummaryRow label="Daşınma xərci" value={`−${fmtMoney(project.planTransportationPrice)}`} valueColor="var(--ces-danger)" />
           )}
           {parseFloat(project.planOperatorPayment || 0) > 0 && (
-            <SummaryRow label="Operator haqqı" value={`−${fmtMoney(project.planOperatorPayment)}`} valueClass="text-red-500" />
+            <SummaryRow label="Operator haqqı" value={`−${fmtMoney(project.planOperatorPayment)}`} valueColor="var(--ces-danger)" />
           )}
           {evacCost > 0 && (
-            <SummaryRow label="Evakuator xərci" value={`−${fmtMoney(evacCost)}`} valueClass="text-red-500" />
+            <SummaryRow label="Evakuator xərci" value={`−${fmtMoney(evacCost)}`} valueColor="var(--ces-danger)" />
           )}
           {actualRevenue > 0 && (
-            <SummaryRow label="Faktiki gəlir (qaimə)" value={fmtMoney(actualRevenue)} valueClass="text-green-600" />
+            <SummaryRow label="Faktiki gəlir (qaimə)" value={fmtMoney(actualRevenue)} valueColor="var(--ces-ok)" />
           )}
         </div>
-        <div className={clsx('flex items-center justify-between px-4 py-2.5 border-t',
-          netProfit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100')}>
-          <span className="text-xs font-bold text-gray-700">Xalis gəlir</span>
-          <span className={clsx('text-sm font-bold', netProfit >= 0 ? 'text-green-600' : 'text-red-600')}>
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px',
+            borderTop: '1px solid ' + (netProfit >= 0 ? '#d8f3d0' : '#fce4ea'),
+            background: netProfit >= 0 ? 'var(--ces-ok-100)' : 'var(--ces-danger-100)',
+          }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--ces-graphite)' }}>Xalis gəlir</span>
+          <span className="mono" style={{ fontSize: 16, fontWeight: 800, color: netProfit >= 0 ? 'var(--ces-ok)' : 'var(--ces-danger)' }}>
             {netProfit >= 0 ? '+' : ''}{fmtMoney(netProfit)}
           </span>
         </div>
       </div>
 
-      {/* ── Evakuator xərci input ── */}
-      <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-          Evakuator Xərci (AZN) {!isCompleted && <span className="text-red-500">*</span>}
+      {/* Evakuator xərci */}
+      <div className="ces-field" style={{ marginBottom: 0 }}>
+        <label>
+          Evakuator xərci (AZN) {!isCompleted && <span className="req">*</span>}
         </label>
         {isCompleted ? (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
-            <span className="text-sm font-bold text-red-600">{fmtMoney(project.evacuationCost)}</span>
-            <span className="text-[10px] text-red-400 ml-auto">Bağlanış xərci</span>
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '12px 14px', background: 'var(--ces-danger-100)',
+              border: '1px solid #fce4ea', borderRadius: 12,
+            }}
+          >
+            <span className="mono" style={{ fontSize: 14, fontWeight: 800, color: 'var(--ces-danger)' }}>{fmtMoney(project.evacuationCost)}</span>
+            <span style={{ fontSize: 11, color: 'var(--ces-mute2)', marginLeft: 'auto' }}>Bağlanış xərci</span>
           </div>
         ) : (
-          <input type="number" value={form.evacuationCost} onChange={(e) => set('evacuationCost', e.target.value)}
-            placeholder="0.00" min="0" step="0.01"
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <div className="ces-input">
+            <input
+              className="mono"
+              type="number"
+              value={form.evacuationCost}
+              onChange={(e) => set('evacuationCost', e.target.value)}
+              placeholder="0.00"
+              min="0" step="0.01"
+            />
+          </div>
         )}
       </div>
 
       {!isCompleted && (
-        <button onClick={handleComplete} disabled={saving}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors">
-          <CheckCircle size={15} />
+        <button onClick={handleComplete} disabled={saving} className="ces-btn" style={{ background: 'var(--ces-ok)', color: '#fff', justifyContent: 'center' }}>
+          {saving
+            ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            : <CheckCircle size={15} />}
           {saving ? 'Bağlanır...' : 'Layihəni Bağla'}
         </button>
       )}
@@ -938,61 +1057,58 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
 
 export default function ProjectSlideOver({ project, onClose, onSaved }) {
   const [activeTab, setActiveTab] = useState('info')
+  useEscapeKey(onClose)
   const status = STATUS_CONFIG[project.status] || STATUS_CONFIG.PENDING
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div className="ces-drawer-backdrop" onClick={onClose} />
+      <div className="ces-drawer" style={{ maxWidth: 540 }}>
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-gray-100 shrink-0">
-          <div className="flex-1 min-w-0 pr-3">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h2 className="text-base font-bold text-gray-800">
+        <div className="ces-drawer-head">
+          <div className="ces-m-ic gold">
+            <FolderKanban size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
+              <h2 className="mono" style={{ fontSize: 17, fontWeight: 800, color: 'var(--ces-ink)', letterSpacing: '-.01em', margin: 0 }}>
                 {project.projectCode || `PRJ-${String(project.id).padStart(4, '0')}`}
               </h2>
-              <span className={clsx('px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0', status.cls)}>
+              <span className={clsx('ces-pill sm', status.pill)}>
+                <span className="d"></span>
                 {status.label}
               </span>
             </div>
-            <p className="text-xs text-gray-400 truncate">{project.companyName}</p>
+            <p className="truncate" style={{ fontSize: 12.5, color: 'var(--ces-muted)' }}>{project.companyName}</p>
             {project.projectName && (
-              <p className="text-xs text-gray-400 truncate">{project.projectName}</p>
+              <p className="truncate" style={{ fontSize: 12, color: 'var(--ces-mute2)' }}>{project.projectName}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <PrintButton />
-            <button
-              onClick={onClose}
-              className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0"
-            >
-              <X size={14} className="text-white" />
+            <button onClick={onClose} className="ces-row-act" title="Bağla">
+              <X size={16} />
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 shrink-0">
+        <div className="ces-tabs" style={{ padding: '0 12px', overflowX: 'auto', flexWrap: 'nowrap' }}>
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2',
-                activeTab === id
-                  ? 'border-amber-600 text-amber-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
-              )}
+              className={clsx('ces-tab', activeTab === id && 'on')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 14px', fontSize: 13, flex: 1 }}
             >
-              <Icon size={13} />
+              <Icon size={14} />
               {label}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="ces-drawer-body">
           {activeTab === 'info' && (
             <InfoTab
               project={project}

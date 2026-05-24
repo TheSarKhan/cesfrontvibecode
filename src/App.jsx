@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
+import ToastCard from './components/common/Toast'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import GuestRoute from './components/common/GuestRoute'
 import MainLayout from './components/layout/MainLayout'
@@ -25,6 +26,7 @@ import ServiceInvoicesPage from './pages/accounting/ServiceInvoicesPage'
 import ServicePage from './pages/service/ServicePage'
 import OperatorsPage from './pages/operators/OperatorsPage'
 import ApprovalPage from './pages/approval/ApprovalPage'
+import ProfilePage from './pages/profile/ProfilePage'
 import TrashPage from './pages/trash/TrashPage'
 import AuditPage from './pages/audit/AuditPage'
 import ConfigPage from './pages/config/ConfigPage'
@@ -42,11 +44,12 @@ export default function App() {
     <BrowserRouter>
       <Toaster
         position="top-right"
-        toastOptions={{
-          duration: 3500,
-          style: { fontSize: '13px' },
-        }}
-      />
+        gutter={10}
+        containerStyle={{ top: 24, right: 24 }}
+        toastOptions={{ duration: 3500 }}
+      >
+        {(t) => <ToastCard t={t} message={t.message} />}
+      </Toaster>
       <Routes>
         {/* Guest only */}
         <Route element={<GuestRoute />}>
@@ -78,6 +81,7 @@ export default function App() {
             <Route path="service" element={<ServicePage />} />
             <Route path="operators" element={<OperatorsPage />} />
             <Route path="approval" element={<ApprovalPage />} />
+            <Route path="profile" element={<ProfilePage />} />
             <Route path="trash" element={<TrashPage />} />
             <Route path="config" element={<ConfigPage />} />
             <Route path="audit" element={<AuditPage />} />

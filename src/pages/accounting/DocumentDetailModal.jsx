@@ -1,32 +1,28 @@
 import { useState, useEffect } from 'react'
-import { X, FileText, Download, Trash2, RefreshCw, CheckCircle } from 'lucide-react'
+import { FileText, Download, Trash2, RefreshCw, CheckCircle } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useAuthStore } from '../../store/authStore'
+import { useEscapeKey } from '../../hooks/useEscapeKey'
 import toast from 'react-hot-toast'
-import { clsx } from 'clsx'
-
-/* ─── Köməkçi funksiyalar ──────────────────────────────────────────────────── */
-const fmtMoney = (v) => v != null
-  ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
-  : '—'
 import { fmtDate } from '../../utils/date'
-const fmt = fmtDate
+import { Pill, ModalShell } from './_shared'
+import { fmtMoney } from './_constants'
 
 const DOC_TYPE_LABELS = {
-  HESAB_FAKTURA:      { label: 'Hesab-Faktura', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  TEHVIL_TESLIM_AKTI: { label: 'Təhvil-Təslim Aktı', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  ENGLISH_INVOICE:    { label: 'English Invoice', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  HESAB_FAKTURA:      { label: 'Hesab-Faktura',      tone: 'info' },
+  TEHVIL_TESLIM_AKTI: { label: 'Təhvil-Təslim Aktı', tone: 'gold' },
+  ENGLISH_INVOICE:    { label: 'English Invoice',    tone: 'ok'   },
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
 export default function DocumentDetailModal({ docId, onClose, onDeleted }) {
+  useEscapeKey(onClose)
   const { confirm, ConfirmDialog } = useConfirm()
   const canDelete = useAuthStore(s => s.hasPermission)('ACCOUNTING', 'canDelete')
 
-  const [doc, setDoc]           = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [downloading, setDownloading] = useState(false)
+  const [doc, setDoc]                   = useState(null)
+  const [loading, setLoading]           = useState(true)
+  const [downloading, setDownloading]   = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
   useEffect(() => {
@@ -50,8 +46,8 @@ export default function DocumentDetailModal({ docId, onClose, onDeleted }) {
       a.download = `${safeName}-${doc?.documentNumber || ''}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      toast.error('PDF yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'PDF yüklənə bilmədi')
     } finally {
       setDownloading(false)
     }
@@ -87,166 +83,164 @@ export default function DocumentDetailModal({ docId, onClose, onDeleted }) {
   const typeCfg = doc ? (DOC_TYPE_LABELS[doc.documentType] || DOC_TYPE_LABELS.HESAB_FAKTURA) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
-        <ConfirmDialog />
-
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <FileText size={20} className="text-amber-600" />
-            <div>
-              <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">
-                {loading ? 'Yüklənir...' : `Sənəd #${doc?.documentNumber}`}
-              </h2>
-              {doc && (
-                <span className={clsx('text-xs font-semibold px-2 py-0.5 rounded-full', typeCfg?.cls)}>
-                  {typeCfg?.label}
-                </span>
+    <>
+      <ConfirmDialog />
+      <ModalShell
+        icon={FileText}
+        eyebrow="Sənəd"
+        title={loading ? 'Yüklənir...' : `#${doc?.documentNumber || ''}`}
+        subtitle={typeCfg?.label}
+        onClose={onClose}
+        tone="gold"
+        maxWidth="720px"
+        footer={
+          !loading && doc && (
+            <>
+              {canDelete && (
+                <button onClick={handleDelete} className="ces-btn ces-btn-ghost ces-btn-sm" style={{ color: 'var(--ces-danger)' }}>
+                  <Trash2 size={13} /> Sil
+                </button>
               )}
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* ── Body ── */}
-        <div className="flex-1 overflow-y-auto p-6">
+              <button onClick={handleRegenerate} disabled={regenerating} className="ces-btn ces-btn-outline ces-btn-sm">
+                <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} /> Yenilə
+              </button>
+              <button onClick={handleDownload} disabled={downloading || !doc.pdfFilePath} className="ces-btn ces-btn-primary">
+                {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                PDF Yüklə
+              </button>
+            </>
+          )
+        }
+      >
+        <div className="p-6">
           {loading ? (
             <div className="space-y-3">
-              {[1,2,3,4].map(i => <div key={i} className="h-10 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />)}
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-10 rounded-[10px] animate-pulse" style={{ background: 'var(--ces-graphite-50)' }} />
+              ))}
             </div>
           ) : !doc ? (
-            <p className="text-center text-gray-400 py-12">Sənəd tapılmadı</p>
+            <p className="text-center py-12 text-[13px]" style={{ color: 'var(--ces-mute2)' }}>Sənəd tapılmadı</p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-5">
+              {/* Header info */}
+              <div className="flex items-center gap-2">
+                {typeCfg && <Pill tone={typeCfg.tone} sm>{typeCfg.label}</Pill>}
+                {doc.pdfFilePath ? (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--ces-ok)' }}>
+                    <CheckCircle size={12} /> PDF mövcuddur
+                  </span>
+                ) : (
+                  <span className="text-[11px]" style={{ color: 'var(--ces-mute2)' }}>PDF mövcud deyil</span>
+                )}
+              </div>
 
-              {/* Müştəri + Tarix */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Müştəri</p>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">{doc.customerName}</p>
-                  {doc.customerVoen && <p className="text-xs text-gray-400 font-mono">VÖEN: {doc.customerVoen}</p>}
-                  {doc.customerAddress && <p className="text-xs text-gray-500">{doc.customerAddress}</p>}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sənəd Məlumatları</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Tarix: <span className="font-semibold text-gray-800 dark:text-gray-200">{fmt(doc.documentDate)}</span></p>
-                  {doc.contractNumber && <p className="text-sm text-gray-600 dark:text-gray-400">Müqavilə №: <span className="font-semibold text-gray-800 dark:text-gray-200">{doc.contractNumber}</span></p>}
-                  {doc.contractDate && <p className="text-sm text-gray-600 dark:text-gray-400">Müqavilə tarixi: <span className="font-semibold text-gray-800 dark:text-gray-200">{fmt(doc.contractDate)}</span></p>}
-                  {doc.addendumNumbers?.length > 0 && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Əlavələr:{' '}
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">
-                        {doc.addendumNumbers.map(n => `${n} saylı`).join(', ')}
-                      </span>
-                    </p>
+              {/* Customer + Document info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10.5px] font-bold uppercase tracking-[.16em] mb-1.5" style={{ color: 'var(--ces-muted)' }}>Müştəri</p>
+                  <p className="text-[14px] font-bold" style={{ color: 'var(--ces-ink)' }}>{doc.customerName}</p>
+                  {doc.customerVoen && (
+                    <p className="text-[11.5px] mono mt-1" style={{ color: 'var(--ces-mute2)' }}>VÖEN: {doc.customerVoen}</p>
                   )}
+                  {doc.customerAddress && (
+                    <p className="text-[12px] mt-1" style={{ color: 'var(--ces-muted)' }}>{doc.customerAddress}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10.5px] font-bold uppercase tracking-[.16em] mb-1.5" style={{ color: 'var(--ces-muted)' }}>Sənəd məlumatları</p>
+                  <div className="space-y-1">
+                    <p className="text-[12.5px]" style={{ color: 'var(--ces-muted)' }}>
+                      Tarix: <span className="font-bold" style={{ color: 'var(--ces-ink)' }}>{fmtDate(doc.documentDate)}</span>
+                    </p>
+                    {doc.contractNumber && (
+                      <p className="text-[12.5px]" style={{ color: 'var(--ces-muted)' }}>
+                        Müqavilə №: <span className="font-bold" style={{ color: 'var(--ces-ink)' }}>{doc.contractNumber}</span>
+                      </p>
+                    )}
+                    {doc.contractDate && (
+                      <p className="text-[12.5px]" style={{ color: 'var(--ces-muted)' }}>
+                        Müqavilə tarixi: <span className="font-bold" style={{ color: 'var(--ces-ink)' }}>{fmtDate(doc.contractDate)}</span>
+                      </p>
+                    )}
+                    {doc.addendumNumbers?.length > 0 && (
+                      <p className="text-[12.5px]" style={{ color: 'var(--ces-muted)' }}>
+                        Əlavələr: <span className="font-bold" style={{ color: 'var(--ces-ink)' }}>{doc.addendumNumbers.map(n => `${n} saylı`).join(', ')}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Sətir cədvəli */}
+              {/* Service lines */}
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Xidmətlər</p>
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr] text-[10px] font-bold text-gray-500 uppercase px-4 py-2 bg-gray-100 dark:bg-gray-700">
+                <p className="text-[10.5px] font-bold uppercase tracking-[.16em] mb-2" style={{ color: 'var(--ces-muted)' }}>Xidmətlər</p>
+                <div
+                  className="overflow-hidden"
+                  style={{ border: '1px solid var(--ces-line)', borderRadius: '12px', background: 'var(--ces-surface)' }}
+                >
+                  <div
+                    className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr] text-[10.5px] font-bold uppercase tracking-[.14em] px-4 py-2.5"
+                    style={{ background: 'var(--ces-graphite-50)', color: 'var(--ces-muted)' }}
+                  >
                     <span>Xidmət</span>
                     <span>Vahid</span>
                     <span>Miqdar</span>
                     <span className="text-right">Vahid qiymət</span>
                     <span className="text-right">Cəmi</span>
                   </div>
-                  {(doc.lines || []).map((line, idx) => (
+                  {(doc.lines || []).map((line) => (
                     <div
                       key={line.id}
-                      className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr] px-4 py-2.5 border-t border-gray-200 dark:border-gray-700 text-sm"
+                      className="grid grid-cols-[3fr_1fr_1fr_1.5fr_1.5fr] px-4 py-2.5 text-[13px]"
+                      style={{ borderTop: '1px solid var(--ces-line)' }}
                     >
-                      <span className="text-gray-800 dark:text-gray-200">{line.description}</span>
-                      <span className="text-gray-500">{line.unit}</span>
-                      <span className="text-gray-500">{line.quantity}</span>
-                      <span className="text-right text-gray-600 dark:text-gray-400">{fmtMoney(line.unitPrice)}</span>
-                      <span className="text-right font-semibold text-gray-800 dark:text-gray-200">{fmtMoney(line.totalPrice)}</span>
+                      <span style={{ color: 'var(--ces-ink)' }}>{line.description}</span>
+                      <span style={{ color: 'var(--ces-muted)' }}>{line.unit}</span>
+                      <span className="num" style={{ color: 'var(--ces-muted)' }}>{line.quantity}</span>
+                      <span className="text-right num" style={{ color: 'var(--ces-muted)' }}>{fmtMoney(line.unitPrice)}</span>
+                      <span className="text-right font-bold num" style={{ color: 'var(--ces-ink)' }}>{fmtMoney(line.totalPrice)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Maliyyə xülasəsi */}
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-2 ml-auto max-w-xs w-full">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Cəmi:</span>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">{fmtMoney(doc.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">ƏDV ({parseFloat(doc.vatRate || 0).toFixed(0)}%):</span>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">{fmtMoney(doc.vatAmount)}</span>
-                </div>
-                <div className="flex justify-between text-base pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <span className="font-bold text-gray-700 dark:text-gray-300">YEKUNa:</span>
-                  <span className="font-bold text-amber-600 text-lg">{fmtMoney(doc.grandTotal)}</span>
+              {/* Totals */}
+              <div className="ml-auto w-full max-w-xs">
+                <div
+                  className="space-y-2 p-4"
+                  style={{ background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: '12px' }}
+                >
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'var(--ces-muted)' }}>Cəmi:</span>
+                    <span className="font-bold num" style={{ color: 'var(--ces-ink)' }}>{fmtMoney(doc.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-[13px]">
+                    <span style={{ color: 'var(--ces-muted)' }}>ƏDV ({parseFloat(doc.vatRate || 0).toFixed(0)}%):</span>
+                    <span className="font-bold num" style={{ color: 'var(--ces-ink)' }}>{fmtMoney(doc.vatAmount)}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline pt-2" style={{ borderTop: '1px solid var(--ces-line)' }}>
+                    <span className="text-[12.5px] font-bold uppercase tracking-[.12em]" style={{ color: 'var(--ces-muted)' }}>Yekun:</span>
+                    <span className="text-[18px] font-extrabold num" style={{ color: 'var(--ces-gold-700)' }}>{fmtMoney(doc.grandTotal)}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Qeyd */}
               {doc.notes && (
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Qeyd</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[.16em] mb-1.5" style={{ color: 'var(--ces-muted)' }}>Qeyd</p>
+                  <p
+                    className="text-[12.5px] p-3"
+                    style={{ color: 'var(--ces-ink)', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: '10px' }}
+                  >
                     {doc.notes}
                   </p>
                 </div>
               )}
-
-              {/* PDF status */}
-              <div className="flex items-center gap-2">
-                {doc.pdfFilePath ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-                    <CheckCircle size={13} />
-                    PDF mövcuddur
-                  </span>
-                ) : (
-                  <span className="text-xs text-gray-400">PDF mövcud deyil</span>
-                )}
-              </div>
             </div>
           )}
         </div>
-
-        {/* ── Footer ── */}
-        {!loading && doc && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex items-center gap-2">
-              {canDelete && (
-                <button
-                  onClick={handleDelete}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-red-200 dark:border-red-800"
-                >
-                  <Trash2 size={13} />
-                  Sil
-                </button>
-              )}
-              <button
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                title="PDF-i yenidən yarat"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
-              >
-                <RefreshCw size={13} className={regenerating ? 'animate-spin' : ''} />
-                Yenilə
-              </button>
-            </div>
-            <button
-              onClick={handleDownload}
-              disabled={downloading || !doc.pdfFilePath}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg transition-colors"
-            >
-              {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-              PDF Yüklə
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      </ModalShell>
+    </>
   )
 }

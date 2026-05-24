@@ -1,14 +1,15 @@
 /* ─── Qaraj modulu sabitləri ───────────────────────────────────────────── */
+/* Status / countdown sinifləri UI kit tokenlərindən istifadə edir */
 
 export const STATUS_CFG = {
-  AVAILABLE:      { label: 'Hazırdır',           cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' },
-  RENTED:         { label: 'İcarədə',           cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
-  IN_TRANSIT:     { label: 'Yolda',             cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' },
-  IN_INSPECTION:  { label: 'Qəbulda',           cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800' },
-  UNDER_CHECK:    { label: 'Baxışda',           cls: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800' },
-  IN_REPAIR:      { label: 'Təmirdə',           cls: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' },
-  DEFECTIVE:      { label: 'Nasaz',             cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-gray-100 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
+  AVAILABLE:      { label: 'Hazırdır',           cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
+  RENTED:         { label: 'İcarədə',           cls: 'bg-[var(--ces-info-100)] text-[var(--ces-info)]' },
+  IN_TRANSIT:     { label: 'Yolda',             cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
+  IN_INSPECTION:  { label: 'Qəbulda',           cls: 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' },
+  UNDER_CHECK:    { label: 'Baxışda',           cls: 'bg-[#ece4ff] text-[#5e3bbf]' },
+  IN_REPAIR:      { label: 'Təmirdə',           cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
+  DEFECTIVE:      { label: 'Nasaz',             cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' },
+  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
 }
 
 export const OWN_LABEL = {
@@ -35,8 +36,8 @@ export const INSPECTION_THRESHOLDS = {
 }
 
 export const FILE_UPLOAD = {
-  MAX_SIZE_MB: 50,
-  MAX_SIZE_BYTES: 50 * 1024 * 1024,
+  MAX_SIZE_MB: 1,
+  MAX_SIZE_BYTES: 1 * 1024 * 1024,
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
   ALLOWED_DOC_TYPES: ['application/pdf', 'image/jpeg', 'image/png', 'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -54,11 +55,11 @@ export function inspectionCountdown(nextDate) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const next = new Date(nextDate); next.setHours(0, 0, 0, 0)
   const diff = Math.ceil((next - today) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return { days: diff, label: `${Math.abs(diff)} gün gecikib`, cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' }
-  if (diff === 0) return { days: 0, label: 'Bu gün', cls: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' }
-  if (diff <= INSPECTION_THRESHOLDS.URGENT) return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' }
-  if (diff <= INSPECTION_THRESHOLDS.WARNING) return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' }
-  return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800' }
+  if (diff < 0) return { days: diff, label: `${Math.abs(diff)} gün gecikib`, cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' }
+  if (diff === 0) return { days: 0, label: 'Bu gün', cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' }
+  if (diff <= INSPECTION_THRESHOLDS.URGENT) return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' }
+  if (diff <= INSPECTION_THRESHOLDS.WARNING) return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' }
+  return { days: diff, label: `${diff} gün qalıb`, cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' }
 }
 
 export function validateFileUpload(file, type = 'document') {

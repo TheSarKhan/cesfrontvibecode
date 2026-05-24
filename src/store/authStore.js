@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { authApi } from '../api/auth'
+import { usersApi } from '../api/users'
 import { isTokenExpired } from '../utils/jwt'
 
 const parseUser = () => {
@@ -55,9 +56,32 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  refetchMe: async () => {
+    try {
+      const { data } = await usersApi.me()
+      const fresh = data?.data || data
+      if (!fresh) return null
+      const current = get().user || {}
+      const merged = {
+        ...current,
+        fullName: fresh.fullName,
+        email: fresh.email,
+        phone: fresh.phone,
+        profileImage: fresh.profileImage,
+      }
+      localStorage.setItem('user', JSON.stringify(merged))
+      set({ user: merged })
+      return merged
+    } catch {
+      return null
+    }
+  },
+
   hasPermission: (moduleCode, action = 'canGet') => {
     const { user } = get()
     if (!user) return false
+    // Super Admin — bütün icazələr açıqdır
+    if (user.roleName === 'Super Admin') return true
     // No permissions data → show all (fallback for legacy sessions)
     if (!user.permissions) return true
     return user.permissions.some((p) => p.moduleCode === moduleCode && p[action])

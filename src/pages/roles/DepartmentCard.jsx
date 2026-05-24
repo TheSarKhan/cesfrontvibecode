@@ -1,24 +1,32 @@
-import { Trash2, Pencil, Users, Shield } from 'lucide-react'
-import { clsx } from 'clsx'
+import { Trash2, Pencil, Users, Shield, ChevronRight } from 'lucide-react'
 
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-purple-500', 'bg-emerald-500',
-  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
-]
+function initials(name) {
+  const parts = (name || '').trim().split(/\s+/)
+  return parts.length >= 2
+    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+    : ((name || '?')[0] || '?').toUpperCase()
+}
 
 function UserAvatar({ user }) {
-  const name = user.fullName || ''
-  const parts = name.trim().split(/\s+/)
-  const initials = parts.length >= 2
-    ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-    : (name[0] || '?').toUpperCase()
-  const color = AVATAR_COLORS[user.id % AVATAR_COLORS.length]
   return (
     <div
-      className={clsx(color, 'w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold ring-2 ring-white dark:ring-gray-800')}
-      title={name}
+      title={user.fullName}
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 999,
+        background: 'var(--ces-graphite)',
+        color: 'var(--ces-gold)',
+        display: 'inline-grid',
+        placeItems: 'center',
+        fontSize: 11,
+        fontWeight: 700,
+        border: '2px solid #fff',
+        boxShadow: '0 0 0 1px var(--ces-line)',
+        fontFamily: 'inherit',
+      }}
     >
-      {initials}
+      {initials(user.fullName)}
     </div>
   )
 }
@@ -27,60 +35,110 @@ export default function DepartmentCard({ dept, users, roleCount, onSelect, onEdi
   return (
     <div
       onClick={onSelect}
-      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 cursor-pointer hover:shadow-md hover:border-amber-300 dark:hover:border-amber-700 transition-all group"
+      className="ces-card group cursor-pointer transition-all"
+      style={{ padding: 0, overflow: 'hidden' }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{dept.name}</h3>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="flex items-center gap-1 text-xs text-gray-400">
-              <Users size={11} />
-              {users.length} istifadəçi
-            </span>
-            {roleCount != null && (
-              <span className="flex items-center gap-1 text-xs text-gray-400">
-                <Shield size={11} />
-                {roleCount} rol
-              </span>
-            )}
+      <div className="p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="ces-m-ic gold" style={{ width: 42, height: 42 }}>
+              <Shield size={20} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-[var(--ces-ink)] m-0 truncate" title={dept.name}>
+                {dept.name}
+              </h3>
+              {dept.description && (
+                <p className="text-xs text-[var(--ces-muted)] mt-1 line-clamp-2 m-0" title={dept.description}>
+                  {dept.description}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-        {(onEdit || onDelete) && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {onEdit && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit() }}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-              >
-                <Pencil size={15} />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete() }}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <Trash2 size={15} />
-              </button>
-            )}
-          </div>
-        )}
-      </div>
 
-      {users.length > 0 ? (
-        <div className="flex -space-x-2">
-          {users.slice(0, 4).map((u) => (
-            <UserAvatar key={u.id} user={u} />
-          ))}
-          {users.length > 4 && (
-            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 font-semibold ring-2 ring-white dark:ring-gray-800">
-              +{users.length - 4}
+          {(onEdit || onDelete) && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              {onEdit && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit() }}
+                  className="ces-row-act gold"
+                  title="Redaktə et"
+                >
+                  <Pencil size={15} />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete() }}
+                  className="ces-row-act danger"
+                  title="Sil"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
             </div>
           )}
         </div>
-      ) : (
-        <p className="text-xs text-gray-300 dark:text-gray-600 italic">İstifadəçi yoxdur</p>
-      )}
+
+        <div className="flex items-center gap-2 mb-3">
+          <span className="ces-pill ces-p-mute sm">
+            <Users size={11} />
+            {users.length} istifadəçi
+          </span>
+          {roleCount != null && (
+            <span className="ces-pill ces-p-gold sm">
+              <Shield size={11} />
+              {roleCount} rol
+            </span>
+          )}
+        </div>
+
+        {users.length > 0 ? (
+          <div className="flex items-center" style={{ marginLeft: 0 }}>
+            {users.slice(0, 5).map((u, i) => (
+              <span key={u.id} style={{ marginLeft: i === 0 ? 0 : -10 }}>
+                <UserAvatar user={u} />
+              </span>
+            ))}
+            {users.length > 5 && (
+              <span
+                style={{
+                  marginLeft: -10,
+                  width: 30,
+                  height: 30,
+                  borderRadius: 999,
+                  background: 'var(--ces-graphite-100)',
+                  color: 'var(--ces-muted)',
+                  display: 'inline-grid',
+                  placeItems: 'center',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  border: '2px solid #fff',
+                  boxShadow: '0 0 0 1px var(--ces-line)',
+                }}
+              >
+                +{users.length - 5}
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs italic m-0" style={{ color: 'var(--ces-mute2)' }}>
+            İstifadəçi yoxdur
+          </p>
+        )}
+      </div>
+
+      <div
+        className="flex items-center justify-between px-5 py-3 text-xs font-semibold transition-colors"
+        style={{
+          background: 'var(--ces-graphite-50)',
+          color: 'var(--ces-muted)',
+          borderTop: '1px solid var(--ces-line)',
+        }}
+      >
+        <span>Rolları idarə et</span>
+        <ChevronRight size={14} />
+      </div>
     </div>
   )
 }

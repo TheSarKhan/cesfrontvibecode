@@ -1,14 +1,24 @@
 import { useState, useEffect, useMemo } from 'react'
-import { X } from 'lucide-react'
+import { X, Settings, Pencil, Plus } from 'lucide-react'
 import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { v } from '../../utils/validation'
-
-const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
-const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
+import { clsx } from 'clsx'
+import { CATEGORY_LABELS } from './ConfigPage'
 
 const EMPTY = { category: '', key: '', value: '', description: '', sortOrder: 0, active: true }
+
+function Field({ label, required, error, hint, children }) {
+  return (
+    <div className="ces-field">
+      <label>{label} {required && <span className="req">*</span>}</label>
+      {children}
+      {error && <span className="ces-err">{error}</span>}
+      {!error && hint && <span className="ces-hint">{hint}</span>}
+    </div>
+  )
+}
 
 export default function ConfigItemModal({ editing, categories, currentCategory, onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY)
@@ -56,8 +66,16 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
   const validate = () => {
     const errs = {}
     const e = (field, ...rules) => { const err = v.chain(form[field] || '', ...rules); if (err) errs[field] = err }
-    e('category', v.required, v.minLen(2), v.realContent, v.maxLen(50))
-    e('key', v.required, v.minLen(1), v.realContent, v.maxLen(100))
+    e('category',
+      (val) => v.required(val),
+      (val) => v.minLen(val, 2),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 50))
+    e('key',
+      (val) => v.required(val),
+      (val) => v.minLen(val, 1),
+      (val) => v.realContent(val),
+      (val) => v.maxLen(val, 100))
     if (form.value?.trim()) {
       const valErr = v.maxLen(form.value, 200)
       if (valErr) errs.value = valErr
@@ -91,150 +109,148 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden">
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              {editing ? 'Elementi redaktə et' : 'Yeni element'}
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {editing ? `${editing.category} → ${editing.key}` : 'Kateqoriya və açar məlumatlarını doldurun'}
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}>
+      <div className="ces-modal" style={{ maxWidth: 560 }}>
+        <div className="ces-m-head">
+          <div className={clsx('ces-m-ic', editing ? 'gold' : '')}>
+            {editing ? <Pencil size={20} /> : <Settings size={20} />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3>{editing ? 'Elementi redaktə et' : 'Yeni element'}</h3>
+            <p>
+              {editing
+                ? `${CATEGORY_LABELS[editing.category] || editing.category} → ${editing.key}`
+                : 'Kateqoriya və açar məlumatlarını doldurun'}
             </p>
           </div>
-          <button onClick={handleClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0">
-            <X size={14} className="text-white" />
+          <button onClick={handleClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto scrollbar-thin">
+        <form onSubmit={handleSubmit} className="contents">
+          <div className="ces-m-body">
             {/* Category */}
-            <div>
-              <label className={labelCls}>
-                Kateqoriya <span className="text-red-500">*</span>
-              </label>
+            <Field label="Kateqoriya" required error={errors.category}>
               {!customCategory && categories.length > 0 ? (
                 <div className="flex gap-2">
                   <select
                     value={form.category}
                     onChange={(e) => set('category', e.target.value)}
-                    className={`${inputCls} ${errors.category ? 'border-red-400 focus:ring-red-400' : ''}`}
+                    className={clsx('ces-select flex-1', errors.category && 'is-error')}
                   >
                     <option value="">Seçin</option>
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    {categories.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>)}
                   </select>
                   <button
                     type="button"
                     onClick={() => { setCustomCategory(true); set('category', '') }}
-                    className="px-3 py-2 text-xs font-medium text-amber-600 hover:text-amber-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+                    className="ces-btn ces-btn-outline ces-btn-sm"
                   >
-                    + Yeni
+                    <Plus size={14} />
+                    Yeni
                   </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={form.category}
-                    onChange={(e) => set('category', e.target.value.toUpperCase())}
-                    placeholder="Məsələn: EQUIPMENT_COLOR"
-                    className={`${inputCls} ${errors.category ? 'border-red-400 focus:ring-red-400' : ''}`}
-                  />
+                  <div className={clsx('ces-input flex-1', errors.category && 'is-error')}>
+                    <input
+                      type="text"
+                      value={form.category}
+                      onChange={(e) => set('category', e.target.value.toUpperCase())}
+                      placeholder="Məs: EQUIPMENT_COLOR"
+                      className="mono"
+                    />
+                  </div>
                   {categories.length > 0 && (
                     <button
                       type="button"
                       onClick={() => setCustomCategory(false)}
-                      className="px-3 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
+                      className="ces-btn ces-btn-outline ces-btn-sm"
                     >
                       Siyahı
                     </button>
                   )}
                 </div>
               )}
-              {errors.category && <p className="text-xs text-red-500 mt-1">{errors.category}</p>}
-            </div>
+            </Field>
 
             {/* Key */}
-            <div>
-              <label className={labelCls}>Açar / Ad <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={form.key}
-                onChange={(e) => set('key', e.target.value)}
-                placeholder="Məsələn: Komatsu"
-                className={`${inputCls} ${errors.key ? 'border-red-400 focus:ring-red-400' : ''}`}
-              />
-              {errors.key && <p className="text-xs text-red-500 mt-1">{errors.key}</p>}
-            </div>
-
-            {/* Value */}
-            <div>
-              <label className={labelCls}>Dəyər / Etiket</label>
-              <input
-                type="text"
-                value={form.value}
-                onChange={(e) => set('value', e.target.value)}
-                placeholder="Görünən ad (ixtiyari)"
-                className={`${inputCls} ${errors.value ? 'border-red-400 focus:ring-red-400' : ''}`}
-              />
-              {errors.value && <p className="text-xs text-red-500 mt-1">{errors.value}</p>}
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className={labelCls}>Təsvir</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => set('description', e.target.value)}
-                rows={2}
-                placeholder="Əlavə məlumat..."
-                className={`${inputCls} resize-none ${errors.description ? 'border-red-400 focus:ring-red-400' : ''}`}
-              />
-              {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {/* Sort order */}
-              <div>
-                <label className={labelCls}>Sıra</label>
+            <Field label="Açar / Ad" required error={errors.key}>
+              <div className={clsx('ces-input', errors.key && 'is-error')}>
                 <input
-                  type="number"
-                  min="0"
-                  value={form.sortOrder}
-                  onChange={(e) => set('sortOrder', parseInt(e.target.value) || 0)}
-                  className={inputCls}
+                  type="text"
+                  value={form.key}
+                  onChange={(e) => set('key', e.target.value)}
+                  placeholder="Məs: Komatsu"
                 />
               </div>
+            </Field>
 
-              {/* Active */}
-              <div className="flex items-end pb-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+            {/* Value */}
+            <Field label="Dəyər / Etiket" error={errors.value} hint="Görünən ad (ixtiyari)">
+              <div className={clsx('ces-input', errors.value && 'is-error')}>
+                <input
+                  type="text"
+                  value={form.value}
+                  onChange={(e) => set('value', e.target.value)}
+                  placeholder="Display adı"
+                />
+              </div>
+            </Field>
+
+            {/* Description */}
+            <Field label="Təsvir" error={errors.description}>
+              <div className={clsx('ces-input', errors.description && 'is-error')} style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => set('description', e.target.value)}
+                  rows={2}
+                  placeholder="Əlavə məlumat..."
+                />
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+              <Field label="Sıra">
+                <div className="ces-input">
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.sortOrder}
+                    onChange={(e) => set('sortOrder', parseInt(e.target.value) || 0)}
+                    className="mono"
+                  />
+                </div>
+              </Field>
+
+              <div className="ces-field flex items-end">
+                <label className="ces-chk" style={{ marginBottom: 12 }}>
                   <input
                     type="checkbox"
                     checked={form.active}
                     onChange={(e) => set('active', e.target.checked)}
-                    className="accent-amber-600 w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Aktivdir</span>
+                  <span className="ces-cb" />
+                  <span>Aktivdir</span>
                 </label>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 p-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-            >
+          <div className="ces-m-foot">
+            {isDirty && (
+              <span className="text-xs font-semibold mr-auto" style={{ color: 'var(--ces-gold-700)' }}>
+                ● Dəyişikliklər var
+              </span>
+            )}
+            <button type="button" onClick={handleClose} className="ces-btn ces-btn-ghost">
+              Ləğv et
+            </button>
+            <button type="submit" disabled={loading} className="ces-btn ces-btn-primary">
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {editing ? 'Yadda saxla' : 'Yarat'}
             </button>
-            <button type="button" onClick={handleClose} className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-              Ləğv et
-            </button>
-            {isDirty && <span className="flex items-center text-xs text-amber-500 ml-auto">Dəyişikliklər var</span>}
           </div>
         </form>
       </div>

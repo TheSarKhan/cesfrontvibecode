@@ -38,7 +38,15 @@ const EMPTY = {
   notes: '',
 }
 
-const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
+function Field({ label, required, error, children }) {
+  return (
+    <div className="ces-field">
+      <label>{label} {required && <span className="req">*</span>}</label>
+      {children}
+      {error && <span className="ces-err">{error}</span>}
+    </div>
+  )
+}
 
 export default function CustomerModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
@@ -75,13 +83,6 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
     setForm((prev) => ({ ...prev, [field]: value }))
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
-
-  const inputCls = (field) => clsx(
-    'w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent',
-    errors[field]
-      ? 'border-red-400 dark:border-red-500 focus:ring-red-400'
-      : 'border-gray-200 dark:border-gray-600 focus:ring-amber-500'
-  )
 
   const validate = () => {
     const errs = {}
@@ -160,159 +161,134 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
     }
   }
 
+  const inputWrap = (field) => clsx('ces-input', errors[field] && 'is-error')
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Building2 size={18} className="text-amber-500 shrink-0" />}
-              {editing ? 'Müştərini redaktə et' : 'Yeni müştəri əlavə et'}
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {editing ? editing.companyName : 'Məlumatları doldurun'}
-            </p>
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
+      <div className="ces-modal" style={{ maxWidth: 720 }}>
+        <div className="ces-m-head">
+          <div className={clsx('ces-m-ic', editing ? 'gold' : '')}>
+            {editing ? <Pencil size={20} /> : <Building2 size={20} />}
           </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0"
-          >
-            <X size={14} className="text-white" />
+          <div className="flex-1 min-w-0">
+            <h3>{editing ? 'Müştərini redaktə et' : 'Yeni müştəri'}</h3>
+            <p>{editing ? editing.companyName : 'Məlumatları doldurun'}</p>
+          </div>
+          <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto scrollbar-thin">
+        <form onSubmit={handleSubmit} className="contents">
+          <div className="ces-m-body">
+            <p className="ces-sec-label" style={{ marginBottom: 14 }}>Şirkət məlumatları</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+              <Field label="Şirkətin adı" required error={errors.companyName}>
+                <div className={inputWrap('companyName')}>
+                  <input value={form.companyName} onChange={(e) => set('companyName', e.target.value)} placeholder="MMC / ASC adı" />
+                </div>
+              </Field>
+              <Field label="VÖEN" error={errors.voen}>
+                <div className={inputWrap('voen')}>
+                  <input className="mono" value={form.voen} onChange={(e) => set('voen', e.target.value)} placeholder="1234567890" />
+                </div>
+              </Field>
+              <Field label="Ünvan" error={errors.address}>
+                <div className={inputWrap('address')}>
+                  <input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" />
+                </div>
+              </Field>
+              <Field label="Direktor adı" error={errors.directorName}>
+                <div className={inputWrap('directorName')}>
+                  <input value={form.directorName} onChange={(e) => set('directorName', e.target.value)} placeholder="Ad Soyad" />
+                </div>
+              </Field>
+            </div>
 
-            {/* Şirkət məlumatları */}
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Şirkət məlumatları</p>
+            <p className="ces-sec-label" style={{ marginTop: 14, marginBottom: 14 }}>Təchizatçı</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+              <Field label="Məsul şəxs / Şöbə" error={errors.supplierPerson}>
+                <div className={inputWrap('supplierPerson')}>
+                  <input value={form.supplierPerson} onChange={(e) => set('supplierPerson', e.target.value)} placeholder="Ad Soyad və ya Şöbə" />
+                </div>
+              </Field>
+              <Field label="Əlaqə nömrəsi" error={errors.supplierPhone}>
+                <div className={inputWrap('supplierPhone')}>
+                  <input value={form.supplierPhone} onChange={(e) => set('supplierPhone', e.target.value)} placeholder="+994501234567" />
+                </div>
+              </Field>
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Şirkətin adı <span className="text-red-500">*</span></label>
-                <input type="text" value={form.companyName} onChange={(e) => set('companyName', e.target.value)} placeholder="MMC / ASC adı" className={inputCls('companyName')} />
-                {errors.companyName && <p className="mt-1 text-xs text-red-500">{errors.companyName}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>VÖEN</label>
-                <input type="text" value={form.voen} onChange={(e) => set('voen', e.target.value)} placeholder="1234567890" className={inputCls('voen')} />
-                {errors.voen && <p className="mt-1 text-xs text-red-500">{errors.voen}</p>}
+            <p className="ces-sec-label" style={{ marginTop: 14, marginBottom: 14 }}>Ofis</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+              <Field label="Məsul şəxs" error={errors.officeContactPerson}>
+                <div className={inputWrap('officeContactPerson')}>
+                  <input value={form.officeContactPerson} onChange={(e) => set('officeContactPerson', e.target.value)} placeholder="Ad Soyad" />
+                </div>
+              </Field>
+              <Field label="Əlaqə nömrəsi" error={errors.officeContactPhone}>
+                <div className={inputWrap('officeContactPhone')}>
+                  <input value={form.officeContactPhone} onChange={(e) => set('officeContactPhone', e.target.value)} placeholder="+994501234567" />
+                </div>
+              </Field>
+            </div>
+
+            <p className="ces-sec-label" style={{ marginTop: 14, marginBottom: 14 }}>Ödəniş və status</p>
+            <div className="ces-field">
+              <label>Ödəniş növü</label>
+              <div className="flex gap-2 flex-wrap">
+                {PAYMENT_OPTIONS.map((p) => {
+                  const on = form.paymentTypes.includes(p.value)
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => togglePayment(p.value)}
+                      className={clsx('ces-btn', on ? 'ces-btn-primary' : 'ces-btn-outline')}
+                    >
+                      {p.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Ünvan</label>
-                <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('address')} />
-                {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Direktor adı</label>
-                <input type="text" value={form.directorName} onChange={(e) => set('directorName', e.target.value)} placeholder="Ad Soyad" className={inputCls('directorName')} />
-                {errors.directorName && <p className="mt-1 text-xs text-red-500">{errors.directorName}</p>}
-              </div>
-            </div>
-
-            {/* Təchizatçı */}
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">Təchizatçı</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Məsul şəxs / Şöbə</label>
-                <input type="text" value={form.supplierPerson} onChange={(e) => set('supplierPerson', e.target.value)} placeholder="Ad Soyad və ya Şöbə" className={inputCls('supplierPerson')} />
-                {errors.supplierPerson && <p className="mt-1 text-xs text-red-500">{errors.supplierPerson}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Əlaqə nömrəsi</label>
-                <input type="text" value={form.supplierPhone} onChange={(e) => set('supplierPhone', e.target.value)} placeholder="+994501234567" className={inputCls('supplierPhone')} />
-                {errors.supplierPhone && <p className="mt-1 text-xs text-red-500">{errors.supplierPhone}</p>}
-              </div>
-            </div>
-
-            {/* Ofis məsul şəxsi */}
-            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">Ofis</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Məsul şəxs</label>
-                <input type="text" value={form.officeContactPerson} onChange={(e) => set('officeContactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls('officeContactPerson')} />
-                {errors.officeContactPerson && <p className="mt-1 text-xs text-red-500">{errors.officeContactPerson}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Əlaqə nömrəsi</label>
-                <input type="text" value={form.officeContactPhone} onChange={(e) => set('officeContactPhone', e.target.value)} placeholder="+994501234567" className={inputCls('officeContactPhone')} />
-                {errors.officeContactPhone && <p className="mt-1 text-xs text-red-500">{errors.officeContactPhone}</p>}
-              </div>
-            </div>
-
-            {/* Ödəniş növü */}
-            <div>
-              <label className={labelCls}>Ödəniş növü</label>
-              <div className="flex gap-2">
-                {PAYMENT_OPTIONS.map((p) => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => togglePayment(p.value)}
-                    className={clsx(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      form.paymentTypes.includes(p.value)
-                        ? 'bg-amber-500 text-white border-amber-500'
-                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-amber-400'
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Status + Risk */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Status</label>
-                <select value={form.status} onChange={(e) => set('status', e.target.value)} className={inputCls('')}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+              <Field label="Status">
+                <select value={form.status} onChange={(e) => set('status', e.target.value)} className="ces-select">
                   {STATUS_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className={labelCls}>Risk səviyyəsi</label>
-                <select value={form.riskLevel} onChange={(e) => set('riskLevel', e.target.value)} className={inputCls('')}>
+              </Field>
+              <Field label="Risk səviyyəsi">
+                <select value={form.riskLevel} onChange={(e) => set('riskLevel', e.target.value)} className="ces-select">
                   {RISK_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-              </div>
+              </Field>
             </div>
 
-            {/* Qeyd */}
-            <div>
-              <label className={labelCls}>Qeyd</label>
-              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls('notes')} resize-none`} />
-              {errors.notes && <p className="mt-1 text-xs text-red-500">{errors.notes}</p>}
-            </div>
+            <Field label="Qeyd" error={errors.notes}>
+              <div className={clsx(inputWrap('notes'))} style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
+                <textarea
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => set('notes', e.target.value)}
+                  placeholder="Əlavə qeydlər..."
+                />
+              </div>
+            </Field>
           </div>
 
-          {/* Footer */}
-          <div className="flex gap-3 p-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-            >
+          <div className="ces-m-foot">
+            <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost">
+              Ləğv et
+            </button>
+            <button type="submit" disabled={loading} className="ces-btn ces-btn-primary">
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {editing ? 'Yadda saxla' : 'Əlavə et'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              Ləğv et
             </button>
           </div>
         </form>

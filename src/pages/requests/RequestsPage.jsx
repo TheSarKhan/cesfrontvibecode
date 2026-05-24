@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight, Send, ClipboardList, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Eye, Edit3, SlidersHorizontal, FileText, Clock, CheckCircle, XCircle, Send as SendIcon, AlertCircle } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { useAuthStore } from '../../store/authStore'
-import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
+import { STATUS_CFG, PROJECT_TYPES, fmtDate } from '../../constants/requests'
 import RequestModal from './RequestModal'
 import RequestSlideOver from './RequestSlideOver'
 import BulkEditModal from './BulkEditModal'
@@ -18,36 +18,36 @@ import { useRequestsWebSocket } from '../../hooks/useRequestsWebSocket'
 const PAGE_SIZES = [15, 25, 50, 100]
 
 const STAT_CARDS = [
-  { id: 'ALL', label: 'Hamısı', icon: FileText, color: 'text-gray-500' },
-  { id: 'DRAFT', label: 'Qaralama', icon: FileText, color: 'text-gray-400' },
-  { id: 'PENDING', label: 'Hazırdır', icon: Clock, color: 'text-blue-500' },
-  { id: 'SENT_TO_COORDINATOR', label: 'Kordinatorda', icon: SendIcon, color: 'text-purple-500' },
-  { id: 'OFFER_SENT', label: 'Gözdən keçirilir', icon: AlertCircle, color: 'text-amber-500' },
-  { id: 'ACCEPTED', label: 'Qəbul', icon: CheckCircle, color: 'text-green-500' },
-  { id: 'REJECTED', label: 'Rədd', icon: XCircle, color: 'text-red-500' },
+  { id: 'ALL',                 label: 'Hamısı',          icon: FileText,    iconCls: '' },
+  { id: 'DRAFT',               label: 'Qaralama',        icon: FileText,    iconCls: '' },
+  { id: 'PENDING',             label: 'Hazırdır',        icon: Clock,       iconCls: '' },
+  { id: 'SENT_TO_COORDINATOR', label: 'Kordinatorda',    icon: SendIcon,    iconCls: '' },
+  { id: 'OFFER_SENT',          label: 'Gözdən keçirilir', icon: AlertCircle, iconCls: 'gold' },
+  { id: 'ACCEPTED',            label: 'Qəbul',           icon: CheckCircle, iconCls: 'ok' },
+  { id: 'REJECTED',            label: 'Rədd',            icon: XCircle,     iconCls: 'danger' },
 ]
 
-function SortHeader({ label, field, sortBy, sortDir, onSort }) {
+function SortHeader({ label, field, sortBy, sortDir, onSort, align }) {
   const active = sortBy === field
   return (
     <th
-      className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
       onClick={() => onSort(field)}
+      className={align === 'right' ? 'r' : undefined}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
     >
-      <div className="flex items-center gap-1">
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {label}
         {active ? (
-          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+          sortDir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />
         ) : (
-          <ArrowUpDown size={11} className="text-gray-300" />
+          <ArrowUpDown size={11} style={{ opacity: 0.3 }} />
         )}
-      </div>
+      </span>
     </th>
   )
 }
 
 export default function RequestsPage() {
-  // ─── State ──────────────────────────────────────────
   const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 25 })
   const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -60,7 +60,6 @@ export default function RequestsPage() {
   const searchRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Filter state
   const [search, setSearch] = useState(searchParams.get('q') || '')
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const [regionFilter, setRegionFilter] = useState(searchParams.get('region') || '')
@@ -83,7 +82,6 @@ export default function RequestsPage() {
   const canSendToCoordinator = hasPermission('REQUESTS', 'canSendToCoordinator')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  // ─── Sync filters → URL ─────────────────────────────
   useEffect(() => {
     const p = {}
     if (search) p.q = search
@@ -94,7 +92,6 @@ export default function RequestsPage() {
     if (quickFilter !== 'ALL') p.quick = quickFilter
     setSearchParams(prev => {
       const n = new URLSearchParams(prev)
-      // preserve page/size/sort
       const keep = ['page', 'size', 'sortBy', 'sortDir']
       const result = new URLSearchParams()
       keep.forEach(k => { if (n.has(k)) result.set(k, n.get(k)) })
@@ -103,7 +100,6 @@ export default function RequestsPage() {
     }, { replace: true })
   }, [search, statusFilter, regionFilter, projectTypeFilter, transportFilter, quickFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Click outside filter ─────────────────────────────
   useEffect(() => {
     if (!filterOpen) return
     const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false) }
@@ -111,7 +107,6 @@ export default function RequestsPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [filterOpen])
 
-  // ─── Data loading ───────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -132,26 +127,30 @@ export default function RequestsPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Load all for stats
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    requestsApi.getById(Number(openId))
+      .then(res => setSlideOver(res.data.data || res.data))
+      .catch(() => {})
+    setSearchParams(p => { const n = new URLSearchParams(p); n.delete('open'); return n }, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     requestsApi.getAll().then(res => setAllRequests(res.data.data || res.data || [])).catch(() => {})
   }, [])
 
-  // Reload stats when data changes
   useEffect(() => {
     requestsApi.getAll().then(res => setAllRequests(res.data.data || res.data || [])).catch(() => {})
   }, [data])
 
-  // ─── WebSocket ──────────────────────────────────────
   useRequestsWebSocket(() => load())
 
-  // ─── Shortcuts ──────────────────────────────────────
   usePageShortcuts({
     onNew: canCreate ? () => setModal({ open: true, editing: null }) : undefined,
     searchRef,
   })
 
-  // ─── Sorting ────────────────────────────────────────
   const handleSort = (field) => {
     setSearchParams(p => {
       const n = new URLSearchParams(p)
@@ -166,14 +165,12 @@ export default function RequestsPage() {
     }, { replace: true })
   }
 
-  // ─── Selection ──────────────────────────────────────
   const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const toggleAll = () => {
     if (selectedIds.length === data.content.length) setSelectedIds([])
     else setSelectedIds(data.content.map(r => r.id))
   }
 
-  // ─── Actions ────────────────────────────────────────
   const handleDelete = async (r) => {
     if (!(await confirm({ title: 'Sorğunu sil', message: `"${r.requestCode || r.companyName}" sorğusunu silmək istəyirsiniz?` }))) return
     try {
@@ -198,17 +195,14 @@ export default function RequestsPage() {
     }
   }
 
-  // ─── Stats ─────────────────────────────────────────
   const stats = useMemo(() => {
     const s = { ALL: allRequests.length }
     Object.keys(STATUS_CFG).forEach(k => { s[k] = allRequests.filter(r => r.status === k).length })
     return s
   }, [allRequests])
 
-  // ─── Unique values for filter dropdowns ─────────────
   const uniqueRegions = useMemo(() => [...new Set(allRequests.map(r => r.region).filter(Boolean))].sort(), [allRequests])
 
-  // ─── Filter helpers ─────────────────────────────────
   const activeFilterCount = [statusFilter, regionFilter, projectTypeFilter, transportFilter].filter(Boolean).length
   const clearFilters = () => {
     setSearch('')
@@ -220,168 +214,172 @@ export default function RequestsPage() {
     setFilterOpen(false)
   }
 
-  // Reset page on filter change
   useEffect(() => { setPage(0) }, [search, statusFilter, regionFilter, projectTypeFilter, transportFilter, quickFilter]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const selectCls = "w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-  const filterLabelCls = "block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Sorğular</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} sorğu</p>
+          <h1 className="ces-page-title">Sorğular</h1>
+          <p className="ces-page-sub">{data.totalElements} sorğu qeydiyyatda</p>
         </div>
         <div className="flex items-center gap-2">
           {selectedIds.length > 0 && canEditPerm && (
-            <button
-              onClick={() => setBulkModal(true)}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors"
-            >
-              <Edit3 size={14} />
+            <button onClick={() => setBulkModal(true)} className="ces-btn ces-btn-outline">
+              <Edit3 size={15} />
               Toplu ({selectedIds.length})
             </button>
           )}
           {canCreate && (
-            <button
-              onClick={() => setModal({ open: true, editing: null })}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors"
-            >
-              <Plus size={14} />
+            <button onClick={() => setModal({ open: true, editing: null })} className="ces-btn ces-btn-primary">
+              <Plus size={16} />
               Yeni sorğu
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Stat cards ── */}
-      <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none">
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
         {STAT_CARDS.map(s => {
           const Icon = s.icon
+          const active = quickFilter === s.id
           return (
             <button
               key={s.id}
               onClick={() => setQuickFilter(s.id)}
-              className={clsx(
-                'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[90px]',
-                quickFilter === s.id
-                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-700'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700'
-              )}
+              className="ces-kpi-card"
+              style={{
+                padding: 14,
+                textAlign: 'left',
+                cursor: 'pointer',
+                borderColor: active ? 'var(--ces-gold)' : 'var(--ces-line)',
+                background: active ? 'var(--ces-gold-50)' : 'var(--ces-surface)',
+              }}
             >
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <Icon size={10} className={s.color} />
-                {s.label}
-              </p>
-              <p className={clsx('text-lg font-bold mt-0.5', s.color)}>{stats[s.id] ?? 0}</p>
+              <div className="ces-kpi-top" style={{ marginBottom: 8 }}>
+                <span className="ces-kpi-lab" style={{ fontSize: 10 }}>{s.label}</span>
+                <span className={clsx('ces-kpi-ic', s.iconCls)} style={{ width: 28, height: 28, borderRadius: 8 }}>
+                  <Icon size={14} />
+                </span>
+              </div>
+              <div className="ces-kpi-val" style={{ fontSize: 22 }}>{stats[s.id] ?? 0}</div>
             </button>
           )
         })}
       </div>
 
-      {/* ── Search + Filter popover ── */}
-      <div className="flex gap-2 mb-3">
-        <div className="relative flex-1 min-w-0">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Search + filter + refresh */}
+      <div className="flex flex-wrap gap-2 mb-5 items-center">
+        <div className="ces-input has-icon sm flex-1 min-w-[240px]">
+          <Search size={15} />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Sorğu ID, şirkət, layihə, bölgə..."
-            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            placeholder="Sorğu kodu, şirkət, layihə, bölgə..."
           />
         </div>
+
         <div className="relative" ref={filterRef}>
           <button
             onClick={() => setFilterOpen(p => !p)}
-            className={clsx(
-              'flex items-center gap-1.5 px-2.5 py-1.5 text-xs border rounded-lg transition-colors',
-              activeFilterCount > 0
-                ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
-                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            )}
+            className={clsx('ces-btn ces-btn-sm', activeFilterCount > 0 ? 'ces-btn-primary' : 'ces-btn-outline')}
           >
-            <SlidersHorizontal size={13} />
+            <SlidersHorizontal size={14} />
             Filtrlər
             {activeFilterCount > 0 && (
-              <span className="w-4 h-4 flex items-center justify-center rounded-full bg-amber-600 text-white text-[9px] font-bold">{activeFilterCount}</span>
+              <span style={{ marginLeft: 4, padding: '0 6px', minWidth: 18, height: 18, borderRadius: 999, background: 'var(--ces-surface)', color: 'var(--ces-graphite)', fontSize: 11, fontWeight: 700, display: 'inline-grid', placeItems: 'center' }}>
+                {activeFilterCount}
+              </span>
             )}
           </button>
           {filterOpen && (
-            <div className="absolute right-0 top-full mt-1.5 z-30 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 space-y-3">
-              {/* Status */}
-              <div>
-                <label className={filterLabelCls}>Status</label>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
+            <div
+              style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 30,
+                width: 320, background: 'var(--ces-surface)',
+                border: '1px solid var(--ces-line)', borderRadius: 14,
+                boxShadow: 'var(--ces-shadow-lg)', padding: 16,
+                display: 'flex', flexDirection: 'column', gap: 12,
+              }}
+            >
+              <div className="ces-field" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ces-muted)', fontWeight: 700, marginBottom: 6 }}>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="ces-select sm" style={{ width: '100%' }}>
                   <option value="">Hamısı</option>
                   {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
-              {/* Bölgə */}
               {uniqueRegions.length > 0 && (
-                <div>
-                  <label className={filterLabelCls}>Bölgə</label>
-                  <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className={selectCls}>
+                <div className="ces-field" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ces-muted)', fontWeight: 700, marginBottom: 6 }}>Bölgə</label>
+                  <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="ces-select sm" style={{ width: '100%' }}>
                     <option value="">Hamısı</option>
                     {uniqueRegions.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
               )}
-              {/* Layihə tipi + Daşınma */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={filterLabelCls}>Layihə tipi</label>
-                  <select value={projectTypeFilter} onChange={(e) => setProjectTypeFilter(e.target.value)} className={selectCls}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div className="ces-field" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ces-muted)', fontWeight: 700, marginBottom: 6 }}>Layihə tipi</label>
+                  <select value={projectTypeFilter} onChange={(e) => setProjectTypeFilter(e.target.value)} className="ces-select sm" style={{ width: '100%' }}>
                     <option value="">Hamısı</option>
                     {PROJECT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className={filterLabelCls}>Daşınma</label>
-                  <select value={transportFilter} onChange={(e) => setTransportFilter(e.target.value)} className={selectCls}>
+                <div className="ces-field" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ces-muted)', fontWeight: 700, marginBottom: 6 }}>Daşınma</label>
+                  <select value={transportFilter} onChange={(e) => setTransportFilter(e.target.value)} className="ces-select sm" style={{ width: '100%' }}>
                     <option value="">Hamısı</option>
                     <option value="YES">Bəli</option>
                     <option value="NO">Xeyr</option>
                   </select>
                 </div>
               </div>
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--ces-line)' }}>
                 {activeFilterCount > 0 ? (
-                  <button onClick={clearFilters} className="text-[11px] text-red-500 hover:text-red-600 font-medium transition-colors">
+                  <button onClick={clearFilters} className="ces-btn ces-btn-xs ces-btn-ghost" style={{ color: 'var(--ces-danger)' }}>
                     Filtrləri təmizlə
                   </button>
                 ) : <span />}
-                <button onClick={() => setFilterOpen(false)} className="text-[11px] text-amber-600 hover:text-amber-700 font-semibold transition-colors">
+                <button onClick={() => setFilterOpen(false)} className="ces-btn ces-btn-xs ces-btn-ghost">
                   Bağla
                 </button>
               </div>
             </div>
           )}
         </div>
-        <button onClick={load} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Yenilə">
-          <RefreshCw size={13} />
+
+        <button onClick={load} className="ces-btn ces-btn-icon ces-btn-sm ces-btn-outline" title="Yenilə">
+          <RefreshCw size={14} />
         </button>
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="ces-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
+          <table className="ces-tbl" style={{ minWidth: 900 }}>
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="py-3 px-4 w-8">
-                  <input type="checkbox" checked={data.content.length > 0 && selectedIds.length === data.content.length} onChange={toggleAll} className="accent-amber-600 w-3.5 h-3.5" />
+              <tr>
+                <th className="w-chk">
+                  <label className="ces-chk">
+                    <input
+                      type="checkbox"
+                      checked={data.content.length > 0 && selectedIds.length === data.content.length}
+                      onChange={toggleAll}
+                    />
+                    <span className="ces-cb"></span>
+                  </label>
                 </th>
-                <SortHeader label="ID" field="id" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Kod" field="id" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Şirkət / Layihə" field="companyName" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Bölgə" field="region" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Daşınma</th>
+                <th>Daşınma</th>
                 <SortHeader label="Status" field="status" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <SortHeader label="Tarix" field="createdAt" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-                <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
+                <th className="r">Əməliyyat</th>
               </tr>
             </thead>
             <tbody>
@@ -402,71 +400,57 @@ export default function RequestsPage() {
                   return (
                     <tr
                       key={r.id}
-                      className={clsx(
-                        'border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer',
-                        selectedIds.includes(r.id) && 'bg-amber-50/50 dark:bg-amber-900/10'
-                      )}
                       onClick={() => setSlideOver(r)}
+                      style={{
+                        cursor: 'pointer',
+                        background: selectedIds.includes(r.id) ? 'var(--ces-gold-50)' : undefined,
+                      }}
                     >
-                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedIds.includes(r.id)} onChange={() => toggleSelect(r.id)} className="accent-amber-600 w-3.5 h-3.5" />
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <label className="ces-chk">
+                          <input type="checkbox" checked={selectedIds.includes(r.id)} onChange={() => toggleSelect(r.id)} />
+                          <span className="ces-cb"></span>
+                        </label>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400">
-                          {r.requestCode || `REQ-${String(r.id).padStart(4, '0')}`}
-                        </span>
+                      <td className="mono" style={{ color: 'var(--ces-gold-700)', fontWeight: 700, fontSize: 12.5 }}>
+                        {r.requestCode || `REQ-${String(r.id).padStart(4, '0')}`}
                       </td>
-                      <td className="py-3 px-4">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{r.companyName}</p>
-                        {r.projectName && <p className="text-xs text-gray-400">{r.projectName}</p>}
+                      <td>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-ink)' }}>{r.companyName}</div>
+                        {r.projectName && <div style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{r.projectName}</div>}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{r.region || '—'}</td>
-                      <td className="py-3 px-4">
+                      <td style={{ color: 'var(--ces-ink)' }}>{r.region || <span style={{ color: 'var(--ces-mute2)' }}>—</span>}</td>
+                      <td>
                         {r.transportationRequired ? (
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">Bəli</span>
+                          <span className="ces-pill ces-p-ok sm">Bəli</span>
                         ) : (
-                          <span className="text-xs text-gray-400">Xeyr</span>
+                          <span style={{ color: 'var(--ces-mute2)', fontSize: 13 }}>Xeyr</span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', status.cls)}>
+                      <td>
+                        <span className={clsx('ces-pill sm', status.pill)}>
+                          <span className="d"></span>
                           {status.label}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-xs text-gray-400">{fmtDate(r.createdAt)}</td>
-                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                      <td className="mono" style={{ fontSize: 12.5, color: 'var(--ces-muted)' }}>{fmtDate(r.createdAt)}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1 justify-end">
-                          <button
-                            onClick={() => setSlideOver(r)}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-blue-500 transition-colors"
-                            title="Ətraflı bax"
-                          >
+                          <button onClick={() => setSlideOver(r)} className="ces-row-act info" title="Ətraflı bax">
                             <Eye size={15} />
                           </button>
                           {canEdit && (
-                            <button
-                              onClick={() => setModal({ open: true, editing: r })}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                              title="Redaktə et"
-                            >
+                            <button onClick={() => setModal({ open: true, editing: r })} className="ces-row-act gold" title="Redaktə et">
                               <Pencil size={15} />
                             </button>
                           )}
                           {['DRAFT', 'PENDING'].includes(r.status) && canSendToCoordinator && (
-                            <button
-                              onClick={() => doSendCoordinator(r)}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-500 transition-colors"
-                              title="Kordinatora göndər"
-                            >
+                            <button onClick={() => doSendCoordinator(r)} className="ces-row-act" title="Kordinatora göndər">
                               <Send size={15} />
                             </button>
                           )}
                           {['DRAFT', 'PENDING'].includes(r.status) && canDeletePerm && (
-                            <button
-                              onClick={() => handleDelete(r)}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                              title="Sil"
-                            >
+                            <button onClick={() => handleDelete(r)} className="ces-row-act danger" title="Sil">
                               <Trash2 size={15} />
                             </button>
                           )}
@@ -480,26 +464,23 @@ export default function RequestsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         {!loading && data.totalPages > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <span>Səhifə {page + 1} / {data.totalPages}</span>
-              <span className="text-gray-300">|</span>
-              <span>{data.totalElements} nəticə</span>
-              <select
-                value={size}
-                onChange={(e) => setSearchParams(p => { const n = new URLSearchParams(p); n.set('size', e.target.value); n.delete('page'); return n }, { replace: true })}
-                className="ml-2 px-1.5 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-              >
-                {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 22px', borderTop: '1px solid var(--ces-line)',
+              background: 'var(--ces-surface)', fontSize: 13,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ces-muted)' }}>
+              <span>{data.totalElements} nəticədən {page * size + 1}–{Math.min((page + 1) * size, data.totalElements)} göstərilir</span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={page === 0}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 disabled:opacity-30 transition-colors"
+                className="ces-row-act"
+                style={{ opacity: page === 0 ? 0.3 : 1 }}
               >
                 <ChevronLeft size={16} />
               </button>
@@ -510,10 +491,14 @@ export default function RequestsPage() {
                   <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className={clsx(
-                      'w-7 h-7 text-xs rounded-md transition-colors',
-                      p === page ? 'bg-amber-600 text-white font-semibold' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    )}
+                    className="ces-row-act"
+                    style={{
+                      width: 30, height: 30,
+                      background: p === page ? 'var(--ces-graphite)' : 'transparent',
+                      color: p === page ? 'var(--ces-on-primary)' : 'var(--ces-muted)',
+                      fontWeight: p === page ? 700 : 500,
+                      fontSize: 12.5,
+                    }}
                   >
                     {p + 1}
                   </button>
@@ -522,10 +507,22 @@ export default function RequestsPage() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={page >= data.totalPages - 1}
-                className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 disabled:opacity-30 transition-colors"
+                className="ces-row-act"
+                style={{ opacity: page >= data.totalPages - 1 ? 0.3 : 1 }}
               >
                 <ChevronRight size={16} />
               </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ces-muted)' }}>
+              <span>Səhifədə</span>
+              <select
+                value={size}
+                onChange={(e) => setSearchParams(p => { const n = new URLSearchParams(p); n.set('size', e.target.value); n.delete('page'); return n }, { replace: true })}
+                className="ces-select sm"
+                style={{ minWidth: 70 }}
+              >
+                {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
           </div>
         )}

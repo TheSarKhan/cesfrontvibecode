@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Info, History, FileText, User, MapPin, Calendar, Clock, Building2, Phone, Hash } from 'lucide-react'
+import { X, Info, History, FileText, User, MapPin, Calendar, Clock, Building2, Hash, ArrowRight } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
 import { clsx } from 'clsx'
@@ -11,23 +11,16 @@ const TABS = [
   { id: 'history', label: 'Tarixçə', icon: History },
 ]
 
-function InfoCard({ title, icon: Icon, children, className }) {
-  return (
-    <div className={clsx('bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 p-3.5', className)}>
-      <div className="flex items-center gap-1.5 mb-2.5">
-        {Icon && <Icon size={13} className="text-amber-500" />}
-        <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{title}</p>
-      </div>
-      {children}
-    </div>
-  )
-}
-
 function InfoField({ label, value, mono }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] text-gray-400 dark:text-gray-500">{label}</span>
-      <span className={clsx('text-xs font-medium text-gray-800 dark:text-gray-200', mono && 'font-mono')}>{value || '—'}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <span className="ces-sec-label" style={{ fontSize: 10 }}>{label}</span>
+      <span
+        className={mono ? 'mono' : undefined}
+        style={{ fontSize: 13.5, color: 'var(--ces-ink)', fontWeight: 500 }}
+      >
+        {value || <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
+      </span>
     </div>
   )
 }
@@ -43,25 +36,60 @@ function HistoryTab({ requestId }) {
       .finally(() => setLoading(false))
   }, [requestId])
 
-  if (loading) return <div className="flex justify-center py-8"><span className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" /></div>
-  if (logs.length === 0) return <p className="text-sm text-gray-400 text-center py-8">Status tarixçəsi yoxdur</p>
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 36 }}>
+        <span style={{ width: 22, height: 22, border: '2px solid var(--ces-line)', borderTopColor: 'var(--ces-gold)', borderRadius: 999, animation: 'ces-spin .8s linear infinite' }} />
+      </div>
+    )
+  }
+  if (logs.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+        <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--ces-graphite-50)', color: 'var(--ces-mute2)', display: 'inline-grid', placeItems: 'center', marginBottom: 12 }}>
+          <History size={26} />
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--ces-muted)' }}>Status tarixçəsi yoxdur</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-3">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {logs.map((log) => {
-        const from = STATUS_CFG[log.oldStatus] || { label: log.oldStatus, cls: '' }
-        const to = STATUS_CFG[log.newStatus] || { label: log.newStatus, cls: '' }
+        const from = STATUS_CFG[log.oldStatus] || { label: log.oldStatus, pill: 'ces-p-mute' }
+        const to = STATUS_CFG[log.newStatus] || { label: log.newStatus, pill: 'ces-p-mute' }
         return (
-          <div key={log.id} className="bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-100 dark:border-gray-700 p-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className={clsx('px-2 py-0.5 rounded text-[10px] font-medium border', from.cls)}>{from.label}</span>
-              <span className="text-gray-400">→</span>
-              <span className={clsx('px-2 py-0.5 rounded text-[10px] font-medium border', to.cls)}>{to.label}</span>
+          <div
+            key={log.id}
+            style={{
+              background: 'var(--ces-surface)',
+              border: '1px solid var(--ces-line)',
+              borderRadius: 12,
+              padding: '12px 14px',
+            }}
+          >
+            <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+              <span className={clsx('ces-pill sm', from.pill)}>
+                <span className="d"></span>
+                {from.label}
+              </span>
+              <ArrowRight size={12} style={{ color: 'var(--ces-mute2)' }} />
+              <span className={clsx('ces-pill sm', to.pill)}>
+                <span className="d"></span>
+                {to.label}
+              </span>
             </div>
-            {log.reason && <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{log.reason}</p>}
-            <div className="flex items-center gap-3 text-[10px] text-gray-400">
-              <span className="flex items-center gap-1"><User size={10} /> {log.changedBy}</span>
-              <span className="flex items-center gap-1"><Clock size={10} /> {fmtDate(log.changedAt)}</span>
+            {log.reason && (
+              <p style={{ fontSize: 12.5, color: 'var(--ces-graphite)', marginBottom: 6 }}>{log.reason}</p>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: 'var(--ces-muted)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <User size={11} /> {log.changedBy}
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Clock size={11} /> {fmtDate(log.changedAt)}
+              </span>
             </div>
           </div>
         )
@@ -78,125 +106,161 @@ export default function RequestSlideOver({ request, onClose }) {
 
   const status = STATUS_CFG[request.status] || STATUS_CFG.DRAFT
   const projectType = PROJECT_TYPES.find(t => t.value === request.projectType)
+  const code = request.requestCode || `REQ-${String(request.id).padStart(4, '0')}`
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white dark:bg-gray-800 shadow-2xl flex flex-col animate-slide-in-right">
+    <>
+      <div className="ces-drawer-backdrop" onClick={onClose} />
+      <div className="ces-drawer">
         {/* Header */}
-        <div className="flex items-start justify-between p-5 pb-3 border-b border-gray-100 dark:border-gray-700 shrink-0">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">
-                {request.requestCode || `REQ-${String(request.id).padStart(4, '0')}`}
-              </h2>
-              <span className={clsx('px-2 py-0.5 rounded-md text-[10px] font-medium border', status.cls)}>
+        <div className="ces-drawer-head">
+          <div className="ces-m-ic gold">
+            <FileText size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2
+              className="mono truncate"
+              style={{ fontSize: 17, fontWeight: 800, color: 'var(--ces-ink)', letterSpacing: '-.01em', margin: 0 }}
+            >
+              {code}
+            </h2>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <span className={clsx('ces-pill sm', status.pill)}>
+                <span className="d"></span>
                 {status.label}
               </span>
+              <span style={{ fontSize: 12.5, color: 'var(--ces-muted)' }}>{request.companyName}</span>
             </div>
-            <p className="text-xs text-gray-400">{request.companyName}</p>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0">
-            <X size={14} className="text-white" />
+          <button onClick={onClose} className="ces-row-act" title="Bağla">
+            <X size={16} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700 px-5 shrink-0">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={clsx(
-                'flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors',
-                tab === t.id
-                  ? 'border-amber-500 text-amber-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
-              )}
-            >
-              <t.icon size={13} />
-              {t.label}
-            </button>
-          ))}
+        <div className="ces-tabs" style={{ padding: '0 12px', overflowX: 'auto', flexWrap: 'nowrap' }}>
+          {TABS.map((t) => {
+            const Icon = t.icon
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={clsx('ces-tab', tab === t.id && 'on')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 14px', fontSize: 13 }}
+              >
+                <Icon size={14} />
+                {t.label}
+              </button>
+            )
+          })}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
+        {/* Body */}
+        <div className="ces-drawer-body" style={{ padding: 0 }}>
           {tab === 'info' && (
-            <>
-              <InfoCard title="Müştəri" icon={Building2}>
-                <div className="grid grid-cols-2 gap-3">
+            <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div>
+                <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Building2 size={11} /> Müştəri
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <InfoField label="Şirkət" value={request.companyName} />
                   <InfoField label="Müştəri ID" value={request.customerId} mono />
                   <InfoField label="Əlaqə şəxsi" value={dash(request.contactPerson)} />
-                  <InfoField label="Telefon" value={dash(request.contactPhone)} />
+                  <InfoField label="Telefon" value={dash(request.contactPhone)} mono />
                 </div>
-              </InfoCard>
+              </div>
 
-              <InfoCard title="Layihə" icon={MapPin}>
-                <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <MapPin size={11} /> Layihə
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <InfoField label="Layihə adı" value={dash(request.projectName)} />
                   <InfoField label="Bölgə" value={dash(request.region)} />
-                  <InfoField label="Sorğu tarixi" value={fmtDate(request.requestDate)} />
+                  <InfoField label="Sorğu tarixi" value={fmtDate(request.requestDate)} mono />
                   <InfoField label="Layihə tipi" value={projectType?.label || dash(request.projectType)} />
-                  <InfoField label="Müddət" value={request.dayCount ? `${request.dayCount} ${request.projectType === 'MONTHLY' ? 'ay' : 'gün'}` : '—'} />
-                  <InfoField label="Daşınma" value={request.transportationRequired ? 'Bəli' : 'Xeyr'} />
+                  <InfoField
+                    label="Müddət"
+                    value={request.dayCount ? `${request.dayCount} ${request.projectType === 'MONTHLY' ? 'ay' : 'gün'}` : '—'}
+                  />
+                  <div>
+                    <span className="ces-sec-label" style={{ fontSize: 10, display: 'block', marginBottom: 3 }}>Daşınma</span>
+                    {request.transportationRequired
+                      ? <span className="ces-pill ces-p-ok sm">Bəli</span>
+                      : <span className="ces-pill ces-p-mute sm">Xeyr</span>}
+                  </div>
                 </div>
-              </InfoCard>
+              </div>
 
               {request.selectedEquipmentName && (
-                <InfoCard title="Seçilmiş texnika" icon={Hash}>
-                  <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Hash size={11} /> Seçilmiş texnika
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <InfoField label="Ad" value={request.selectedEquipmentName} />
                     <InfoField label="Kod" value={request.selectedEquipmentCode} mono />
                   </div>
-                </InfoCard>
+                </div>
               )}
 
-              <InfoCard title="Əlavə məlumat" icon={Calendar}>
-                <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Calendar size={11} /> Əlavə məlumat
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                   <InfoField label="Yaradan" value={dash(request.createdByName)} />
-                  <InfoField label="Yaradılma tarixi" value={fmtDate(request.createdAt)} />
+                  <InfoField label="Yaradılma" value={fmtDate(request.createdAt)} mono />
                 </div>
                 {request.notes && (
-                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px dashed var(--ces-line)' }}>
                     <InfoField label="Qeyd" value={request.notes} />
                   </div>
                 )}
-              </InfoCard>
-            </>
+              </div>
+            </div>
           )}
 
           {tab === 'params' && (
-            <>
+            <div style={{ padding: 22 }}>
               {(!request.params || request.params.length === 0) ? (
-                <p className="text-sm text-gray-400 text-center py-8">Texniki parametr yoxdur</p>
+                <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--ces-graphite-50)', color: 'var(--ces-mute2)', display: 'inline-grid', placeItems: 'center', marginBottom: 12 }}>
+                    <FileText size={26} />
+                  </div>
+                  <p style={{ fontSize: 13.5, color: 'var(--ces-muted)' }}>Texniki parametr yoxdur</p>
+                </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <table className="w-full">
+                <div className="ces-table-wrap" style={{ boxShadow: 'none' }}>
+                  <table className="ces-tbl">
                     <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-750 border-b border-gray-100 dark:border-gray-700">
-                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Parametr</th>
-                        <th className="text-left py-2.5 px-4 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Dəyər</th>
+                      <tr>
+                        <th>Parametr</th>
+                        <th className="r">Dəyər</th>
                       </tr>
                     </thead>
                     <tbody>
                       {request.params.map((p, i) => (
-                        <tr key={i} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
-                          <td className="py-2 px-4 text-xs font-medium text-gray-700 dark:text-gray-300">{p.paramKey}</td>
-                          <td className="py-2 px-4 text-xs text-gray-600 dark:text-gray-400">{p.paramValue}</td>
+                        <tr key={i}>
+                          <td style={{ fontSize: 13, fontWeight: 600, color: 'var(--ces-ink)' }}>{p.paramKey}</td>
+                          <td className="r mono" style={{ fontSize: 13, color: 'var(--ces-muted)' }}>{p.paramValue}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </>
+            </div>
           )}
 
-          {tab === 'history' && <HistoryTab requestId={request.id} />}
+          {tab === 'history' && (
+            <div style={{ padding: 22 }}>
+              <HistoryTab requestId={request.id} />
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </>
   )
 }

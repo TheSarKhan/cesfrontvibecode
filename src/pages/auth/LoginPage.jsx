@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
-import { Eye, EyeOff, LogIn } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, CheckCircle2, AlertCircle, Lock, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const SESSION_KEY = 'login_form_draft'
@@ -19,12 +19,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [emailFocused, setEmailFocused] = useState(false)
+  const [passwordFocused, setPasswordFocused] = useState(false)
+
   const login = useAuthStore((s) => s.login)
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
-    // Reset password səhifəsindən gələn state-i yoxla
     if (location.state?.showSuccessMessage) {
       setShowSuccess(true)
       window.history.replaceState({}, document.title)
@@ -54,152 +56,378 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* ── Left panel (FORM) - full width on mobile, 50% on desktop ── */}
-      <div className="flex flex-col justify-between w-full lg:w-1/2 px-6 sm:px-8 md:px-12 py-8 sm:py-10 bg-white order-1 lg:order-1">
-        {/* Logo */}
-        <div className="flex items-center gap-2 mb-6 sm:mb-0">
-          <img
-            src="../../../../public/e8e0f0a3bd7902466f6cdf7793af03199b95dce7 (1).png"
-            alt="CES Logo"
-            className="h-8 sm:h-10 w-auto object-contain"
-          />
+    <div
+      className="ces-font min-h-screen flex flex-col lg:flex-row"
+      style={{ background: 'var(--ces-bg)', color: 'var(--ces-ink)' }}
+    >
+      {/* ═══════════════════════════════════════════════
+          LEFT PANEL — FORM
+      ═══════════════════════════════════════════════ */}
+      <div
+        className="relative flex flex-col w-full lg:w-[55%] xl:w-1/2 px-6 sm:px-10 md:px-16 lg:px-20 py-8 lg:py-10 order-1"
+        style={{ background: 'var(--ces-surface)' }}
+      >
+        {/* Top brand row — UI kit .kit-logo pattern (white bg, padded) */}
+        <div className="flex items-center gap-3 mb-10 lg:mb-12">
+          <div
+            className="w-[46px] h-[46px] grid place-items-center p-1 flex-none"
+            style={{
+              background: 'var(--ces-surface)',
+              borderRadius: '10px',
+              border: '1px solid var(--ces-line)',
+            }}
+          >
+            <img
+              src="/e8e0f0a3bd7902466f6cdf7793af03199b95dce7 (1).png"
+              alt="CES"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div>
+            <p className="text-[15px] font-extrabold tracking-tight leading-tight" style={{ color: 'var(--ces-ink)' }}>
+              Construction <span style={{ color: 'var(--ces-gold)' }}>Equipment</span> Services
+            </p>
+            <p className="text-[11px] tracking-[.06em] uppercase" style={{ color: 'var(--ces-muted)' }}>
+              ERP Platforma · Bakı, AZ
+            </p>
+          </div>
         </div>
 
-        {/* Main content */}
-        <div className="w-full max-w-md mx-auto my-6 sm:my-8 lg:my-0">
-          {/* Əgər reset password uğurludursa, başlıq dəyişir */}
-          {showSuccess ? (
-            <>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-snug mb-2">
-                Təbriklər, şifrə yeniləndi!
-              </h1>
-              <p className="text-sm text-gray-500 mb-6 sm:mb-8">
-                Daxil olmaq üçün yeni şifrənizdən istifadə edin
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-snug mb-2">
-                Rəqəmsal ekosistemimizə,<br />
-                <span className="text-gray-900">xoş gəldin.</span>
-              </h1>
-              <p className="text-sm text-gray-500 mb-6 sm:mb-8">
-                Başlamaq üçün aşağıda kimlik xanalarını doldurun
-              </p>
-            </>
-          )}
+        {/* Center: form */}
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="w-full max-w-[420px] mx-auto">
 
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 tracking-wide uppercase">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={form.email}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, email: e.target.value }))
-                  setError('')
-                }}
-                placeholder="email@domain.com"
-                className={`w-full border ${error ? 'border-red-500' : 'border-gray-200'} rounded-md px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition`}
-              />
-            </div>
+            {/* Section pre-title */}
+            <p
+              className="text-[11px] font-semibold tracking-[.16em] uppercase mb-3"
+              style={{ color: 'var(--ces-gold)' }}
+            >
+              {showSuccess ? 'Şifrə yeniləndi' : 'Daxil ol'}
+            </p>
 
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 tracking-wide uppercase">
-                Şifrə
-              </label>
-              <div className="relative">
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  required
-                  autoComplete="current-password"
-                  value={form.password}
-                  onChange={(e) => {
-                    setForm((f) => ({ ...f, password: e.target.value }))
-                    setError('')
-                  }}
-                  placeholder="••••••••••••"
-                  className={`w-full border ${error ? 'border-red-500' : 'border-gray-200'} rounded-md px-3.5 py-2.5 text-sm pr-10 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            {/* Hero title */}
+            {showSuccess ? (
+              <>
+                <h1
+                  className="text-[36px] sm:text-[40px] font-extrabold tracking-[-.022em] leading-[1.05] mb-3"
+                  style={{ color: 'var(--ces-ink)' }}
                 >
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Xəta mesajı - rəng #B0B0B0 */}
-            {error && (
-              <div className="text-sm" style={{ color: '#B0B0B0' }}>
-                {error}
-              </div>
+                  Təbriklər,<br />
+                  <span style={{ color: 'var(--ces-gold)' }}>şifrə yeniləndi.</span>
+                </h1>
+                <p className="text-[15px] leading-[1.55] mb-10" style={{ color: 'var(--ces-muted)' }}>
+                  Daxil olmaq üçün yeni şifrənizdən istifadə edin.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1
+                  className="text-[36px] sm:text-[40px] font-extrabold tracking-[-.022em] leading-[1.05] mb-3"
+                  style={{ color: 'var(--ces-ink)' }}
+                >
+                  Yenidən xoş <span style={{ color: 'var(--ces-gold)' }}>gəldin.</span>
+                </h1>
+                <p className="text-[15px] leading-[1.55] mb-10" style={{ color: 'var(--ces-muted)' }}>
+                  Hesabınıza daxil olun və işinizi davam etdirin.
+                </p>
+              </>
             )}
 
-            {/* Şifrəmi unutmuşam - Daxil ol buttonunun ÜSTÜNDƏ, rəng #2A86FF */}
-            <div className="text-right">
-              <button
-                type="button"
-                onClick={goToForgotPassword}
-                className="text-sm transition-colors bg-transparent border-none p-0 cursor-pointer"
-                style={{ color: '#2A86FF' }}
-              >
-                Şifrəmi unutmuşam
-              </button>
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-semibold py-2.5 rounded-md transition-colors text-sm"
-            >
-              {loading ? (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <LogIn size={16} />
+              {/* ─── EMAIL ─── */}
+              <div>
+                <label className="block text-[13px] font-semibold mb-[7px]" style={{ color: 'var(--ces-ink)' }}>
+                  Email <span style={{ color: 'var(--ces-danger)' }}>*</span>
+                </label>
+                <div
+                  className="flex items-center px-[13px] transition-all"
+                  style={{
+                    background: 'var(--ces-surface)',
+                    border: `1px solid ${error ? 'var(--ces-danger)' : emailFocused ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
+                    borderRadius: '11px',
+                    minHeight: '48px',
+                    boxShadow: error
+                      ? '0 0 0 3px rgba(212,56,90,.12)'
+                      : emailFocused
+                      ? '0 0 0 3px rgba(58,58,58,.1)'
+                      : 'none',
+                  }}
+                >
+                  <Mail size={16} style={{ color: 'var(--ces-mute2)' }} className="mr-2 flex-none" />
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={form.email}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, email: e.target.value }))
+                      setError('')
+                    }}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                    placeholder="email@domain.com"
+                    className="flex-1 border-0 outline-0 bg-transparent text-[14px] py-[11px] w-full"
+                    style={{ color: 'var(--ces-ink)' }}
+                  />
+                </div>
+              </div>
+
+              {/* ─── PASSWORD ─── */}
+              <div>
+                <div className="flex items-baseline justify-between mb-[7px]">
+                  <label className="text-[13px] font-semibold" style={{ color: 'var(--ces-ink)' }}>
+                    Şifrə <span style={{ color: 'var(--ces-danger)' }}>*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={goToForgotPassword}
+                    className="text-[12px] font-semibold transition-colors bg-transparent border-0 p-0 cursor-pointer hover:opacity-80"
+                    style={{ color: 'var(--ces-graphite)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ces-gold)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ces-graphite)')}
+                  >
+                    Unutmuşam?
+                  </button>
+                </div>
+                <div
+                  className="flex items-center px-[13px] transition-all"
+                  style={{
+                    background: 'var(--ces-surface)',
+                    border: `1px solid ${error ? 'var(--ces-danger)' : passwordFocused ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
+                    borderRadius: '11px',
+                    minHeight: '48px',
+                    boxShadow: error
+                      ? '0 0 0 3px rgba(212,56,90,.12)'
+                      : passwordFocused
+                      ? '0 0 0 3px rgba(58,58,58,.1)'
+                      : 'none',
+                  }}
+                >
+                  <Lock size={16} style={{ color: 'var(--ces-mute2)' }} className="mr-2 flex-none" />
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={form.password}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, password: e.target.value }))
+                      setError('')
+                    }}
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
+                    placeholder="••••••••••••"
+                    className="flex-1 border-0 outline-0 bg-transparent text-[14px] py-[11px] w-full"
+                    style={{ color: 'var(--ces-ink)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass((v) => !v)}
+                    className="ml-2 flex-none p-1 rounded transition-colors"
+                    style={{ color: 'var(--ces-mute2)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ces-graphite)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ces-mute2)')}
+                  >
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* ─── ERROR MESSAGE ─── */}
+              {error && (
+                <div
+                  className="flex items-start gap-2 text-[12px] font-semibold px-3 py-2 rounded-[10px]"
+                  style={{
+                    color: 'var(--ces-danger)',
+                    background: 'rgba(212,56,90,.06)',
+                    border: '1px solid rgba(212,56,90,.18)',
+                  }}
+                >
+                  <AlertCircle size={14} className="flex-none mt-0.5" />
+                  <span className="leading-snug">{error}</span>
+                </div>
               )}
-              {loading ? 'Giriş edilir...' : 'Daxil ol'}
-            </button>
-          </form>
+
+              {/* ─── SUBMIT BUTTON (Graphite — UI kit btn-primary) ─── */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 font-semibold text-[15px] py-[14px] rounded-[12px] transition-all disabled:opacity-60"
+                style={{
+                  background: 'var(--ces-graphite)',
+                  color: 'var(--ces-on-primary)',
+                }}
+                onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'var(--ces-graphite-900)')}
+                onMouseLeave={(e) => !loading && (e.currentTarget.style.background = 'var(--ces-graphite)')}
+              >
+                {loading ? (
+                  <>
+                    <span
+                      className="w-4 h-4 rounded-full animate-spin"
+                      style={{
+                        border: '2px solid rgba(255,255,255,.3)',
+                        borderTopColor: 'var(--ces-on-primary)',
+                      }}
+                    />
+                    Giriş edilir...
+                  </>
+                ) : (
+                  <>
+                    Daxil ol
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+
+              {/* ─── SUCCESS BANNER (reset password done) ─── */}
+              {showSuccess && (
+                <div
+                  className="flex items-start gap-2 text-[12px] font-semibold px-3 py-2 rounded-[10px]"
+                  style={{
+                    color: 'var(--ces-ok)',
+                    background: 'rgba(15,157,106,.06)',
+                    border: '1px solid rgba(15,157,106,.18)',
+                  }}
+                >
+                  <CheckCircle2 size={14} className="flex-none mt-0.5" />
+                  <span className="leading-snug">Şifrəniz uğurla yeniləndi. İndi daxil ola bilərsiniz.</span>
+                </div>
+              )}
+            </form>
+
+            {/* Help row under form */}
+            <div
+              className="mt-8 pt-6 border-t text-[12px] flex items-center justify-between"
+              style={{ borderColor: 'var(--ces-line)', color: 'var(--ces-muted)' }}
+            >
+              <span>Sistemə dəstək lazımdırsa?</span>
+              <a
+                href="mailto:support@ces.az"
+                className="font-semibold transition-colors"
+                style={{ color: 'var(--ces-graphite)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ces-gold)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ces-graphite)')}
+              >
+                support@ces.az →
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
-        <p className="text-xs text-gray-400 text-center mt-6 sm:mt-0">
-          © {new Date().getFullYear()} CES. Bütün hüquqlar qorunur.
+        <p
+          className="text-[11px] tracking-wide text-center mt-8"
+          style={{ color: 'var(--ces-mute2)' }}
+        >
+          © {new Date().getFullYear()} Construction Equipment Services · Bütün hüquqlar qorunur
         </p>
       </div>
 
-      {/* ── Right panel (IMAGE) - visible on all devices, responsive height ── */}
-      <div className="w-full lg:w-1/2 relative min-h-[300px] sm:min-h-[400px] lg:min-h-screen order-2 lg:order-2">
+      {/* ═══════════════════════════════════════════════
+          RIGHT PANEL — BRAND VISUAL
+      ═══════════════════════════════════════════════ */}
+      <div
+        className="relative w-full lg:w-[45%] xl:w-1/2 min-h-[300px] sm:min-h-[400px] lg:min-h-screen order-2 overflow-hidden"
+        style={{ background: 'var(--ces-brand-bg)' }}
+      >
+        {/* Background image with overlay */}
         <img
-          src="../../../../public/d1461a66d8f109fcfb98e6ee584a296930495032 (1).jpg"
+          src="/d1461a66d8f109fcfb98e6ee584a296930495032 (1).jpg"
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover opacity-40"
           style={{ objectPosition: '100% 50%' }}
         />
-        {/* Dark overlay for contrast */}
-        <div className="absolute inset-0 bg-black/40" />
 
-        {/* Bottom caption – responsive padding and text size */}
-        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 text-white text-xs sm:text-sm leading-relaxed">
-          <div 
-            className="max-w-2xl mx-auto px-4 sm:px-6 py-3 sm:py-4 rounded-lg backdrop-blur-lg"
-            style={{ backgroundColor: '#FFFFFF3D' }}
-          >
-            <p className="opacity-90 text-center text-xs sm:text-sm">
-              CES ilə bir platforma üzərindən müştərilərə, avadanlıqlara, layihələrə
-              və əməkdaşlara nəzarət edin.
+        {/* Gradient overlay — graphite to transparent */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(38,38,38,.85) 0%, rgba(58,58,58,.55) 50%, rgba(26,26,26,.85) 100%)',
+          }}
+        />
+
+        {/* Subtle grid pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+          }}
+        />
+
+        {/* Content overlay */}
+        <div className="relative h-full flex flex-col justify-between p-10 lg:p-14 xl:p-20">
+
+          {/* Top corner — version/status badge */}
+          <div className="flex items-center gap-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{
+                background: 'var(--ces-gold)',
+                boxShadow: '0 0 0 4px rgba(200,147,42,.25)',
+              }}
+            />
+            <span
+              className="text-[11px] font-semibold tracking-[.14em] uppercase"
+              style={{ color: 'rgba(255,255,255,.85)' }}
+            >
+              Sistem aktiv · v1.0
+            </span>
+          </div>
+
+          {/* Middle — brand statement */}
+          <div className="max-w-[560px]">
+            <p
+              className="text-[12px] font-semibold tracking-[.18em] uppercase mb-5"
+              style={{ color: 'var(--ces-gold)' }}
+            >
+              CES ERP — 2026
             </p>
+            <h2
+              className="text-[40px] lg:text-[48px] xl:text-[56px] font-extrabold tracking-[-.022em] leading-[1.05] mb-5"
+              style={{ color: '#fff' }}
+            >
+              Texnika, layihə və<br />
+              <span style={{ color: 'var(--ces-gold)' }}>maliyyə</span> bir<br />
+              platformada.
+            </h2>
+            <p
+              className="text-[16px] lg:text-[17px] leading-[1.55] max-w-[480px]"
+              style={{ color: 'rgba(255,255,255,.75)' }}
+            >
+              Ayrı cədvəllər, paralel WhatsApp qrupları, itən sənədlər —
+              hamısı bir interfeysə yığılır.
+            </p>
+          </div>
+
+          {/* Bottom — stats strip */}
+          <div className="grid grid-cols-3 gap-6 lg:gap-10 pt-8 border-t border-white/15">
+            <div>
+              <p className="text-[28px] lg:text-[32px] font-extrabold tracking-tight leading-none" style={{ color: '#fff' }}>
+                17
+              </p>
+              <p className="text-[11px] font-semibold tracking-[.1em] uppercase mt-2" style={{ color: 'rgba(255,255,255,.6)' }}>
+                Modul
+              </p>
+            </div>
+            <div>
+              <p className="text-[28px] lg:text-[32px] font-extrabold tracking-tight leading-none" style={{ color: 'var(--ces-gold)' }}>
+                Sürətli
+              </p>
+              <p className="text-[11px] font-semibold tracking-[.1em] uppercase mt-2" style={{ color: 'rgba(255,255,255,.6)' }}>
+                proses
+              </p>
+            </div>
+            <div>
+              <p className="text-[28px] lg:text-[32px] font-extrabold tracking-tight leading-none" style={{ color: '#fff' }}>
+                Sadə
+              </p>
+              <p className="text-[11px] font-semibold tracking-[.1em] uppercase mt-2" style={{ color: 'rgba(255,255,255,.6)' }}>
+                interfeys
+              </p>
+            </div>
           </div>
         </div>
       </div>

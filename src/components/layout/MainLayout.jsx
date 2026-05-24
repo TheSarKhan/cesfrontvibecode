@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useNotifications } from '../../hooks/useNotifications'
 
 function getPageTitle(pathname) {
+  if (pathname.startsWith('/profile')) return 'Profil'
   const match = NAV_ITEMS.find((item) =>
     item.path === '/' ? pathname === '/' : pathname.startsWith(item.path)
   )
@@ -31,7 +32,10 @@ export default function MainLayout() {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div
+      className="flex h-screen overflow-hidden transition-colors"
+      style={{ background: 'var(--ces-bg)' }}
+    >
       <div className="hidden sm:flex">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { Plus, Pencil, Trash2, Search, Building2, Download, Eye } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Building2, Download, Eye, Users, ShieldAlert, CheckCircle2 } from 'lucide-react'
 import { customersApi } from '../../api/customers'
 import { useAuthStore } from '../../store/authStore'
 import CustomerModal from './CustomerModal'
@@ -17,25 +17,25 @@ import { useColumnStore } from '../../store/columnStore'
 import Pagination from '../../components/common/Pagination'
 
 const RISK_CONFIG = {
-  LOW:    { label: 'Aşağı',   cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  MEDIUM: { label: 'Orta',    cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800' },
-  HIGH:   { label: 'Yüksək', cls: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800' },
+  LOW:    { label: 'Aşağı',  pill: 'ces-p-ok' },
+  MEDIUM: { label: 'Orta',   pill: 'ces-p-warn' },
+  HIGH:   { label: 'Yüksək', pill: 'ces-p-danger' },
 }
 
 const STATUS_CONFIG = {
-  ACTIVE:   { label: 'Aktiv',     cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800' },
-  PASSIVE:  { label: 'Passiv',    cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600' },
-  VARIABLE: { label: 'Dəyişkən', cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' },
+  ACTIVE:   { label: 'Aktiv',     pill: 'ces-p-ok' },
+  PASSIVE:  { label: 'Passiv',    pill: 'ces-p-mute' },
+  VARIABLE: { label: 'Dəyişkən',  pill: 'ces-p-info' },
 }
 
 const PAYMENT_LABEL = { CASH: 'Nağd', TRANSFER: 'Köçürmə' }
 
 function PaymentBadges({ types }) {
-  if (!types || types.length === 0) return <span className="text-gray-400 text-xs">—</span>
+  if (!types || types.length === 0) return <span className="text-[var(--ces-mute2)] text-xs">—</span>
   return (
     <div className="flex flex-wrap gap-1">
       {[...types].map((t) => (
-        <span key={t} className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+        <span key={t} className="ces-pill ces-p-mute sm">
           {PAYMENT_LABEL[t] || t}
         </span>
       ))}
@@ -84,8 +84,8 @@ export default function CustomersPage() {
       const res = await customersApi.getAllPaged(params)
       setData(res.data.data || res.data)
       setSelectedIds(new Set())
-    } catch {
-      toast.error('Müştərilər yüklənmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Müştərilər yüklənmədi')
     } finally {
       setLoading(false)
     }
@@ -93,7 +93,6 @@ export default function CustomersPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Search command palette-dən gələn ?open=id param-ı idarə et
   useEffect(() => {
     const openId = searchParams.get('open')
     if (!openId) return
@@ -115,8 +114,8 @@ export default function CustomersPage() {
       toast.success(`${selectedIds.size} element silindi`)
       setSelectedIds(new Set())
       load()
-    } catch {
-      toast.error('Silinmə zamanı xəta baş verdi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Silinmə zamanı xəta baş verdi')
     } finally {
       setBulkLoading(false)
     }
@@ -165,26 +164,37 @@ export default function CustomersPage() {
     XLSX.writeFile(wb, 'musteriler.xlsx')
   }
 
+  const activeCount  = data.content.filter(c => c.status === 'ACTIVE').length
+  const passiveCount = data.content.filter(c => c.status === 'PASSIVE').length
+  const highRisk     = data.content.filter(c => c.riskLevel === 'HIGH').length
+
+  const chips = [
+    { label: 'Hamısı',       status: '',         risk: '' },
+    { label: 'Aktiv',        status: 'ACTIVE',   risk: '' },
+    { label: 'Passiv',       status: 'PASSIVE',  risk: '' },
+    { label: 'Yüksək risk',  status: '',         risk: 'HIGH' },
+    { label: 'Orta risk',    status: '',         risk: 'MEDIUM' },
+  ]
+
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Müştərilər</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} müştəri</p>
+          <h1 className="ces-page-title">Müştərilər</h1>
+          <p className="ces-page-sub">
+            {data.totalElements} müştəri qeydiyyatda
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={exportExcel}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            <Download size={13} />
-            Excel
+          <button onClick={exportExcel} className="ces-btn ces-btn-outline">
+            <Download size={15} />
+            Excel-ə yüklə
           </button>
           {canCreate && (
             <button
               onClick={() => setModal({ open: true, editing: null })}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="ces-btn ces-btn-primary"
             >
               <Plus size={16} />
               Yeni müştəri
@@ -193,33 +203,41 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        {[
-          { label: 'Cəmi',        value: data.totalElements, color: 'bg-gray-500' },
-          { label: 'Aktiv',       value: data.content.filter(c => c.status === 'ACTIVE').length,   color: 'bg-green-500' },
-          { label: 'Passiv',      value: data.content.filter(c => c.status === 'PASSIVE').length,  color: 'bg-gray-400' },
-          { label: 'Yüksək risk', value: data.content.filter(c => c.riskLevel === 'HIGH').length,  color: 'bg-red-500' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
-            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${stat.color}`} />
-            <div>
-              <p className="text-[11px] text-gray-400">{stat.label}</p>
-              <p className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight">{stat.value}</p>
-            </div>
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Cəmi</span>
+            <span className="ces-kpi-ic gold"><Users size={18} /></span>
           </div>
-        ))}
+          <div className="ces-kpi-val">{data.totalElements}</div>
+        </div>
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Aktiv</span>
+            <span className="ces-kpi-ic ok"><CheckCircle2 size={18} /></span>
+          </div>
+          <div className="ces-kpi-val">{activeCount}</div>
+        </div>
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Passiv</span>
+            <span className="ces-kpi-ic"><Building2 size={18} /></span>
+          </div>
+          <div className="ces-kpi-val">{passiveCount}</div>
+        </div>
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Yüksək risk</span>
+            <span className="ces-kpi-ic danger"><ShieldAlert size={18} /></span>
+          </div>
+          <div className="ces-kpi-val">{highRisk}</div>
+        </div>
       </div>
 
-      {/* Quick filter chips */}
-      <div className="flex flex-wrap gap-2 mb-3">
-        {[
-          { label: 'Hamısı', status: '', risk: '' },
-          { label: 'Aktiv',  status: 'ACTIVE', risk: '' },
-          { label: 'Passiv', status: 'PASSIVE', risk: '' },
-          { label: 'Yüksək risk', status: '', risk: 'HIGH' },
-          { label: 'Orta risk',   status: '', risk: 'MEDIUM' },
-        ].map(chip => {
+      {/* Quick filter chips (kit-segment style) */}
+      <div className="ces-seg mb-4">
+        {chips.map(chip => {
           const active = statusFilter === chip.status && riskFilter === chip.risk
           return (
             <button
@@ -231,12 +249,7 @@ export default function CustomersPage() {
                 n.delete('page')
                 return n
               }, { replace: true })}
-              className={clsx(
-                'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
-                active
-                  ? 'bg-amber-500 text-white border-amber-500'
-                  : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-400 hover:text-amber-600'
-              )}
+              className={active ? 'on' : ''}
             >
               {chip.label}
             </button>
@@ -245,21 +258,21 @@ export default function CustomersPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="flex flex-wrap gap-3 mb-5 items-center">
+        <div className="ces-input has-icon sm flex-1 min-w-[240px]">
+          <Search size={15} />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Şirkət adı, VÖEN, məsul şəxs..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="ces-select sm"
+          style={{ minWidth: 160 }}
         >
           <option value="">Bütün statuslar</option>
           <option value="ACTIVE">Aktiv</option>
@@ -269,7 +282,8 @@ export default function CustomersPage() {
         <select
           value={riskFilter}
           onChange={(e) => setRiskFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="ces-select sm"
+          style={{ minWidth: 160 }}
         >
           <option value="">Bütün risklər</option>
           <option value="LOW">Aşağı risk</option>
@@ -281,22 +295,24 @@ export default function CustomersPage() {
 
       {/* Bulk action toolbar */}
       {canDelete && selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl mb-3">
-          <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+        <div className="ces-alert gold mb-4">
+          <div className="ces-al-ic"><CheckCircle2 size={18} /></div>
+          <div className="flex-1 text-sm font-semibold text-[var(--ces-graphite)]">
             {selectedIds.size} element seçildi
-          </span>
-          <div className="flex-1" />
+          </div>
           <button
             onClick={handleBulkDelete}
             disabled={bulkLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+            className="ces-btn ces-btn-danger ces-btn-sm"
           >
-            {bulkLoading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
-            Seçilənləri sil ({selectedIds.size})
+            {bulkLoading
+              ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Trash2 size={14} />}
+            Seçilənləri sil
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="ces-btn ces-btn-ghost ces-btn-sm"
           >
             Ləğv et
           </button>
@@ -304,35 +320,25 @@ export default function CustomersPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="ces-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="ces-tbl" style={{ minWidth: 900 }}>
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="px-4 py-3 w-10">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer" />
+              <tr>
+                <th className="w-chk">
+                  <label className="ces-chk">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                    <span className="ces-cb"></span>
+                  </label>
                 </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Şirkət adı
-                </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  VÖEN
-                </th>
-                {isVisible('customers', 'phone') && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Təchizatçı</th>}
-                {isVisible('customers', 'contactPerson') && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ofis məsul</th>}
-                {isVisible('customers', 'address') && <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ödəniş</th>}
-                {isVisible('customers', 'risk') && (
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Risk
-                  </th>
-                )}
-                {isVisible('customers', 'status') && (
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Status
-                  </th>
-                )}
-                <th className="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide text-right">Əməliyyat</th>
+                <th>Şirkət adı</th>
+                <th>VÖEN</th>
+                {isVisible('customers', 'phone')         && <th>Təchizatçı</th>}
+                {isVisible('customers', 'contactPerson') && <th>Ofis məsul</th>}
+                {isVisible('customers', 'address')       && <th>Ödəniş</th>}
+                {isVisible('customers', 'risk')          && <th>Risk</th>}
+                {isVisible('customers', 'status')        && <th>Status</th>}
+                <th className="r">Əməliyyat</th>
               </tr>
             </thead>
             <tbody>
@@ -354,72 +360,66 @@ export default function CustomersPage() {
                     <tr
                       key={c.id}
                       onClick={() => setSlideOver(c)}
-                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors cursor-pointer"
+                      style={{ cursor: 'pointer' }}
                     >
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)}
-                          className="w-4 h-4 accent-amber-500 cursor-pointer" />
+                      <td onClick={e => e.stopPropagation()}>
+                        <label className="ces-chk">
+                          <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} />
+                          <span className="ces-cb"></span>
+                        </label>
                       </td>
-                      <td className="py-3 px-4" title={c.companyName}>
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.companyName}</p>
-                        {c.address && <p className="text-xs text-gray-400 truncate max-w-[160px]" title={c.address}>{c.address}</p>}
+                      <td title={c.companyName}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-ink)' }}>{c.companyName}</div>
+                        {c.address && (
+                          <div className="truncate" style={{ fontSize: 12, color: 'var(--ces-muted)', maxWidth: 200 }} title={c.address}>
+                            {c.address}
+                          </div>
+                        )}
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{c.voen || '—'}</td>
+                      <td className="mono" style={{ color: 'var(--ces-muted)' }}>{c.voen || '—'}</td>
                       {isVisible('customers', 'phone') && (
-                        <td className="py-3 px-4" title={[c.supplierPerson, c.supplierPhone].filter(Boolean).join(' · ')}>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{c.supplierPerson || '—'}</p>
-                          {c.supplierPhone && <p className="text-xs text-gray-400">{c.supplierPhone}</p>}
+                        <td title={[c.supplierPerson, c.supplierPhone].filter(Boolean).join(' · ')}>
+                          <div style={{ color: 'var(--ces-ink)' }}>{c.supplierPerson || '—'}</div>
+                          {c.supplierPhone && <div className="mono" style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{c.supplierPhone}</div>}
                         </td>
                       )}
                       {isVisible('customers', 'contactPerson') && (
-                        <td className="py-3 px-4" title={[c.officeContactPerson, c.officeContactPhone].filter(Boolean).join(' · ')}>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{c.officeContactPerson || '—'}</p>
-                          {c.officeContactPhone && <p className="text-xs text-gray-400">{c.officeContactPhone}</p>}
+                        <td title={[c.officeContactPerson, c.officeContactPhone].filter(Boolean).join(' · ')}>
+                          <div style={{ color: 'var(--ces-ink)' }}>{c.officeContactPerson || '—'}</div>
+                          {c.officeContactPhone && <div className="mono" style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{c.officeContactPhone}</div>}
                         </td>
                       )}
                       {isVisible('customers', 'address') && (
-                        <td className="py-3 px-4">
-                          <PaymentBadges types={c.paymentTypes} />
-                        </td>
+                        <td><PaymentBadges types={c.paymentTypes} /></td>
                       )}
                       {isVisible('customers', 'risk') && (
-                        <td className="py-3 px-4">
-                          <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', risk.cls)}>
+                        <td>
+                          <span className={clsx('ces-pill sm', risk.pill)}>
+                            <span className="d"></span>
                             {risk.label}
                           </span>
                         </td>
                       )}
                       {isVisible('customers', 'status') && (
-                        <td className="py-3 px-4">
-                          <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', status.cls)}>
+                        <td>
+                          <span className={clsx('ces-pill sm', status.pill)}>
+                            <span className="d"></span>
                             {status.label}
                           </span>
                         </td>
                       )}
-                      <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                      <td onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 justify-end">
-                          <button
-                            onClick={() => setSlideOver(c)}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-blue-500 transition-colors"
-                            title="Bax"
-                          >
+                          <button onClick={() => setSlideOver(c)} className="ces-row-act info" title="Bax">
                             <Eye size={15} />
                           </button>
                           {canEdit && (
-                            <button
-                              onClick={() => setModal({ open: true, editing: c })}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
-                              title="Redaktə et"
-                            >
+                            <button onClick={() => setModal({ open: true, editing: c })} className="ces-row-act gold" title="Redaktə et">
                               <Pencil size={15} />
                             </button>
                           )}
                           {canDelete && (
-                            <button
-                              onClick={() => handleDelete(c)}
-                              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                              title="Sil"
-                            >
+                            <button onClick={() => handleDelete(c)} className="ces-row-act danger" title="Sil">
                               <Trash2 size={15} />
                             </button>
                           )}

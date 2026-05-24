@@ -1,105 +1,147 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, Plus, CheckCircle2, Pencil, Trash2 } from 'lucide-react'
+import { Settings, Plus, CheckCircle2, Pencil, Trash2, ArrowLeft, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import TaxConfigModal from './TaxConfigModal'
+import { PageHeader, Pill } from './_shared'
+import { pct } from './_constants'
 
 export default function TaxConfigPage() {
   const navigate = useNavigate()
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canCreate = hasPermission('HR_MANAGEMENT', 'canPost')
-  const canEdit = hasPermission('HR_MANAGEMENT', 'canPut')
+  const canEdit   = hasPermission('HR_MANAGEMENT', 'canPut')
   const canDelete = hasPermission('HR_MANAGEMENT', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const [list, setList] = useState([])
+  const [list, setList]     = useState([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState({ open: false, editing: null })
+  const [modal, setModal]   = useState({ open: false, editing: null })
 
   const load = async () => {
     setLoading(true)
     try { setList((await hrApi.getTaxRates()).data?.data ?? []) }
-    catch { toast.error('Yüklənmədi') } finally { setLoading(false) }
+    catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Yüklənmədi') }
+    finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
 
   const activate = async (cfg) => {
     if (!(await confirm({ title: 'Aktivləşdir', message: `${cfg.year} ili tarifi aktiv tarif kimi seçilsin?` }))) return
-    try { await hrApi.activateTaxRate(cfg.id); toast.success('Aktivləşdirildi'); load() } catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
+    try { await hrApi.activateTaxRate(cfg.id); toast.success('Aktivləşdirildi'); load() }
+    catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
   }
   const remove = async (cfg) => {
     if (!(await confirm({ title: 'Sil', message: `${cfg.year} ili tarifini silmək istəyirsiniz?` }))) return
-    try { await hrApi.deleteTaxRate(cfg.id); toast.success('Silindi'); load() } catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
+    try { await hrApi.deleteTaxRate(cfg.id); toast.success('Silindi'); load() }
+    catch (e) { toast.error(e?.response?.data?.message || 'Xəta') }
   }
 
   return (
-    <div>
+    <div style={{ color: 'var(--ces-ink)' }}>
       <ConfirmDialog />
 
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <Settings size={22} className="text-violet-600" />
-            Vergi Tarifləri
-          </h1>
-          <p className="text-xs text-gray-400 mt-0.5">İllik vergi və sığorta faizləri</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate('/hr')} className="px-3 py-2 text-xs font-medium text-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50">← HR</button>
-          {canCreate && (
-            <button onClick={() => setModal({ open: true, editing: null })} className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-              <Plus size={16} /> Yeni il
+      <PageHeader
+        eyebrow="HR · Tariflər"
+        title="Vergi və sığorta tarifləri"
+        subtitle="İllik vergi və sığorta faizlərinin konfiqurasiyası"
+        right={
+          <>
+            <button onClick={() => navigate('/hr')} className="ces-btn ces-btn-outline ces-btn-sm">
+              <ArrowLeft size={14} /> HR
             </button>
-          )}
-        </div>
-      </div>
+            {canCreate && (
+              <button onClick={() => setModal({ open: true, editing: null })} className="ces-btn ces-btn-primary">
+                <Plus size={16} /> Yeni il
+              </button>
+            )}
+          </>
+        }
+      />
 
       {loading ? (
-        <div className="text-center py-10 text-gray-400">Yüklənir...</div>
+        <div className="flex items-center justify-center h-48 gap-2" style={{ color: 'var(--ces-muted)' }}>
+          <span className="w-4 h-4 rounded-full animate-spin"
+            style={{ border: '2px solid var(--ces-line)', borderTopColor: 'var(--ces-gold)' }} />
+          <span className="text-[13px] font-medium">Yüklənir...</span>
+        </div>
       ) : list.length === 0 ? (
-        <div className="text-center py-10 text-gray-400">Hələ heç bir tarif yoxdur</div>
+        <div
+          className="text-center py-16"
+          style={{
+            background: 'var(--ces-surface)',
+            border: '1px solid var(--ces-line)',
+            borderRadius: 'var(--ces-radius-lg)',
+          }}
+        >
+          <div
+            className="w-12 h-12 rounded-2xl mx-auto mb-3 grid place-items-center"
+            style={{ background: 'var(--ces-graphite-50)' }}
+          >
+            <Settings size={20} style={{ color: 'var(--ces-mute2)' }} />
+          </div>
+          <p className="text-[13px] font-semibold" style={{ color: 'var(--ces-ink)' }}>Hələ heç bir tarif yoxdur</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {list.map(cfg => (
-            <div key={cfg.id} className={`rounded-2xl border p-5 ${cfg.active ? 'border-violet-300 bg-violet-50/50 dark:bg-violet-900/10' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'}`}>
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{cfg.year}</h3>
-                    {cfg.active && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-violet-600 text-white">Aktiv</span>
+          {list.map((cfg) => (
+            <div
+              key={cfg.id}
+              className="overflow-hidden flex"
+              style={{
+                background: 'var(--ces-surface)',
+                border: `1px solid ${cfg.active ? 'var(--ces-gold)' : 'var(--ces-line)'}`,
+                borderRadius: 'var(--ces-radius-lg)',
+                boxShadow: cfg.active ? '0 0 0 3px rgba(200,147,42,.08), var(--ces-shadow-sm)' : 'var(--ces-shadow-sm)',
+              }}
+            >
+              {cfg.active && <div style={{ width: '6px', background: 'var(--ces-gold)' }} />}
+              <div className="flex-1 p-5">
+                <div className="flex items-start justify-between mb-3 gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-[28px] font-extrabold tracking-[-.022em] leading-none num" style={{ color: 'var(--ces-graphite-900)' }}>
+                        {cfg.year}
+                      </h3>
+                      {cfg.active && <Pill tone="gold" sm dot>Aktiv tarif</Pill>}
+                    </div>
+                    {cfg.notes && (
+                      <p className="text-[12px] mt-2 leading-relaxed" style={{ color: 'var(--ces-muted)' }}>{cfg.notes}</p>
                     )}
                   </div>
-                  {cfg.notes && <p className="text-xs text-gray-500 mt-1">{cfg.notes}</p>}
+                  <div className="flex items-center gap-1 flex-none">
+                    {canEdit   && !cfg.active && <button onClick={() => activate(cfg)} className="ces-row-act gold"   title="Aktivləşdir"><CheckCircle2 size={14} /></button>}
+                    {canEdit   &&                <button onClick={() => setModal({ open: true, editing: cfg })} className="ces-row-act gold" title="Redaktə"><Pencil size={14} /></button>}
+                    {canDelete && !cfg.active && <button onClick={() => remove(cfg)}   className="ces-row-act danger" title="Sil"><Trash2 size={14} /></button>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {canEdit && !cfg.active && (
-                    <button onClick={() => activate(cfg)} className="p-1.5 rounded hover:bg-violet-100 text-violet-600" title="Aktivləşdir"><CheckCircle2 size={14} /></button>
-                  )}
-                  {canEdit && (
-                    <button onClick={() => setModal({ open: true, editing: cfg })} className="p-1.5 rounded hover:bg-amber-50 text-amber-600" title="Redaktə"><Pencil size={14} /></button>
-                  )}
-                  {canDelete && !cfg.active && (
-                    <button onClick={() => remove(cfg)} className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Sil"><Trash2 size={14} /></button>
-                  )}
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Stat label="İşçi pensiya"     value={`${pct(cfg.employeePensionRateBelow)} / ${pct(cfg.employeePensionRateAbove)}`} sub={`thr ${cfg.employeePensionThreshold}₼`} />
+                  <Stat label="İGÖ pensiya"      value={`${pct(cfg.employerPensionRateBelow)} / ${pct(cfg.employerPensionRateAbove)}`} sub={`thr ${cfg.employerPensionThreshold}₼`} />
+                  <Stat label="İşsizlik · işçi/igö" value={`${pct(cfg.employeeUnemploymentRate)} / ${pct(cfg.employerUnemploymentRate)}`} />
+                  <Stat label="Tibbi · işçi"     value={`${pct(cfg.employeeMedicalRateBelow)} / ${pct(cfg.employeeMedicalRateAbove)}`} sub={`thr ${cfg.employeeMedicalThreshold}₼`} />
+                  <Stat label="Tibbi · igö"      value={`${pct(cfg.employerMedicalRateBelow)} / ${pct(cfg.employerMedicalRateAbove)}`} sub={`thr ${cfg.employerMedicalThreshold}₼`} />
+                  <Stat label="Gəlir vergisi"    value={`${pct(cfg.incomeTaxRateBelow)} / ${pct(cfg.incomeTaxRateAbove)}`} sub={`thr ${cfg.incomeTaxThreshold}₼`} />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <Stat label="İşçi pensiya" value={`${pct(cfg.employeePensionRateBelow)} / ${pct(cfg.employeePensionRateAbove)}`} sub={`thr ${cfg.employeePensionThreshold}₼`} />
-                <Stat label="İGÖ pensiya" value={`${pct(cfg.employerPensionRateBelow)} / ${pct(cfg.employerPensionRateAbove)}`} sub={`thr ${cfg.employerPensionThreshold}₼`} />
-                <Stat label="İşsizlik (işçi/igö)" value={`${pct(cfg.employeeUnemploymentRate)} / ${pct(cfg.employerUnemploymentRate)}`} />
-                <Stat label="Tibbi (işçi)" value={`${pct(cfg.employeeMedicalRateBelow)} / ${pct(cfg.employeeMedicalRateAbove)}`} sub={`thr ${cfg.employeeMedicalThreshold}₼`} />
-                <Stat label="Tibbi (işəgötürən)" value={`${pct(cfg.employerMedicalRateBelow)} / ${pct(cfg.employerMedicalRateAbove)}`} sub={`thr ${cfg.employerMedicalThreshold}₼`} />
-                <Stat label="Gəlir vergisi" value={`${pct(cfg.incomeTaxRateBelow)} / ${pct(cfg.incomeTaxRateAbove)}`} sub={`thr ${cfg.incomeTaxThreshold}₼`} />
+                {cfg.deductSocialFromTaxBase && (
+                  <div
+                    className="flex items-start gap-2 mt-3 px-3 py-2 text-[11.5px] font-semibold"
+                    style={{
+                      borderRadius: '8px',
+                      background: 'rgba(200,147,42,.08)',
+                      color: 'var(--ces-gold-700)',
+                    }}
+                  >
+                    <Info size={12} className="flex-none mt-0.5" />
+                    Sosial töhfələr gəlir vergisi base-ından çıxılır
+                  </div>
+                )}
               </div>
-
-              {cfg.deductSocialFromTaxBase && (
-                <p className="text-[11px] text-violet-600 mt-3">⓵ Sosial töhfələr gəlir vergisi base-ından çıxılır</p>
-              )}
             </div>
           ))}
         </div>
@@ -116,14 +158,19 @@ export default function TaxConfigPage() {
   )
 }
 
-const pct = (v) => `${(Number(v) * 100).toFixed(2).replace(/\.?0+$/, '')}%`
-
 function Stat({ label, value, sub }) {
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2">
-      <p className="text-[10px] uppercase text-gray-400">{label}</p>
-      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{value}</p>
-      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+    <div
+      style={{
+        background: 'var(--ces-graphite-50)',
+        border: '1px solid var(--ces-line)',
+        borderRadius: '10px',
+        padding: '10px 12px',
+      }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-[.12em]" style={{ color: 'var(--ces-muted)' }}>{label}</p>
+      <p className="text-[13px] font-extrabold num mt-0.5" style={{ color: 'var(--ces-ink)' }}>{value}</p>
+      {sub && <p className="text-[10px] mt-0.5 num" style={{ color: 'var(--ces-mute2)' }}>{sub}</p>}
     </div>
   )
 }

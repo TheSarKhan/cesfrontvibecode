@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ChevronLeft, ChevronDown, ChevronRight, Shield, Pencil } from 'lucide-react'
+import { X, ChevronLeft, ChevronDown, ChevronRight, Shield, Pencil, ArrowRight } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { modulesApi } from '../../api/modules'
 import toast from 'react-hot-toast'
@@ -15,6 +15,7 @@ const PERM_COLS = [
 ]
 
 const MODULE_LABELS = {
+  DASHBOARD:            'İdarə Paneli',
   CUSTOMER_MANAGEMENT:  'Müştəri İdarəetməsi',
   CONTRACTOR_MANAGEMENT:'Podratçı İdarəetməsi',
   ROLE_PERMISSION:      'Rol və İcazə İdarəetməsi',
@@ -26,6 +27,13 @@ const MODULE_LABELS = {
   ACCOUNTING:           'Mühasibatlıq Modulu',
   SERVICE_MANAGEMENT:   'Texniki Servis Modulu',
   OPERATIONS_APPROVAL:  'Əməliyyat Təsdiqi',
+}
+
+const EXTRA_PERMS = {
+  REQUESTS:    { key: 'canSendToCoordinator', label: 'Kordinatora göndər' },
+  COORDINATOR: { key: 'canSubmitOffer',       label: 'Təklif göndər' },
+  PROJECTS:    { key: 'canSendToAccounting',  label: 'Mühasibatlığa göndər' },
+  ACCOUNTING:  { key: 'canReturnToProject',   label: 'Layihəyə geri göndər' },
 }
 
 const APPROVAL_MODULE_CODE = 'OPERATIONS_APPROVAL'
@@ -73,23 +81,21 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         })
         setPermMap(map)
         setInitialPermMap(map)
-        // Auto-expand if editing and already has approval depts
         if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
       })
       .catch(() => {})
       .finally(() => setModulesLoading(false))
   }, [editing])
 
-  const inputCls = (field) => clsx(
-    'w-full border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200',
-    errors[field]
-      ? 'border-red-400 dark:border-red-500 focus:ring-red-400'
-      : 'border-gray-300 dark:border-gray-600 focus:ring-amber-500'
-  )
-
   const validateStep1 = () => {
     const errs = {}
-    const nameErr = v.chain(form.name || '', v.required, v.minLen(2), v.realContent, v.maxLen(100))
+    const nameErr = v.chain(
+      form.name || '',
+      v.required,
+      (val) => v.minLen(val, 2),
+      v.realContent,
+      (val) => v.maxLen(val, 100),
+    )
     if (nameErr) errs.name = nameErr
     if (!form.departmentId) errs.departmentId = 'Şöbə seçilməlidir'
     if (form.description?.trim()) {
@@ -123,12 +129,10 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     )
   }
 
-  // Check if OPERATIONS_APPROVAL module has any perm checked
   const approvalModuleId = modules.find((m) => m.code === APPROVAL_MODULE_CODE)?.id
   const hasApprovalPerm = approvalModuleId && PERM_COLS.some((c) => permMap[approvalModuleId]?.[c.key])
 
   const handleSave = async () => {
-    // Minimum bir modul üçün icazə seçilməlidir
     const hasAnyPerm = Object.values(permMap).some(p =>
       p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator || p.canSubmitOffer || p.canSendToAccounting || p.canReturnToProject
     )
@@ -175,171 +179,217 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors z-10"
-        >
-          <X size={14} className="text-white" />
-        </button>
-
-        {/* ── STEP 1 ─────────────────────────────────────────── */}
-        {step === 1 && (
-          <div className="p-7">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
-              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Shield size={18} className="text-amber-500 shrink-0" />}
-              {editing ? 'Rolu redaktə et' : 'Yeni rol əlavə et'}
-            </h2>
-            <p className="text-sm text-gray-400 mb-6">
-              Rol əlavə etmək üçün rolun adını, istifadəçilərini və təsvirini daxil et
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
+      <div className="ces-modal" style={{ maxWidth: 880 }}>
+        <div className="ces-m-head">
+          <div className={clsx('ces-m-ic', editing ? 'gold' : '')}>
+            {editing ? <Pencil size={20} /> : <Shield size={20} />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3>{editing ? 'Rolu redaktə et' : 'Yeni rol'}</h3>
+            <p>
+              {step === 1
+                ? 'Rolun adını, şöbəsini və təsvirini daxil edin'
+                : 'Bu rol üçün icazələri təyin edin'}
             </p>
+          </div>
+          <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
+          </button>
+        </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Rolun adı</label>
-                <input
-                  value={form.name}
-                  onChange={(e) => {
-                    setForm((f) => ({ ...f, name: e.target.value }))
-                    if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }))
-                  }}
-                  className={inputCls('name')}
-                  placeholder="Rolun adı"
-                />
-                {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+        {/* Stepper */}
+        <div className="flex items-center gap-2 px-7 py-3" style={{ background: 'var(--ces-graphite-50)', borderBottom: '1px solid var(--ces-line)' }}>
+          <StepIndicator num={1} label="Məlumat" active={step === 1} done={step > 1} onClick={() => editing && setStep(1)} />
+          <ArrowRight size={14} style={{ color: 'var(--ces-mute2)' }} />
+          <StepIndicator num={2} label="İcazələr" active={step === 2} />
+        </div>
+
+        {step === 1 && (
+          <>
+            <div className="ces-m-body">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
+                <div className="ces-field">
+                  <label>Rolun adı <span className="req">*</span></label>
+                  <div className={clsx('ces-input', errors.name && 'is-error')}>
+                    <input
+                      value={form.name}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, name: e.target.value }))
+                        if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }))
+                      }}
+                      placeholder="Məs: Layihə meneceri"
+                      autoFocus
+                    />
+                  </div>
+                  {errors.name && <span className="ces-err">{errors.name}</span>}
+                </div>
+
+                <div className="ces-field">
+                  <label>Departament <span className="req">*</span></label>
+                  <select
+                    value={form.departmentId}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, departmentId: e.target.value }))
+                      if (errors.departmentId) setErrors((prev) => ({ ...prev, departmentId: undefined }))
+                    }}
+                    disabled={!!currentDept}
+                    className={clsx('ces-select', errors.departmentId && 'is-error')}
+                    style={currentDept ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+                  >
+                    <option value="">Şöbə seçin</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  {errors.departmentId && <span className="ces-err">{errors.departmentId}</span>}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Departament</label>
-                <select
-                  value={form.departmentId}
-                  onChange={(e) => {
-                    setForm((f) => ({ ...f, departmentId: e.target.value }))
-                    if (errors.departmentId) setErrors((prev) => ({ ...prev, departmentId: undefined }))
-                  }}
-                  disabled={!!currentDept}
-                  className={clsx(inputCls('departmentId'), currentDept && 'opacity-60 cursor-not-allowed')}
-                >
-                  <option value="">Departament seçin</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-                {errors.departmentId && <p className="mt-1 text-xs text-red-500">{errors.departmentId}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Rolu təsvir et</label>
-                <textarea
-                  rows={4}
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  className="w-full border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-                  placeholder="Rolu təsvir et"
-                />
+              <div className="ces-field">
+                <label>Təsvir</label>
+                <div className={clsx('ces-input', errors.description && 'is-error')} style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
+                  <textarea
+                    rows={4}
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Rolu təsvir edin..."
+                  />
+                </div>
+                {errors.description && <span className="ces-err">{errors.description}</span>}
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                if (!validateStep1()) return
-                setStep(2)
-              }}
-              className="mt-6 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
-            >
-              Davam et
-            </button>
-          </div>
+            <div className="ces-m-foot">
+              <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost">
+                Ləğv et
+              </button>
+              <button
+                type="button"
+                onClick={() => { if (validateStep1()) setStep(2) }}
+                className="ces-btn ces-btn-primary"
+              >
+                Davam et
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </>
         )}
 
-        {/* ── STEP 2 ─────────────────────────────────────────── */}
         {step === 2 && (
-          <div className="p-7">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">İcazə səviyyələrini təyin et</h2>
-            <p className="text-sm text-gray-400 mb-5">
-              Əlavə etdiyiniz rol üçün icazə səviyyələrini təyin edin
-            </p>
+          <>
+            <div className="ces-m-body" style={{ maxHeight: '60vh' }}>
+              {modulesLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-10 rounded-lg" style={{ background: 'var(--ces-graphite-50)' }} />
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="ces-tbl" style={{ minWidth: 720 }}>
+                    <thead>
+                      <tr>
+                        <th>Modul</th>
+                        {PERM_COLS.map((c) => (
+                          <th key={c.key} style={{ textAlign: 'center', width: 70 }}>{c.label}</th>
+                        ))}
+                        <th style={{ textAlign: 'center', width: 60 }}>Hamısı</th>
+                        <th>Əlavə</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modules.map((mod) => {
+                        const allChecked = PERM_COLS.every((c) => permMap[mod.id]?.[c.key])
+                        const isApproval = mod.code === APPROVAL_MODULE_CODE
+                        const anyPerm = PERM_COLS.some((c) => permMap[mod.id]?.[c.key])
 
-            {modulesLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-10 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              <div className="max-h-[380px] overflow-y-auto scrollbar-thin -mx-1 px-1">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-700">
-                      <th className="text-left py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 w-40">Modul</th>
-                      {PERM_COLS.map((c) => (
-                        <th key={c.key} className="text-left py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">{c.label}</th>
-                      ))}
-                      <th className="text-left py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Hamısı</th>
-                      <th className="text-left py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Əlavə</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modules.map((mod) => {
-                      const allChecked = PERM_COLS.every((c) => permMap[mod.id]?.[c.key])
-                      const isApproval = mod.code === APPROVAL_MODULE_CODE
-                      const anyPerm = PERM_COLS.some((c) => permMap[mod.id]?.[c.key])
+                        return (
+                          <ModuleRow
+                            key={mod.id}
+                            mod={mod}
+                            permMap={permMap}
+                            allChecked={allChecked}
+                            isApproval={isApproval}
+                            anyPerm={anyPerm}
+                            approvalExpanded={approvalExpanded}
+                            approvalDeptIds={approvalDeptIds}
+                            departments={departments}
+                            onTogglePerm={togglePerm}
+                            onToggleAll={() => toggleAllForModule(mod.id)}
+                            onToggleApprovalExpand={() => setApprovalExpanded((v) => !v)}
+                            onToggleApprovalDept={toggleApprovalDept}
+                          />
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
-                      return (
-                        <ModuleRow
-                          key={mod.id}
-                          mod={mod}
-                          permMap={permMap}
-                          allChecked={allChecked}
-                          isApproval={isApproval}
-                          anyPerm={anyPerm}
-                          approvalExpanded={approvalExpanded}
-                          approvalDeptIds={approvalDeptIds}
-                          departments={departments}
-                          onTogglePerm={togglePerm}
-                          onToggleAll={() => toggleAllForModule(mod.id)}
-                          onToggleApprovalExpand={() => setApprovalExpanded((v) => !v)}
-                          onToggleApprovalDept={toggleApprovalDept}
-                        />
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="flex items-center gap-3 mt-5 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="ces-m-foot">
               <button
+                type="button"
                 onClick={() => setStep(1)}
-                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium transition-colors"
+                className="ces-btn ces-btn-ghost"
               >
                 <ChevronLeft size={16} />
                 Geriyə
               </button>
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
-              >
-                {loading && (
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                Yadda saxla
+              <div className="flex-1" />
+              <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost">
+                Ləğv et
               </button>
               <button
                 type="button"
-                onClick={onClose}
-                className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={handleSave}
+                disabled={loading}
+                className="ces-btn ces-btn-primary"
               >
-                Ləğv et
+                {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {editing ? 'Yadda saxla' : 'Yarat'}
               </button>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
+  )
+}
+
+function StepIndicator({ num, label, active, done, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className="inline-flex items-center gap-2 transition-colors"
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
+      <span
+        className="inline-grid place-items-center rounded-full text-xs font-bold mono"
+        style={{
+          width: 22,
+          height: 22,
+          background: active ? 'var(--ces-gold)' : (done ? 'var(--ces-graphite)' : 'var(--ces-graphite-100)'),
+          color: active ? 'var(--ces-on-gold)' : (done ? 'var(--ces-gold)' : 'var(--ces-muted)'),
+          boxShadow: active ? '0 0 0 3px var(--ces-gold-100)' : 'none',
+        }}
+      >
+        {num}
+      </span>
+      <span
+        className="text-xs font-bold"
+        style={{
+          color: active ? 'var(--ces-ink)' : 'var(--ces-muted)',
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </span>
+    </button>
   )
 }
 
@@ -348,100 +398,73 @@ function ModuleRow({
   approvalExpanded, approvalDeptIds, departments,
   onTogglePerm, onToggleAll, onToggleApprovalExpand, onToggleApprovalDept,
 }) {
+  const extra = EXTRA_PERMS[mod.code]
   return (
     <>
-      <tr className={clsx(
-        'border-b border-gray-50 dark:border-gray-700/50',
-        isApproval && anyPerm && 'bg-amber-50/30 dark:bg-amber-900/10'
-      )}>
-        <td className="py-2.5 pr-4">
+      <tr style={isApproval && anyPerm ? { background: 'var(--ces-gold-50)' } : undefined}>
+        <td>
           <div className="flex items-center gap-1.5">
             {isApproval && anyPerm && (
               <button
                 type="button"
                 onClick={onToggleApprovalExpand}
-                className="text-amber-600 hover:text-amber-700 transition-colors"
+                className="inline-grid place-items-center w-6 h-6 rounded-md transition-colors"
+                style={{ color: 'var(--ces-gold-700)' }}
               >
                 {approvalExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </button>
             )}
-            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+            <span className="font-semibold text-[var(--ces-ink)]">
               {MODULE_LABELS[mod.code] || mod.nameAz}
             </span>
           </div>
         </td>
         {PERM_COLS.map((c) => (
-          <td key={c.key} className="py-2.5 pr-6">
-            <input
-              type="checkbox"
-              checked={permMap[mod.id]?.[c.key] || false}
-              onChange={() => onTogglePerm(mod.id, c.key)}
-              className="accent-amber-600 w-4 h-4 cursor-pointer"
-            />
+          <td key={c.key} style={{ textAlign: 'center' }}>
+            <label className="ces-chk" style={{ justifyContent: 'center' }}>
+              <input
+                type="checkbox"
+                checked={permMap[mod.id]?.[c.key] || false}
+                onChange={() => onTogglePerm(mod.id, c.key)}
+              />
+              <span className="ces-cb" />
+            </label>
           </td>
         ))}
-        <td className="py-2.5 pr-4">
-          <input
-            type="checkbox"
-            checked={allChecked}
-            onChange={onToggleAll}
-            className="accent-amber-600 w-4 h-4 cursor-pointer"
-            title="Hamısını seç/ləğv et"
-          />
+        <td style={{ textAlign: 'center' }}>
+          <label className="ces-chk" style={{ justifyContent: 'center' }} title="Hamısını seç">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              onChange={onToggleAll}
+            />
+            <span className="ces-cb" />
+          </label>
         </td>
-        <td className="py-2.5">
-          {mod.code === 'REQUESTS' ? (
-            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+        <td>
+          {extra ? (
+            <label className="ces-chk" style={{ whiteSpace: 'nowrap' }}>
               <input
                 type="checkbox"
-                checked={permMap[mod.id]?.canSendToCoordinator || false}
-                onChange={() => onTogglePerm(mod.id, 'canSendToCoordinator')}
-                className="accent-purple-600 w-4 h-4 cursor-pointer"
+                checked={permMap[mod.id]?.[extra.key] || false}
+                onChange={() => onTogglePerm(mod.id, extra.key)}
               />
-              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Kordinatora göndər</span>
+              <span className="ces-cb" />
+              <span className="text-xs font-semibold" style={{ color: 'var(--ces-info)' }}>
+                {extra.label}
+              </span>
             </label>
-          ) : mod.code === 'COORDINATOR' ? (
-            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={permMap[mod.id]?.canSubmitOffer || false}
-                onChange={() => onTogglePerm(mod.id, 'canSubmitOffer')}
-                className="accent-purple-600 w-4 h-4 cursor-pointer"
-              />
-              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Təklif göndər</span>
-            </label>
-          ) : mod.code === 'PROJECTS' ? (
-            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={permMap[mod.id]?.canSendToAccounting || false}
-                onChange={() => onTogglePerm(mod.id, 'canSendToAccounting')}
-                className="accent-purple-600 w-4 h-4 cursor-pointer"
-              />
-              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Mühasibatlığa göndər</span>
-            </label>
-          ) : mod.code === 'ACCOUNTING' ? (
-            <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={permMap[mod.id]?.canReturnToProject || false}
-                onChange={() => onTogglePerm(mod.id, 'canReturnToProject')}
-                className="accent-purple-600 w-4 h-4 cursor-pointer"
-              />
-              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Layihəyə geri göndər</span>
-            </label>
-          ) : <span />}
+          ) : null}
         </td>
       </tr>
 
-      {/* Approval departments sub-row */}
       {isApproval && anyPerm && approvalExpanded && (
-        <tr className="bg-gray-50 dark:bg-gray-700/30 border-b border-gray-100 dark:border-gray-700/50">
-          <td colSpan={7} className="py-3 px-4 pl-8">
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-              Təsdiq edə biləcəyi şöbələr:
+        <tr style={{ background: 'var(--ces-gold-50)' }}>
+          <td colSpan={7} style={{ paddingLeft: 36 }}>
+            <p className="text-xs font-bold mb-2" style={{ color: 'var(--ces-gold-700)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+              Təsdiq edə biləcəyi şöbələr
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-2">
               {departments.map((dept) => {
                 const checked = approvalDeptIds.includes(dept.id)
                 return (
@@ -449,12 +472,7 @@ function ModuleRow({
                     key={dept.id}
                     type="button"
                     onClick={() => onToggleApprovalDept(dept.id)}
-                    className={clsx(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                      checked
-                        ? 'bg-amber-50 border-amber-400 text-amber-700 dark:bg-amber-900/30 dark:border-amber-500 dark:text-amber-400'
-                        : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500'
-                    )}
+                    className={clsx('ces-btn ces-btn-xs', checked ? 'ces-btn-gold' : 'ces-btn-outline')}
                   >
                     {dept.name}
                   </button>
@@ -462,7 +480,7 @@ function ModuleRow({
               })}
             </div>
             {approvalDeptIds.length === 0 && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 italic">
+              <p className="text-xs italic m-0" style={{ color: 'var(--ces-mute2)' }}>
                 Heç bir şöbə seçilməyib — bütün şöbələrin əməliyyatlarını təsdiq edə biləcək
               </p>
             )}

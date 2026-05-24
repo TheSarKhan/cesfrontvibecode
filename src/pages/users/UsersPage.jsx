@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight, Users, Download, UserCheck, UserX, Shield } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, ToggleLeft, ToggleRight, Users, Download, UserCheck, UserX, Shield, Eye, CheckCircle2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { clsx } from 'clsx'
 import { usersApi } from '../../api/users'
@@ -16,10 +16,25 @@ import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
 
-const AVATAR_COLORS = [
-  '#3b82f6', '#8b5cf6', '#10b981', '#ec4899',
-  '#6366f1', '#14b8a6', '#f43f5e', '#f59e0b',
-]
+const AVATAR_PALETTE = ['#3a3a3a', '#c8932a', '#0f9d6a', '#2563c8', '#7d4ec9', '#d4385a', '#e08a00', '#1a1a1a']
+
+function Avatar({ name, id, size = 'md' }) {
+  const dim = size === 'sm' ? 28 : size === 'lg' ? 44 : 36
+  const fontSize = size === 'sm' ? 11 : size === 'lg' ? 14 : 12.5
+  const initial = name?.[0]?.toUpperCase() || '?'
+  const color = AVATAR_PALETTE[(id || 0) % AVATAR_PALETTE.length]
+  return (
+    <span
+      style={{
+        width: dim, height: dim, borderRadius: 999,
+        background: color, color: '#fff',
+        display: 'inline-grid', placeItems: 'center',
+        fontSize, fontWeight: 700, flex: 'none',
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >{initial}</span>
+  )
+}
 
 export default function UsersPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -80,7 +95,6 @@ export default function UsersPage() {
   useEffect(() => { loadDepts() }, [loadDepts])
   useEffect(() => { loadData() }, [loadData])
 
-  // Client-side status filter
   const filtered = data.content.filter(u => {
     if (filterStatus === 'active' && !u.active) return false
     if (filterStatus === 'inactive' && u.active) return false
@@ -131,7 +145,7 @@ export default function UsersPage() {
   const fmt = fmtDate
   const fmtFull = fmtDateTime
   const formatLastLogin = (user) => {
-    if (currentUser?.id === user.id) return null // "Hal-hazırda aktiv" badge göstər
+    if (currentUser?.id === user.id) return null
     return user.lastLoginAt ? fmtFull(user.lastLoginAt) : '—'
   }
 
@@ -140,7 +154,7 @@ export default function UsersPage() {
       'Ad Soyad':   u.fullName || '',
       'Email':      u.email || '',
       'Telefon':    u.phone || '',
-      'Şöbə':      u.departmentName || '',
+      'Şöbə':       u.departmentName || '',
       'Rol':        u.roleName || '',
       'Status':     u.active ? 'Aktiv' : 'Deaktiv',
       'Yaradılma':  fmt(u.createdAt),
@@ -153,26 +167,32 @@ export default function UsersPage() {
     XLSX.writeFile(wb, 'isciler.xlsx')
   }
 
+  const activeCount = data.content.filter(u => u.active).length
+  const inactiveCount = data.content.filter(u => !u.active).length
+
+  const chips = [
+    { id: '',         label: 'Hamısı' },
+    { id: 'active',   label: 'Aktiv' },
+    { id: 'inactive', label: 'Deaktiv' },
+  ]
+
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-end justify-between mb-7 gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">İstifadəçilər</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} istifadəçi</p>
+          <h1 className="ces-page-title">İstifadəçilər</h1>
+          <p className="ces-page-sub">{data.totalElements} istifadəçi qeydiyyatda</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={exportExcel}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
+          <button onClick={exportExcel} className="ces-btn ces-btn-outline">
             <Download size={15} />
-            Excel
+            Excel-ə yüklə
           </button>
           {canCreate && (
             <button
               onClick={() => setModal({ open: true, editing: null })}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="ces-btn ces-btn-primary"
             >
               <Plus size={16} />
               Yeni istifadəçi
@@ -181,86 +201,88 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Stat cards / quick filters */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        {[
-          { id: '',         label: 'Cəmi',    value: data.totalElements,                                         color: 'text-gray-700 dark:text-gray-200', icon: Users },
-          { id: 'active',   label: 'Aktiv',    value: data.content.filter(u => u.active).length,                 color: 'text-green-600 dark:text-green-400', icon: UserCheck },
-          { id: 'inactive', label: 'Deaktiv',  value: data.content.filter(u => !u.active).length,                color: 'text-red-500 dark:text-red-400', icon: UserX },
-        ].map(s => {
-          const Icon = s.icon
-          return (
-            <button
-              key={s.id}
-              onClick={() => setFilterStatus(s.id)}
-              className={clsx(
-                'rounded-xl border px-4 py-3 text-left transition-colors',
-                filterStatus === s.id
-                  ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-700'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700'
-              )}
-            >
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                <Icon size={10} className={s.color} />
-                {s.label}
-              </p>
-              <p className={clsx('text-2xl font-bold mt-0.5', s.color)}>{s.value}</p>
-            </button>
-          )
-        })}
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Cəmi</span>
+            <span className="ces-kpi-ic gold"><Users size={18} /></span>
+          </div>
+          <div className="ces-kpi-val">{data.totalElements}</div>
+        </div>
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Aktiv</span>
+            <span className="ces-kpi-ic ok"><UserCheck size={18} /></span>
+          </div>
+          <div className="ces-kpi-val">{activeCount}</div>
+        </div>
+        <div className="ces-kpi-card">
+          <div className="ces-kpi-top">
+            <span className="ces-kpi-lab">Deaktiv</span>
+            <span className="ces-kpi-ic danger"><UserX size={18} /></span>
+          </div>
+          <div className="ces-kpi-val">{inactiveCount}</div>
+        </div>
+      </div>
+
+      {/* Quick filter chips */}
+      <div className="ces-seg mb-4">
+        {chips.map(chip => (
+          <button
+            key={chip.id || 'all'}
+            onClick={() => setFilterStatus(chip.id)}
+            className={filterStatus === chip.id ? 'on' : ''}
+          >
+            {chip.label}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+      <div className="flex flex-wrap gap-3 mb-5 items-center">
+        <div className="ces-input has-icon sm flex-1 min-w-[240px]">
+          <Search size={15} />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Ad, email, telefon ilə axtar..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
         <select
           value={filterDept}
           onChange={(e) => setFilterDept(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="ces-select sm"
+          style={{ minWidth: 180 }}
         >
           <option value="">Bütün şöbələr</option>
           {departments.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="">Bütün statuslar</option>
-          <option value="active">Aktiv</option>
-          <option value="inactive">Deaktiv</option>
-        </select>
       </div>
 
       {/* Bulk action toolbar */}
       {canDelete && selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl mb-3">
-          <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+        <div className="ces-alert gold mb-4">
+          <div className="ces-al-ic"><CheckCircle2 size={18} /></div>
+          <div className="flex-1 text-sm font-semibold" style={{ color: 'var(--ces-graphite)' }}>
             {selectedIds.size} element seçildi
-          </span>
-          <div className="flex-1" />
+          </div>
           <button
             onClick={handleBulkDelete}
             disabled={bulkLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60"
+            className="ces-btn ces-btn-danger ces-btn-sm"
           >
-            {bulkLoading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
-            Seçilənləri sil ({selectedIds.size})
+            {bulkLoading
+              ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Trash2 size={14} />}
+            Seçilənləri sil
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="ces-btn ces-btn-ghost ces-btn-sm"
           >
             Ləğv et
           </button>
@@ -268,24 +290,26 @@ export default function UsersPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="ces-table-wrap">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="ces-tbl" style={{ minWidth: 1000 }}>
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="px-4 py-3 w-10">
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer" />
+              <tr>
+                <th className="w-chk">
+                  <label className="ces-chk">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                    <span className="ces-cb"></span>
+                  </label>
                 </th>
-                {['Ad Soyad', 'Email', 'Telefon', 'Şöbə', 'Rol', 'Yaradılma', 'Son giriş', 'Status'].map(label => (
-                  <th
-                    key={label}
-                    className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
-                  >
-                    {label}
-                  </th>
-                ))}
-                <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Əməliyyat</th>
+                <th>Ad Soyad</th>
+                <th>Email</th>
+                <th>Telefon</th>
+                <th>Şöbə</th>
+                <th>Rol</th>
+                <th>Yaradılma</th>
+                <th>Son giriş</th>
+                <th>Status</th>
+                <th className="r">Əməliyyat</th>
               </tr>
             </thead>
             <tbody>
@@ -304,68 +328,60 @@ export default function UsersPage() {
                   <tr
                     key={user.id}
                     onClick={() => setSlideOver(user)}
-                    className={clsx(
-                      'border-b border-gray-100 dark:border-gray-700 transition-colors cursor-pointer',
-                      slideOver?.id === user.id
-                        ? 'bg-amber-50 dark:bg-amber-900/10'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-750'
-                    )}
+                    style={{ cursor: 'pointer', background: slideOver?.id === user.id ? 'var(--ces-graphite-50)' : undefined }}
                   >
-                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" checked={selectedIds.has(user.id)} onChange={() => toggleSelect(user.id)}
-                        className="w-4 h-4 accent-amber-500 cursor-pointer" />
+                    <td onClick={e => e.stopPropagation()}>
+                      <label className="ces-chk">
+                        <input type="checkbox" checked={selectedIds.has(user.id)} onChange={() => toggleSelect(user.id)} />
+                        <span className="ces-cb"></span>
+                      </label>
                     </td>
-                    <td className="py-3 px-4">
+                    <td>
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0"
-                          style={{ backgroundColor: AVATAR_COLORS[user.id % AVATAR_COLORS.length] }}
-                        >
-                          {user.fullName?.[0]?.toUpperCase() || '?'}
-                        </div>
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{user.fullName}</span>
+                        <Avatar name={user.fullName} id={user.id} size="sm" />
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-ink)' }}>{user.fullName}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{user.email}</td>
-                    <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{user.phone || '—'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{user.departmentName || '—'}</td>
-                    <td className="py-3 px-4">
+                    <td style={{ color: 'var(--ces-muted)' }}>{user.email}</td>
+                    <td className="mono" style={{ color: 'var(--ces-muted)', fontSize: 13 }}>{user.phone || '—'}</td>
+                    <td style={{ color: 'var(--ces-ink)' }}>{user.departmentName || '—'}</td>
+                    <td>
                       {user.roleName ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          <Shield size={10} />
+                        <span className="ces-pill ces-p-gold sm">
+                          <Shield size={11} />
                           {user.roleName}
                         </span>
-                      ) : <span className="text-gray-400 text-sm">—</span>}
+                      ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
                     </td>
-                    <td className="py-3 px-4 text-xs text-gray-500 dark:text-gray-400">{fmt(user.createdAt)}</td>
-                    <td className="py-3 px-4 text-xs whitespace-nowrap">
+                    <td className="mono" style={{ fontSize: 12.5, color: 'var(--ces-muted)' }}>{fmt(user.createdAt)}</td>
+                    <td style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
                       {currentUser?.id === user.id ? (
-                        <span className="inline-flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--ces-ok)', fontWeight: 600 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--ces-ok)' }} className="animate-pulse" />
                           Hal-hazırda aktiv
                         </span>
                       ) : (
-                        <span className="text-gray-500 dark:text-gray-400">{formatLastLogin(user)}</span>
+                        <span style={{ color: 'var(--ces-muted)' }}>{formatLastLogin(user)}</span>
                       )}
                     </td>
-                    <td className="py-3 px-4">
-                      <span className={clsx(
-                        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold',
-                        user.active
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                          : 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                      )}>
+                    <td>
+                      <span className={clsx('ces-pill sm', user.active ? 'ces-p-ok' : 'ces-p-danger')}>
+                        <span className="d"></span>
                         {user.active ? 'Aktiv' : 'Deaktiv'}
                       </span>
                     </td>
-                    <td className="py-3 px-4" onClick={e => e.stopPropagation()}>
+                    <td onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1 justify-end">
+                        <button onClick={() => setSlideOver(user)} className="ces-row-act info" title="Bax">
+                          <Eye size={15} />
+                        </button>
                         {canEdit && (
                           <button
                             onClick={() => setModal({ open: true, editing: user })}
                             disabled={!user.active}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                            className="ces-row-act gold"
                             title={user.active ? 'Redaktə et' : 'Deaktiv istifadəçi redaktə edilə bilməz'}
+                            style={{ opacity: user.active ? 1 : 0.3, cursor: user.active ? 'pointer' : 'not-allowed' }}
                           >
                             <Pencil size={15} />
                           </button>
@@ -373,23 +389,14 @@ export default function UsersPage() {
                         {canEdit && (
                           <button
                             onClick={() => handleToggleActive(user)}
-                            className={clsx(
-                              'p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
-                              user.active
-                                ? 'text-emerald-500 hover:text-red-500'
-                                : 'text-gray-400 hover:text-emerald-500'
-                            )}
+                            className={clsx('ces-row-act', user.active ? 'danger' : 'gold')}
                             title={user.active ? 'Deaktiv et' : 'Aktiv et'}
                           >
                             {user.active ? <ToggleRight size={17} /> : <ToggleLeft size={17} />}
                           </button>
                         )}
                         {canDelete && (
-                          <button
-                            onClick={() => handleDelete(user)}
-                            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
-                            title="Sil"
-                          >
+                          <button onClick={() => handleDelete(user)} className="ces-row-act danger" title="Sil">
                             <Trash2 size={15} />
                           </button>
                         )}

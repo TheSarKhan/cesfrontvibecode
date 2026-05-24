@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
 import { X, Plus, Trash2, Search, MapPin, ChevronRight, ChevronLeft, Check, Building2, FolderKanban, Settings2, ClipboardList, Pencil } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { customersApi } from '../../api/customers'
-import { inputCls, labelCls, PROJECT_TYPES } from '../../constants/requests'
+import { PROJECT_TYPES } from '../../constants/requests'
 import ComboInput from '../../components/common/ComboInput'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -53,9 +53,14 @@ function parsePhone(full) {
   return { prefix: '+994', local: full }
 }
 
-function FieldError({ msg }) {
-  if (!msg) return null
-  return <p className="text-[11px] text-red-500 mt-1">{msg}</p>
+function Field({ label, required, error, children }) {
+  return (
+    <div className="ces-field">
+      <label>{label} {required && <span className="req">*</span>}</label>
+      {children}
+      {error && <span className="ces-err">{error}</span>}
+    </div>
+  )
 }
 
 const STEPS = [
@@ -72,7 +77,6 @@ export default function RequestModal({ editing, onClose, onSaved }) {
   const [customerSearch, setCustomerSearch] = useState('')
   const [customers, setCustomers] = useState([])
   const [customerResults, setCustomerResults] = useState([])
-  const [searchLoading, setSearchLoading] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
   const [visited, setVisited] = useState([0])
   const [errors, setErrors] = useState({})
@@ -138,20 +142,27 @@ export default function RequestModal({ editing, onClose, onSaved }) {
       else if (name.length < 2) errs.companyName = 'Minimum 2 simvol olmalıdır'
       else if (name.length > 100) errs.companyName = 'Maksimum 100 simvol ola bilər'
 
-      if (form.contactPerson && form.contactPerson.length > 100)
-        errs.contactPerson = 'Maksimum 100 simvol ola bilər'
+      if (!form.contactPerson?.trim()) errs.contactPerson = 'Əlaqə şəxsi tələb olunur'
+      else if (form.contactPerson.length > 100) errs.contactPerson = 'Maksimum 100 simvol ola bilər'
 
-      if (form.phoneLocal) {
+      if (!form.phoneLocal?.trim()) errs.phoneLocal = 'Əlaqə nömrəsi tələb olunur'
+      else {
         const digits = form.phoneLocal.replace(/\D/g, '')
         if (digits.length < 4) errs.phoneLocal = 'Nömrə çox qısadır'
         else if (digits.length > 15) errs.phoneLocal = 'Nömrə çox uzundur (maks. 15 rəqəm)'
       }
     }
     if (s === 1) {
-      if (form.projectName && form.projectName.length > 200)
-        errs.projectName = 'Maksimum 200 simvol ola bilər'
-      if (form.region && form.region.length > 100)
-        errs.region = 'Maksimum 100 simvol ola bilər'
+      if (!form.projectName?.trim()) errs.projectName = 'Layihə adı tələb olunur'
+      else if (form.projectName.length > 200) errs.projectName = 'Maksimum 200 simvol ola bilər'
+
+      if (!form.region?.trim()) errs.region = 'Bölgə tələb olunur'
+      else if (form.region.length > 100) errs.region = 'Maksimum 100 simvol ola bilər'
+
+      if (!form.requestDate) errs.requestDate = 'Sorğu tarixi tələb olunur'
+
+      if (!form.projectType) errs.projectType = 'Layihə tipi seçilməlidir'
+
       if (form.dayCount !== '' && form.dayCount !== null) {
         const n = parseInt(form.dayCount)
         if (isNaN(n) || n < 1) errs.dayCount = 'Müddət müsbət tam rəqəm olmalıdır'
@@ -174,7 +185,6 @@ export default function RequestModal({ editing, onClose, onSaved }) {
     return errs
   }
 
-  // Müştəri axtarışı
   const handleCustomerSearch = (val) => {
     setCustomerSearch(val)
     set('companyName', val)
@@ -182,14 +192,12 @@ export default function RequestModal({ editing, onClose, onSaved }) {
     clearTimeout(searchTimeout.current)
     if (!val.trim()) { setCustomerResults([]); return }
     searchTimeout.current = setTimeout(() => {
-      setSearchLoading(true)
       const q = val.toLowerCase()
       const results = customers.filter((c) =>
         c.companyName?.toLowerCase().includes(q) ||
         c.voen?.toLowerCase().includes(q)
       ).slice(0, 5)
       setCustomerResults(results)
-      setSearchLoading(false)
     }, 200)
   }
 
@@ -208,7 +216,6 @@ export default function RequestModal({ editing, onClose, onSaved }) {
     }))
   }
 
-  // Texniki parametrlər
   const addParam = () => setForm((p) => ({ ...p, params: [...p.params, { paramKey: '', paramValue: '' }] }))
   const removeParam = (i) => setForm((p) => ({ ...p, params: p.params.filter((_, idx) => idx !== i) }))
   const setParamField = (i, field, val) => {
@@ -222,10 +229,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
 
   const goNext = () => {
     const errs = validate(step)
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs)
-      return
-    }
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setErrors({})
     const next = step + 1
     setStep(next)
@@ -277,74 +281,84 @@ export default function RequestModal({ editing, onClose, onSaved }) {
     }
   }
 
-  // Step completion indicators
   const stepComplete = [
-    !!form.companyName.trim(),
-    !!(form.projectName || form.region || form.projectType),
-    true, // details step is always "ok" (optional)
+    !!(form.companyName.trim() && form.contactPerson?.trim() && form.phoneLocal?.trim()),
+    !!(form.projectName?.trim() && form.region?.trim() && form.requestDate && form.projectType),
+    true,
   ]
 
+  const inputWrap = (field) => clsx('ces-input', errors[field] && 'is-error')
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden">
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}>
+      <div className="ces-modal" style={{ maxWidth: 720 }}>
         {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <ClipboardList size={18} className="text-amber-500 shrink-0" />}
-              {editing ? `Sorğu #${editing.requestCode || editing.id}` : 'Yeni sorğu yarat'}
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {editing ? 'Məlumatları redaktə et' : STEPS[step].label + ' məlumatlarını doldurun'}
-            </p>
+        <div className="ces-m-head">
+          <div className={clsx('ces-m-ic', editing ? 'gold' : '')}>
+            {editing ? <Pencil size={20} /> : <ClipboardList size={20} />}
           </div>
-          <button onClick={handleClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0">
-            <X size={14} className="text-white" />
+          <div className="flex-1 min-w-0">
+            <h3>{editing ? `Sorğu #${editing.requestCode || editing.id}` : 'Yeni sorğu yarat'}</h3>
+            <p>{editing ? 'Məlumatları redaktə et' : `${STEPS[step].label} məlumatlarını doldurun`}</p>
+          </div>
+          <button onClick={handleClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
         </div>
 
         {/* Stepper */}
-        <div className="px-6 pt-5 pb-2">
-          <div className="flex items-center justify-between">
+        <div style={{ padding: '18px 26px 4px' }}>
+          <div className="flex items-center justify-between" style={{ gap: 8 }}>
             {STEPS.map((s, i) => {
               const Icon = s.icon
               const isActive = step === i
               const isCompleted = stepComplete[i] && visited.includes(i) && i < step
               const isClickable = visited.includes(i) || i <= step
               return (
-                <div key={s.key} className="flex items-center flex-1 last:flex-none">
+                <div key={s.key} className="flex items-center" style={{ flex: i < STEPS.length - 1 ? 1 : 'none', minWidth: 0 }}>
                   <button
                     type="button"
                     onClick={() => goToStep(i)}
-                    className={clsx(
-                      'flex items-center gap-2 px-3 py-2 rounded-xl transition-all',
-                      isActive && 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-200 dark:ring-amber-700',
-                      !isActive && isClickable && 'hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer',
-                      !isActive && !isClickable && 'opacity-40 cursor-default',
-                    )}
                     disabled={!isClickable}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 12px', borderRadius: 10,
+                      background: isActive ? 'var(--ces-gold-50)' : 'transparent',
+                      border: isActive ? '1px solid var(--ces-gold-100)' : '1px solid transparent',
+                      cursor: isClickable ? 'pointer' : 'not-allowed',
+                      opacity: !isActive && !isClickable ? 0.4 : 1,
+                      transition: 'background .15s, border-color .15s',
+                    }}
                   >
-                    <div className={clsx(
-                      'w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0',
-                      isActive && 'bg-amber-600 text-white shadow-md shadow-amber-200 dark:shadow-amber-900',
-                      isCompleted && !isActive && 'bg-green-500 text-white',
-                      !isActive && !isCompleted && 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500',
-                    )}>
+                    <span
+                      style={{
+                        width: 30, height: 30, borderRadius: 999,
+                        display: 'grid', placeItems: 'center',
+                        background: isActive ? 'var(--ces-gold)'
+                          : isCompleted ? 'var(--ces-ok)'
+                          : 'var(--ces-graphite-100)',
+                        color: isActive ? 'var(--ces-on-gold)' : isCompleted ? '#fff' : 'var(--ces-muted)',
+                        flex: 'none',
+                      }}
+                    >
                       {isCompleted && !isActive ? <Check size={14} /> : <Icon size={14} />}
-                    </div>
-                    <div className="text-left hidden sm:block">
-                      <p className={clsx(
-                        'text-xs font-semibold',
-                        isActive ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400',
-                      )}>{s.label}</p>
-                      <p className="text-[10px] text-gray-400">Addım {i + 1}/{STEPS.length}</p>
+                    </span>
+                    <div style={{ textAlign: 'left' }}>
+                      <p style={{ fontSize: 12.5, fontWeight: 700, color: isActive ? 'var(--ces-gold-700)' : 'var(--ces-ink)', margin: 0 }}>
+                        {s.label}
+                      </p>
+                      <p style={{ fontSize: 10, color: 'var(--ces-mute2)', margin: 0 }}>
+                        Addım {i + 1}/{STEPS.length}
+                      </p>
                     </div>
                   </button>
                   {i < STEPS.length - 1 && (
-                    <div className={clsx(
-                      'flex-1 h-px mx-2 transition-colors',
-                      i < step ? 'bg-green-300 dark:bg-green-700' : 'bg-gray-200 dark:bg-gray-700',
-                    )} />
+                    <div
+                      style={{
+                        flex: 1, height: 1, margin: '0 10px',
+                        background: i < step ? 'var(--ces-ok)' : 'var(--ces-line)',
+                      }}
+                    />
                   )}
                 </div>
               )
@@ -352,93 +366,111 @@ export default function RequestModal({ editing, onClose, onSaved }) {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 pt-4 space-y-4 max-h-[55vh] overflow-y-auto scrollbar-thin">
-
-          {/* Step 1: Müştəri */}
+        {/* Body */}
+        <div className="ces-m-body" style={{ paddingTop: 16 }}>
           {step === 0 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div className="relative">
-                <label className={labelCls}>Şirkət adı <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={customerSearch}
-                    onChange={(e) => handleCustomerSearch(e.target.value)}
-                    placeholder="Şirkət adı yazın və ya axtarın..."
-                    className={clsx(inputCls, errors.companyName && 'border-red-400 focus:ring-red-400')}
-                    autoFocus
-                  />
-                  <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                </div>
-                <FieldError msg={errors.companyName} />
+            <div>
+              <p className="ces-sec-label" style={{ marginBottom: 14 }}>Müştəri məlumatı</p>
+
+              <div style={{ position: 'relative' }}>
+                <Field label="Şirkət adı" required error={errors.companyName}>
+                  <div className={clsx(inputWrap('companyName'), 'has-icon')} style={{ paddingRight: 12 }}>
+                    <input
+                      type="text"
+                      value={customerSearch}
+                      onChange={(e) => handleCustomerSearch(e.target.value)}
+                      placeholder="Şirkət adı yazın və ya bazadan seçin..."
+                      autoFocus
+                    />
+                    <Search size={15} style={{ color: 'var(--ces-mute2)' }} />
+                  </div>
+                </Field>
                 {customerResults.length > 0 && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
+                  <div
+                    style={{
+                      position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0,
+                      marginTop: 2, background: 'var(--ces-surface)',
+                      border: '1px solid var(--ces-line)', borderRadius: 11,
+                      boxShadow: 'var(--ces-shadow-lg)', overflow: 'hidden',
+                    }}
+                  >
                     {customerResults.map((c) => (
                       <button
                         key={c.id}
                         type="button"
                         onClick={() => selectCustomer(c)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 dark:hover:bg-gray-600 transition-colors"
+                        style={{
+                          width: '100%', textAlign: 'left',
+                          padding: '10px 14px', fontSize: 13.5,
+                          background: 'transparent', border: 0, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          gap: 12,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ces-gold-50)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                       >
-                        <span className="font-medium text-gray-800 dark:text-gray-200">{c.companyName}</span>
-                        {c.voen && <span className="text-xs text-gray-400 ml-2">VÖEN: {c.voen}</span>}
+                        <span style={{ fontWeight: 600, color: 'var(--ces-ink)' }}>{c.companyName}</span>
+                        {c.voen && <span className="mono" style={{ fontSize: 11.5, color: 'var(--ces-muted)' }}>VÖEN: {c.voen}</span>}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Əlaqə şəxsi</label>
-                  <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={clsx(inputCls, errors.contactPerson && 'border-red-400')} />
-                  <FieldError msg={errors.contactPerson} />
-                </div>
-                <div>
-                  <label className={labelCls}>Əlaqə nömrəsi</label>
-                  <div className="flex gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                <Field label="Əlaqə şəxsi" required error={errors.contactPerson}>
+                  <div className={inputWrap('contactPerson')}>
+                    <input value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" />
+                  </div>
+                </Field>
+                <Field label="Əlaqə nömrəsi" required error={errors.phoneLocal}>
+                  <div className={inputWrap('phoneLocal')} style={{ padding: '0 8px 0 4px' }}>
                     <select
                       value={form.phonePrefix}
                       onChange={(e) => set('phonePrefix', e.target.value)}
-                      className="border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500 shrink-0"
+                      style={{
+                        background: 'transparent', border: 0, outline: 0,
+                        fontSize: 13.5, padding: '11px 4px 11px 8px',
+                        fontFamily: 'inherit', cursor: 'pointer',
+                        color: 'var(--ces-ink)', flex: 'none',
+                      }}
                     >
                       {COUNTRY_CODES.map((c) => (
                         <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
                       ))}
                     </select>
                     <input
-                      type="text"
+                      className="mono"
                       value={form.phoneLocal}
                       onChange={(e) => set('phoneLocal', e.target.value.replace(/[^\d\s\-().]/g, ''))}
                       placeholder="501234567"
-                      className={clsx(inputCls, 'flex-1', errors.phoneLocal && 'border-red-400')}
                     />
                   </div>
-                  <FieldError msg={errors.phoneLocal} />
-                </div>
+                </Field>
               </div>
 
               {form.customerId && (
-                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <Check size={14} className="text-green-500 shrink-0" />
-                  <span className="text-xs text-green-700 dark:text-green-400">Müştəri bazadan seçildi</span>
+                <div className="ces-alert" style={{ marginTop: 8, borderLeftColor: 'var(--ces-ok)', background: 'var(--ces-ok-100)' }}>
+                  <div className="ces-al-ic" style={{ background: '#e8fbe5', color: 'var(--ces-ok)' }}>
+                    <Check size={16} />
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ces-ok)' }}>Müştəri bazadan seçildi</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Step 2: Layihə */}
           {step === 1 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-              <div>
-                <label className={labelCls}>Layihə adı</label>
-                <input type="text" value={form.projectName} onChange={(e) => set('projectName', e.target.value)} placeholder="Layihənin adı" className={clsx(inputCls, errors.projectName && 'border-red-400')} autoFocus />
-                <FieldError msg={errors.projectName} />
-              </div>
+            <div>
+              <p className="ces-sec-label" style={{ marginBottom: 14 }}>Layihə məlumatı</p>
 
-              <div>
-                <label className={labelCls}>Bölgə</label>
+              <Field label="Layihə adı" required error={errors.projectName}>
+                <div className={inputWrap('projectName')}>
+                  <input value={form.projectName} onChange={(e) => set('projectName', e.target.value)} placeholder="Layihənin adı" autoFocus />
+                </div>
+              </Field>
+
+              <Field label="Bölgə" required error={errors.region}>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <ComboInput category="REGION" value={form.region} onChange={(v) => set('region', v)} placeholder="Bakı, Sumqayıt..." />
@@ -446,181 +478,174 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                   <button
                     type="button"
                     onClick={() => setMapOpen(true)}
-                    className="px-2.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+                    className="ces-btn ces-btn-icon ces-btn-outline"
                     title="Xəritədən seç"
                   >
                     <MapPin size={16} />
                   </button>
                 </div>
-              </div>
+              </Field>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Sorğu tarixi</label>
-                  <DateInput value={form.requestDate} onChange={(e) => set('requestDate', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Layihə tipi</label>
-                  <select value={form.projectType} onChange={(e) => set('projectType', e.target.value)} className={inputCls}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                <Field label="Sorğu tarixi" required error={errors.requestDate}>
+                  <div className={inputWrap('requestDate')}>
+                    <DateInput
+                      value={form.requestDate}
+                      onChange={(e) => set('requestDate', e.target.value)}
+                      style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 14, padding: '11px 0', width: '100%', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                </Field>
+                <Field label="Layihə tipi" required error={errors.projectType}>
+                  <select
+                    value={form.projectType}
+                    onChange={(e) => set('projectType', e.target.value)}
+                    className={clsx('ces-select', errors.projectType && 'is-error')}
+                    style={errors.projectType ? { borderColor: 'var(--ces-danger)' } : undefined}
+                  >
                     <option value="">Seçin</option>
                     {PROJECT_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
-                </div>
+                </Field>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={form.transportationRequired}
-                  onChange={(e) => set('transportationRequired', e.target.checked)}
-                  className="accent-amber-600 w-4 h-4"
-                />
+              <label
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  cursor: 'pointer', padding: '14px 16px',
+                  border: '1px solid var(--ces-line)', borderRadius: 12,
+                  background: form.transportationRequired ? 'var(--ces-gold-50)' : 'var(--ces-surface)',
+                  borderColor: form.transportationRequired ? 'var(--ces-gold)' : 'var(--ces-line)',
+                  transition: 'background .15s, border-color .15s',
+                  marginTop: 12,
+                }}
+              >
+                <span className="ces-chk" style={{ pointerEvents: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.transportationRequired}
+                    onChange={(e) => set('transportationRequired', e.target.checked)}
+                  />
+                  <span className="ces-cb"></span>
+                </span>
                 <div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Daşınma tələb olunur</span>
-                  <p className="text-[10px] text-gray-400">Qiymət koordinator tərəfindən təyin edilir</p>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--ces-ink)', margin: 0 }}>Daşınma tələb olunur</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--ces-muted)', margin: 0 }}>Qiymət koordinator tərəfindən təyin edilir</p>
                 </div>
               </label>
             </div>
           )}
 
-          {/* Step 3: Əlavələr */}
           {step === 2 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-200">
-              {/* Texniki parametrlər */}
-              <div>
-                <label className={labelCls}>Texniki parametrlər</label>
-                <div className="space-y-2 mt-1">
-                  {form.params.map((p, i) => (
-                    <div key={i} className="flex gap-2 items-start">
-                      <div className="flex-1">
-                        <ComboInput
-                          category="TECH_PARAM"
-                          value={p.paramKey}
-                          onChange={(v) => setParamField(i, 'paramKey', v)}
-                          placeholder="Parametr adı"
-                          className={errors[`paramKey_${i}`] ? 'border-red-400 focus:ring-red-400' : ''}
-                        />
-                        {errors[`paramKey_${i}`] && (
-                          <p className="text-[11px] text-red-500 mt-0.5">{errors[`paramKey_${i}`]}</p>
-                        )}
-                      </div>
-                      <div className="flex-1">
+            <div>
+              <p className="ces-sec-label" style={{ marginBottom: 14 }}>Texniki parametrlər</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {form.params.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <ComboInput
+                        category="TECH_PARAM"
+                        value={p.paramKey}
+                        onChange={(v) => setParamField(i, 'paramKey', v)}
+                        placeholder="Parametr adı"
+                      />
+                      {errors[`paramKey_${i}`] && (
+                        <p className="ces-err" style={{ marginTop: 4 }}>{errors[`paramKey_${i}`]}</p>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className={clsx('ces-input', errors[`param_${i}`] && 'is-error')}>
                         <input
-                          type="text"
                           value={p.paramValue}
                           onChange={(e) => setParamField(i, 'paramValue', e.target.value)}
                           placeholder="Rəqəm daxil edin"
-                          className={clsx(inputCls, errors[`param_${i}`] && 'border-red-400 focus:ring-red-400')}
+                          className="mono"
                         />
-                        {errors[`param_${i}`] && (
-                          <p className="text-[11px] text-red-500 mt-0.5">{errors[`param_${i}`]}</p>
-                        )}
                       </div>
-                      <button type="button" onClick={() => removeParam(i)} className="p-2 mt-0.5 text-gray-400 hover:text-red-500 transition-colors">
-                        <Trash2 size={15} />
-                      </button>
+                      {errors[`param_${i}`] && (
+                        <p className="ces-err" style={{ marginTop: 4 }}>{errors[`param_${i}`]}</p>
+                      )}
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addParam}
-                    className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors"
-                  >
-                    <Plus size={14} />
-                    Parametr əlavə et
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => removeParam(i)}
+                      className="ces-row-act danger"
+                      style={{ marginTop: 6 }}
+                      title="Sil"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addParam}
+                  className="ces-btn ces-btn-sm ces-btn-outline"
+                  style={{ alignSelf: 'flex-start', marginTop: 4 }}
+                >
+                  <Plus size={14} />
+                  Parametr əlavə et
+                </button>
               </div>
 
-              {/* Qeyd */}
-              <div>
-                <label className={labelCls}>Qeyd</label>
-                <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls} resize-none`} />
-              </div>
-
-              {/* Summary */}
-              <div className="bg-gray-50 dark:bg-gray-750 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Xülasə</p>
-                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-xs">Şirkət</span>
-                    <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">{form.companyName || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-xs">Əlaqə</span>
-                    <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">{form.contactPerson || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-xs">Layihə</span>
-                    <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">{form.projectName || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-xs">Bölgə</span>
-                    <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">{form.region || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-xs">Tarix</span>
-                    <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">{form.requestDate || '—'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 text-xs">Daşınma</span>
-                    <span className={clsx('text-xs font-medium', form.transportationRequired ? 'text-green-600' : 'text-gray-400')}>
-                      {form.transportationRequired ? 'Bəli' : 'Xeyr'}
-                    </span>
-                  </div>
-                  {form.params.filter(p => p.paramKey).length > 0 && (
-                    <div className="flex justify-between col-span-2">
-                      <span className="text-gray-400 text-xs">Parametrlər</span>
-                      <span className="text-gray-700 dark:text-gray-300 text-xs font-medium">
-                        {form.params.filter(p => p.paramKey).length} ədəd
-                      </span>
-                    </div>
-                  )}
+              <p className="ces-sec-label" style={{ marginTop: 18, marginBottom: 14 }}>Qeyd və xülasə</p>
+              <Field label="Qeyd" error={errors.notes}>
+                <div className={clsx('ces-input', errors.notes && 'is-error')} style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
+                  <textarea
+                    rows={3}
+                    value={form.notes}
+                    onChange={(e) => set('notes', e.target.value)}
+                    placeholder="Əlavə qeydlər..."
+                  />
                 </div>
+              </Field>
+
+              <div className="ces-card" style={{ padding: 18, marginTop: 4 }}>
+                <h4>Xülasə</h4>
+                <div className="ces-card-row"><span>Şirkət</span><b>{form.companyName || '—'}</b></div>
+                <div className="ces-card-row"><span>Əlaqə</span><b>{form.contactPerson || '—'}</b></div>
+                <div className="ces-card-row"><span>Layihə</span><b>{form.projectName || '—'}</b></div>
+                <div className="ces-card-row"><span>Bölgə</span><b>{form.region || '—'}</b></div>
+                <div className="ces-card-row"><span>Tarix</span><b className="mono">{form.requestDate || '—'}</b></div>
+                <div className="ces-card-row">
+                  <span>Daşınma</span>
+                  <b style={{ color: form.transportationRequired ? 'var(--ces-ok)' : 'var(--ces-muted)' }}>
+                    {form.transportationRequired ? 'Bəli' : 'Xeyr'}
+                  </b>
+                </div>
+                {form.params.filter(p => p.paramKey).length > 0 && (
+                  <div className="ces-card-row">
+                    <span>Parametrlər</span>
+                    <b>{form.params.filter(p => p.paramKey).length} ədəd</b>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 p-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="ces-m-foot">
           {step > 0 && (
-            <button
-              type="button"
-              onClick={goBack}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
+            <button type="button" onClick={goBack} className="ces-btn ces-btn-ghost">
               <ChevronLeft size={14} />
               Geri
             </button>
           )}
-
           <div className="flex-1" />
-
-          {isDirty && <span className="flex items-center text-xs text-amber-500">Dəyişikliklər var</span>}
-
-          <button type="button" onClick={handleClose} className="px-4 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          {isDirty && <span style={{ fontSize: 12, color: 'var(--ces-warn)', fontWeight: 600 }}>Dəyişikliklər var</span>}
+          <button type="button" onClick={handleClose} className="ces-btn ces-btn-ghost">
             Ləğv et
           </button>
-
           {step < STEPS.length - 1 ? (
-            <button
-              type="button"
-              onClick={goNext}
-              className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-            >
+            <button type="button" onClick={goNext} className="ces-btn ces-btn-primary">
               Davam et
               <ChevronRight size={14} />
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-            >
+            <button type="button" onClick={handleSubmit} disabled={loading} className="ces-btn ces-btn-primary">
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {editing ? 'Yadda saxla' : 'Sorğu yarat'}
               <Check size={14} />

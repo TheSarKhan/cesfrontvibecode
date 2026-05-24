@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, TrendingUp, Pencil } from 'lucide-react'
+import { X, TrendingUp, Pencil, AlertCircle } from 'lucide-react'
 import { investorsApi } from '../../api/investors'
 import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
@@ -7,18 +7,18 @@ import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
 const RISK_OPTIONS = [
-  { value: 'LOW', label: 'Aşağı' },
+  { value: 'LOW',    label: 'Aşağı' },
   { value: 'MEDIUM', label: 'Orta' },
-  { value: 'HIGH', label: 'Yüksək' },
+  { value: 'HIGH',   label: 'Yüksək' },
 ]
 
 const STATUS_OPTIONS = [
-  { value: 'ACTIVE', label: 'Aktiv' },
+  { value: 'ACTIVE',   label: 'Aktiv' },
   { value: 'INACTIVE', label: 'Deaktiv' },
 ]
 
 const PAYMENT_OPTIONS = [
-  { value: 'CASH', label: 'Nağd' },
+  { value: 'CASH',     label: 'Nağd' },
   { value: 'TRANSFER', label: 'Köçürmə' },
 ]
 
@@ -35,6 +35,144 @@ const EMPTY = {
   notes: '',
 }
 
+/* ─── UI kit `.input` reusable ─── */
+function Field({ label, required, error, children, hint }) {
+  return (
+    <div>
+      <label className="block text-[13px] font-semibold mb-[7px]" style={{ color: 'var(--ces-ink)' }}>
+        {label}
+        {required && <span style={{ color: 'var(--ces-danger)' }}> *</span>}
+      </label>
+      {children}
+      {hint && !error && <p className="mt-1.5 text-[11.5px]" style={{ color: 'var(--ces-muted)' }}>{hint}</p>}
+      {error && (
+        <p className="mt-1.5 text-[11.5px] font-semibold flex items-center gap-1" style={{ color: 'var(--ces-danger)' }}>
+          <AlertCircle size={11} /> {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Input({ value, onChange, placeholder, type = 'text', error, prefix, suffix, autoFocus }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <div
+      className="flex items-center px-[13px] transition-all"
+      style={{
+        background: 'var(--ces-surface)',
+        border: `1px solid ${error ? 'var(--ces-danger)' : focused ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
+        borderRadius: '11px',
+        minHeight: '44px',
+        boxShadow: error
+          ? '0 0 0 3px rgba(212,56,90,.12)'
+          : focused
+          ? '0 0 0 3px rgba(58,58,58,.1)'
+          : 'none',
+      }}
+    >
+      {prefix && (
+        <span
+          className="text-[12.5px] font-semibold mr-2"
+          style={{
+            padding: '6px 10px',
+            background: 'var(--ces-graphite-50)',
+            borderRadius: '7px',
+            color: 'var(--ces-muted)',
+            letterSpacing: '.04em',
+          }}
+        >
+          {prefix}
+        </span>
+      )}
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="flex-1 border-0 outline-0 bg-transparent text-[14px] py-[11px] w-full"
+        style={{ color: 'var(--ces-ink)' }}
+      />
+      {suffix && (
+        <span
+          className="text-[12.5px] font-semibold ml-2"
+          style={{
+            padding: '6px 10px',
+            background: 'var(--ces-graphite-50)',
+            borderRadius: '7px',
+            color: 'var(--ces-muted)',
+          }}
+        >
+          {suffix}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Textarea({ value, onChange, placeholder, rows = 3, error }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <div
+      className="flex items-start px-[13px] transition-all"
+      style={{
+        background: 'var(--ces-surface)',
+        border: `1px solid ${error ? 'var(--ces-danger)' : focused ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
+        borderRadius: '11px',
+        padding: '4px 13px',
+        boxShadow: error
+          ? '0 0 0 3px rgba(212,56,90,.12)'
+          : focused
+          ? '0 0 0 3px rgba(58,58,58,.1)'
+          : 'none',
+      }}
+    >
+      <textarea
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        rows={rows}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="flex-1 border-0 outline-0 bg-transparent text-[14px] py-[11px] w-full resize-none"
+        style={{ color: 'var(--ces-ink)' }}
+      />
+    </div>
+  )
+}
+
+function Select({ value, onChange, options }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <select
+      value={value}
+      onChange={onChange}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      className="w-full appearance-none cursor-pointer transition-all"
+      style={{
+        padding: '11px 36px 11px 13px',
+        background: `#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2.4' stroke-linecap='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center`,
+        border: `1px solid ${focused ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
+        borderRadius: '11px',
+        minHeight: '44px',
+        fontSize: '14px',
+        color: 'var(--ces-ink)',
+        outline: 'none',
+        boxShadow: focused ? '0 0 0 3px rgba(58,58,58,.1)' : 'none',
+      }}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  )
+}
+
+/* ═══════════════════════════════════════════════════ */
 export default function InvestorModal({ editing, onClose, onSaved }) {
   useEscapeKey(onClose)
   const [form, setForm] = useState(EMPTY)
@@ -45,16 +183,16 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
   useEffect(() => {
     if (editing) {
       const data = {
-        companyName: editing.companyName || '',
-        voen: editing.voen || '',
+        companyName:   editing.companyName || '',
+        voen:          editing.voen || '',
         contactPerson: editing.contactPerson || '',
-        contactPhone: editing.contactPhone || '',
-        address: editing.address || '',
-        paymentType: editing.paymentType ? editing.paymentType.split(',').filter(Boolean) : [],
-        status: editing.status || 'ACTIVE',
-        riskLevel: editing.riskLevel || 'LOW',
-        rating: editing.rating ?? '',
-        notes: editing.notes || '',
+        contactPhone:  editing.contactPhone || '',
+        address:       editing.address || '',
+        paymentType:   editing.paymentType ? editing.paymentType.split(',').filter(Boolean) : [],
+        status:        editing.status || 'ACTIVE',
+        riskLevel:     editing.riskLevel || 'LOW',
+        rating:        editing.rating ?? '',
+        notes:         editing.notes || '',
       }
       setForm(data)
       setInitialForm(data)
@@ -131,142 +269,209 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
     }
   }
 
-  const inputCls = (field) => clsx(
-    'w-full px-3 py-2 text-sm border rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent',
-    errors[field]
-      ? 'border-red-400 dark:border-red-500 focus:ring-red-400'
-      : 'border-gray-200 dark:border-gray-600 focus:ring-amber-500'
-  )
-  const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-              {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <TrendingUp size={18} className="text-amber-500 shrink-0" />}
-              {editing ? 'İnvestoru redaktə et' : 'Yeni investor əlavə et'}
-            </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {editing ? editing.companyName : 'Məlumatları doldurun'}
-            </p>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(26,26,26,.55)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="w-full max-w-[560px] overflow-hidden flex flex-col max-h-[92vh]"
+        style={{
+          background: 'var(--ces-surface)',
+          borderRadius: 'var(--ces-radius-lg)',
+          boxShadow: 'var(--ces-shadow-lg)',
+        }}
+      >
+        {/* ─── Header ─── */}
+        <div
+          className="flex items-start justify-between gap-3 px-6 py-5 shrink-0"
+          style={{ borderBottom: '1px solid var(--ces-line)' }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-10 h-10 rounded-[10px] grid place-items-center flex-none"
+              style={{
+                background: editing ? 'var(--ces-gold-100)' : 'var(--ces-graphite-100)',
+                color: editing ? 'var(--ces-gold-700)' : 'var(--ces-graphite)',
+              }}
+            >
+              {editing ? <Pencil size={18} /> : <TrendingUp size={18} />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10.5px] font-bold uppercase tracking-[.16em]" style={{ color: 'var(--ces-gold)' }}>
+                {editing ? 'Redaktə' : 'Yeni qeyd'}
+              </p>
+              <h2 className="text-[18px] font-extrabold leading-tight truncate" style={{ color: 'var(--ces-ink)' }}>
+                {editing ? editing.companyName : 'Yeni investor əlavə et'}
+              </h2>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 rounded-[8px] grid place-items-center transition-colors flex-none"
+            style={{ color: 'var(--ces-muted)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--ces-graphite-50)'
+              e.currentTarget.style.color = 'var(--ces-graphite)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = 'var(--ces-muted)'
+            }}
           >
-            <X size={14} className="text-white" />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-thin">
-            <div>
-              <label className={labelCls}>Şirkətin adı <span className="text-red-500">*</span></label>
-              <input type="text" value={form.companyName} onChange={(e) => set('companyName', e.target.value)} placeholder="MMC / ASC adı" className={inputCls('companyName')} />
-              {errors.companyName && <p className="mt-1 text-xs text-red-500">{errors.companyName}</p>}
-            </div>
+        {/* ─── Form ─── */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
 
-            <div>
-              <label className={labelCls}>VÖEN</label>
-              <input type="text" value={form.voen} onChange={(e) => set('voen', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="1234567890" className={inputCls('voen')} />
-              {errors.voen && <p className="mt-1 text-xs text-red-500">{errors.voen}</p>}
-            </div>
+            <Field label="Şirkətin adı" required error={errors.companyName}>
+              <Input
+                value={form.companyName}
+                onChange={(e) => set('companyName', e.target.value)}
+                placeholder="MMC / ASC adı"
+                error={errors.companyName}
+                autoFocus
+              />
+            </Field>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Əlaqə şəxsi</label>
-                <input type="text" value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} placeholder="Ad Soyad" className={inputCls('contactPerson')} />
-                {errors.contactPerson && <p className="mt-1 text-xs text-red-500">{errors.contactPerson}</p>}
-              </div>
-              <div>
-                <label className={labelCls}>Telefon</label>
-                <input type="text" value={form.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} placeholder="+994501234567" className={inputCls('contactPhone')} />
-                {errors.contactPhone && <p className="mt-1 text-xs text-red-500">{errors.contactPhone}</p>}
-              </div>
-            </div>
-
-            <div>
-              <label className={labelCls}>Ünvan</label>
-              <input type="text" value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Şəhər, küçə" className={inputCls('address')} />
-              {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}
-            </div>
-
-            <div>
-              <label className={labelCls}>Ödəniş növü</label>
-              <div className="flex gap-2">
-                {PAYMENT_OPTIONS.map((p) => (
-                  <button
-                    key={p.value}
-                    type="button"
-                    onClick={() => set('paymentType', form.paymentType.includes(p.value)
-                      ? form.paymentType.filter(v => v !== p.value)
-                      : [...form.paymentType, p.value])}
-                    className={clsx(
-                      'px-4 py-2 rounded-lg text-sm font-medium border transition-colors',
-                      form.paymentType.includes(p.value)
-                        ? 'bg-amber-500 text-white border-amber-500'
-                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-amber-400'
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <Field label="VÖEN" error={errors.voen} hint="10 rəqəmli vergi ödəyici nömrəsi">
+              <Input
+                value={form.voen}
+                onChange={(e) => set('voen', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="1234567890"
+                error={errors.voen}
+                prefix="AZ"
+              />
+            </Field>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Risk səviyyəsi</label>
-                <select value={form.riskLevel} onChange={(e) => set('riskLevel', e.target.value)} className={inputCls('')}>
-                  {RISK_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Status</label>
-                <select value={form.status} onChange={(e) => set('status', e.target.value)} className={inputCls('')}>
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
+              <Field label="Əlaqə şəxsi" error={errors.contactPerson}>
+                <Input
+                  value={form.contactPerson}
+                  onChange={(e) => set('contactPerson', e.target.value)}
+                  placeholder="Ad Soyad"
+                  error={errors.contactPerson}
+                />
+              </Field>
+              <Field label="Telefon" error={errors.contactPhone}>
+                <Input
+                  value={form.contactPhone}
+                  onChange={(e) => set('contactPhone', e.target.value)}
+                  placeholder="+994501234567"
+                  error={errors.contactPhone}
+                />
+              </Field>
             </div>
 
-            <div>
-              <label className={labelCls}>Reytinq (0–5)</label>
-              <input type="number" min="0" max="5" step="0.1" value={form.rating} onChange={(e) => set('rating', e.target.value)} placeholder="4.5" className={inputCls('')} />
+            <Field label="Ünvan" error={errors.address}>
+              <Input
+                value={form.address}
+                onChange={(e) => set('address', e.target.value)}
+                placeholder="Şəhər, küçə"
+                error={errors.address}
+              />
+            </Field>
+
+            <Field label="Ödəniş növü" hint="Bir və ya daha çox seçə bilərsiniz">
+              <div className="flex gap-2 flex-wrap">
+                {PAYMENT_OPTIONS.map((p) => {
+                  const on = form.paymentType.includes(p.value)
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => set('paymentType', on
+                        ? form.paymentType.filter(x => x !== p.value)
+                        : [...form.paymentType, p.value])}
+                      className="text-[13px] font-semibold transition-colors"
+                      style={{
+                        padding: '9px 16px',
+                        borderRadius: '10px',
+                        background: on ? 'var(--ces-graphite)' : 'var(--ces-surface)',
+                        color: on ? 'var(--ces-on-primary)' : 'var(--ces-ink)',
+                        border: `1px solid ${on ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!on) e.currentTarget.style.borderColor = 'var(--ces-graphite)'
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!on) e.currentTarget.style.borderColor = 'var(--ces-line)'
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Risk səviyyəsi">
+                <Select
+                  value={form.riskLevel}
+                  onChange={(e) => set('riskLevel', e.target.value)}
+                  options={RISK_OPTIONS}
+                />
+              </Field>
+              <Field label="Status">
+                <Select
+                  value={form.status}
+                  onChange={(e) => set('status', e.target.value)}
+                  options={STATUS_OPTIONS}
+                />
+              </Field>
             </div>
 
-            <div>
-              <label className={labelCls}>Qeydlər</label>
-              <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} placeholder="Əlavə qeydlər..." className={`${inputCls('notes')} resize-none`} />
-              {errors.notes && <p className="mt-1 text-xs text-red-500">{errors.notes}</p>}
-            </div>
+            <Field label="Reytinq" hint="0.0 – 5.0 arası dəyər">
+              <Input
+                type="number"
+                value={form.rating}
+                onChange={(e) => set('rating', e.target.value)}
+                placeholder="4.5"
+                suffix="/ 5"
+              />
+            </Field>
+
+            <Field label="Qeydlər" error={errors.notes}>
+              <Textarea
+                value={form.notes}
+                onChange={(e) => set('notes', e.target.value)}
+                placeholder="Əlavə qeydlər (max 500 simvol)..."
+                error={errors.notes}
+              />
+            </Field>
           </div>
 
-          {/* Footer */}
-          <div className="flex gap-3 p-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-            >
-              {loading && (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              )}
-              {editing ? 'Yadda saxla' : 'Əlavə et'}
-            </button>
+          {/* ─── Footer ─── */}
+          <div
+            className="flex items-center justify-end gap-2 px-6 py-4 shrink-0"
+            style={{
+              borderTop: '1px solid var(--ces-line)',
+              background: 'var(--ces-graphite-50)',
+            }}
+          >
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="ces-btn ces-btn-ghost ces-btn-sm"
             >
               Ləğv et
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className={clsx('ces-btn ces-btn-primary')}
+            >
+              {loading && (
+                <span
+                  className="w-3.5 h-3.5 rounded-full animate-spin"
+                  style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: 'var(--ces-on-primary)' }}
+                />
+              )}
+              {editing ? 'Yadda saxla' : 'Əlavə et'}
             </button>
           </div>
         </form>

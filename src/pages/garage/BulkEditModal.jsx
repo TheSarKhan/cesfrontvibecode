@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, MapPin } from 'lucide-react'
+import { X, MapPin, Pencil } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -14,7 +14,7 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
   const [notes, setNotes] = useState('')
   const [applyNotes, setApplyNotes] = useState(false)
 
-  const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
+  const inputCls = 'w-full px-3.5 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all'
 
   const handleSubmit = async () => {
     if (!applyLocation && !applyNotes) {
@@ -74,30 +74,39 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors"
-        >
-          <X size={14} className="text-white" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(58,58,58,0.45)] backdrop-blur-sm p-4 ces-font">
+      <div className="bg-[var(--ces-surface)] rounded-[18px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] w-full max-w-md relative overflow-hidden">
+        {/* Header */}
+        <div className="flex items-start gap-3.5 px-6 pt-6 pb-5 border-b border-[var(--ces-line)]">
+          <div className="w-11 h-11 rounded-[12px] grid place-items-center bg-[var(--ces-info-100)] text-[var(--ces-info)] shrink-0">
+            <Pencil size={18} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-extrabold text-[var(--ces-ink)] leading-tight">Toplu redaktə</h2>
+            <p className="text-[13px] text-[var(--ces-muted)] mt-1">
+              <span className="font-semibold text-[var(--ces-ink)]">{selectedIds.length}</span> texnika seçildi
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-[8px] grid place-items-center text-[var(--ces-muted)] hover:bg-[var(--ces-graphite-50)] hover:text-[var(--ces-graphite)] transition-colors shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
 
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">Toplu redaktə</h2>
-        <p className="text-xs text-gray-400 mb-5">{selectedIds.length} texnika seçildi</p>
-
-        <div className="space-y-4">
+        <div className="px-6 py-5 space-y-4">
           {/* Storage Location */}
           <div>
-            <label className="flex items-center gap-2 mb-2 cursor-pointer">
+            <label className="flex items-center gap-2.5 mb-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={applyLocation}
                 onChange={(e) => setApplyLocation(e.target.checked)}
-                className="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 accent-[var(--ces-graphite)]"
               />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                <MapPin size={14} className="text-amber-500" /> Saxlanma yeri
+              <span className="text-[13px] font-semibold text-[var(--ces-ink)] flex items-center gap-1.5">
+                <MapPin size={14} className="text-[var(--ces-gold-700)]" /> Saxlanma yeri
               </span>
             </label>
             {applyLocation && (
@@ -112,14 +121,14 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
 
           {/* Notes */}
           <div>
-            <label className="flex items-center gap-2 mb-2 cursor-pointer">
+            <label className="flex items-center gap-2.5 mb-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={applyNotes}
                 onChange={(e) => setApplyNotes(e.target.checked)}
-                className="rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 accent-[var(--ces-graphite)]"
               />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Qeyd</span>
+              <span className="text-[13px] font-semibold text-[var(--ces-ink)]">Qeyd</span>
             </label>
             {applyNotes && (
               <textarea
@@ -133,20 +142,21 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
           </div>
         </div>
 
-        <div className="flex gap-3 mt-6">
+        {/* Footer */}
+        <div className="flex gap-2.5 px-6 py-4 border-t border-[var(--ces-line)] bg-[var(--ces-graphite-50)] justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-[10px] text-sm font-semibold text-[var(--ces-graphite)] bg-white border border-[var(--ces-line)] hover:border-[var(--ces-graphite)] transition-colors"
+          >
+            Ləğv et
+          </button>
           <button
             onClick={handleSubmit}
             disabled={loading || (!applyLocation && !applyNotes)}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
+            className="inline-flex items-center gap-2 bg-[var(--ces-gold)] hover:bg-[var(--ces-gold-700)] disabled:opacity-60 disabled:pointer-events-none text-[var(--ces-on-gold)] font-semibold px-5 py-2.5 rounded-[10px] text-sm transition-colors"
           >
             {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             Tətbiq et ({selectedIds.length})
-          </button>
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            Ləğv et
           </button>
         </div>
       </div>

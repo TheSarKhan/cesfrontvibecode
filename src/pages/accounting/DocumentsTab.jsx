@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { FileText, Search, Download, Eye, Trash2, Plus, RefreshCw } from 'lucide-react'
+import { FileText, Search, Download, Eye, Trash2, RefreshCw } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -8,42 +8,27 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import DocumentDetailModal from './DocumentDetailModal'
 import toast from 'react-hot-toast'
-import { clsx } from 'clsx'
-
-/* ─── Köməkçi funksiyalar ──────────────────────────────────────────────────── */
-const fmtMoney = (v) => v != null
-  ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
-  : '—'
 import { fmtDate } from '../../utils/date'
-const fmt = fmtDate
+import { Pill, TableWrap, Select } from './_shared'
+import { fmtMoney } from './_constants'
 
 const DOC_TYPE_CONFIG = {
-  HESAB_FAKTURA: {
-    label: 'Hesab-Faktura',
-    cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800',
-  },
-  TEHVIL_TESLIM_AKTI: {
-    label: 'Akt',
-    cls: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800',
-  },
-  ENGLISH_INVOICE: {
-    label: 'Invoice',
-    cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800',
-  },
+  HESAB_FAKTURA:      { label: 'Hesab-Faktura', tone: 'info' },
+  TEHVIL_TESLIM_AKTI: { label: 'Akt',           tone: 'gold' },
+  ENGLISH_INVOICE:    { label: 'Invoice',       tone: 'ok'   },
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
 export default function DocumentsTab({ onCreateNew, refreshKey }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const canDelete = useAuthStore(s => s.hasPermission)('ACCOUNTING', 'canDelete')
 
-  const [docs, setDocs]           = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
-  const [page, setPage]           = useState(0)
-  const [size]                    = useState(15)
-  const [search, setSearch]       = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [loading, setLoading]     = useState(true)
-  const [detailDoc, setDetailDoc] = useState(null)
+  const [docs, setDocs]               = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
+  const [page, setPage]               = useState(0)
+  const [size]                        = useState(15)
+  const [search, setSearch]           = useState('')
+  const [typeFilter, setTypeFilter]   = useState('')
+  const [loading, setLoading]         = useState(true)
+  const [detailDoc, setDetailDoc]     = useState(null)
   const [downloading, setDownloading] = useState(null)
 
   const load = useCallback(async () => {
@@ -54,14 +39,12 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
       if (typeFilter) params.type = typeFilter
       const res = await accountingApi.getDocumentsPaged(params)
       setDocs(res.data.data || res.data)
-    } catch {
-      /* silent */
-    } finally {
-      setLoading(false)
-    }
+    } catch { /* silent */ }
+    finally { setLoading(false) }
   }, [page, size, search, typeFilter])
 
   useEffect(() => { load() }, [load])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (refreshKey) load() }, [refreshKey])
   useEffect(() => { setPage(0) }, [search, typeFilter])
 
@@ -91,8 +74,8 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
       a.download = `${safeName}-${doc.documentNumber}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      toast.error('PDF yüklənə bilmədi')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'PDF yüklənə bilmədi')
     } finally {
       setDownloading(null)
     }
@@ -102,116 +85,90 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
     <div>
       <ConfirmDialog />
 
-      {/* ── Filter sətiri ── */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-[360px]"
+          style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '10px', padding: '0 12px', minHeight: '40px' }}>
+          <Search size={14} style={{ color: 'var(--ces-mute2)' }} />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Sənəd nömrəsi, müştəri..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="flex-1 outline-none bg-transparent text-[13px]"
           />
         </div>
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="">Hamısı</option>
-          <option value="HESAB_FAKTURA">Hesab-Faktura</option>
-          <option value="TEHVIL_TESLIM_AKTI">Akt</option>
-          <option value="ENGLISH_INVOICE">Invoice</option>
-        </select>
-        <button
-          onClick={onCreateNew}
-          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={15} />
-          Yeni Sənəd
-        </button>
+        <div className="min-w-[170px]">
+          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="">Bütün növlər</option>
+            <option value="HESAB_FAKTURA">Hesab-Faktura</option>
+            <option value="TEHVIL_TESLIM_AKTI">Akt</option>
+            <option value="ENGLISH_INVOICE">Invoice</option>
+          </Select>
+        </div>
       </div>
 
-      {/* ── Cədvəl ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <TableWrap>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
+          <table className="ces-tbl w-full min-w-[760px]">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">№</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Müştəri</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
-                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Yekun məbləğ</th>
-                <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Hərəkətlər</th>
+              <tr>
+                <th>№</th>
+                <th>Növ</th>
+                <th>Müştəri</th>
+                <th>Tarix</th>
+                <th className="r">Yekun məbləğ</th>
+                <th className="w-act"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <TableSkeleton cols={6} rows={5} />
+                <TableSkeleton cols={6} rows={6} />
               ) : docs.content.length === 0 ? (
                 <EmptyState
                   icon={FileText}
-                  title="Hələ heç bir sənəd yaradılmayıb"
-                  description="Yeni sənəd yaratmaq üçün yuxarıdakı düyməni istifadə edin"
+                  title="Sənəd tapılmadı"
+                  description={search || typeFilter ? 'Axtarış şərtlərini dəyişin' : 'Yeni sənəd yaratmaq üçün yuxarıdakı düyməni istifadə edin'}
                 />
               ) : docs.content.map(doc => {
                 const typeCfg = DOC_TYPE_CONFIG[doc.documentType] || DOC_TYPE_CONFIG.HESAB_FAKTURA
                 return (
-                  <tr
-                    key={doc.id}
-                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-                  >
-                    <td className="py-3 px-4">
-                      <span className="font-mono font-semibold text-sm text-gray-800 dark:text-gray-200">
-                        {doc.documentNumber}
+                  <tr key={doc.id}>
+                    <td className="mono" style={{ color: 'var(--ces-ink)', fontSize: '12.5px', fontWeight: 600 }}>
+                      {doc.documentNumber}
+                    </td>
+                    <td>
+                      <Pill tone={typeCfg.tone} sm>{typeCfg.label}</Pill>
+                    </td>
+                    <td>
+                      <p className="text-[13.5px] font-bold" style={{ color: 'var(--ces-ink)' }}>{doc.customerName || '—'}</p>
+                      {doc.customerVoen && (
+                        <p className="text-[10.5px] mono" style={{ color: 'var(--ces-mute2)' }}>VÖEN: {doc.customerVoen}</p>
+                      )}
+                    </td>
+                    <td style={{ color: 'var(--ces-muted)', fontSize: '12px' }}>{fmtDate(doc.documentDate)}</td>
+                    <td className="r">
+                      <span className="text-[14px] font-bold num" style={{ color: 'var(--ces-graphite-900)' }}>
+                        {fmtMoney(doc.grandTotal)}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className={clsx('px-2 py-0.5 rounded-md text-xs font-bold border', typeCfg.cls)}>
-                        {typeCfg.label}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">{doc.customerName}</p>
-                        {doc.customerVoen && (
-                          <p className="text-[10px] text-gray-400 font-mono">VÖEN: {doc.customerVoen}</p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-500">{fmt(doc.documentDate)}</td>
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-bold text-gray-800 dark:text-gray-200">{fmtMoney(doc.grandTotal)}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-1">
-                        {/* PDF Yüklə */}
+                    <td>
+                      <div className="flex items-center gap-1 justify-end">
                         <button
                           onClick={() => handleDownload(doc)}
                           disabled={downloading === doc.id || !doc.pdfFilePath}
                           title="PDF Yüklə"
-                          className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 disabled:opacity-40 transition-colors"
+                          className="ces-row-act ok"
+                          style={{ opacity: (downloading === doc.id || !doc.pdfFilePath) ? 0.4 : 1 }}
                         >
                           {downloading === doc.id
                             ? <RefreshCw size={14} className="animate-spin" />
                             : <Download size={14} />}
                         </button>
-                        {/* Bax */}
-                        <button
-                          onClick={() => setDetailDoc(doc)}
-                          title="Bax"
-                          className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 transition-colors"
-                        >
+                        <button onClick={() => setDetailDoc(doc)} className="ces-row-act info" title="Bax">
                           <Eye size={14} />
                         </button>
-                        {/* Sil */}
                         {canDelete && (
-                          <button
-                            onClick={() => handleDelete(doc)}
-                            title="Sil"
-                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors"
-                          >
+                          <button onClick={() => handleDelete(doc)} className="ces-row-act danger" title="Sil">
                             <Trash2 size={14} />
                           </button>
                         )}
@@ -224,10 +181,10 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
           </table>
         </div>
 
-        {/* Footer */}
         {docs.content.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-            <span className="text-xs text-gray-500">{docs.totalElements} sənəd</span>
+          <div className="flex items-center justify-between px-4 py-3"
+            style={{ borderTop: '1px solid var(--ces-line)', background: 'var(--ces-graphite-50)' }}>
+            <span className="text-[12px]" style={{ color: 'var(--ces-muted)' }}>{docs.totalElements} sənəd</span>
             <Pagination
               page={page}
               totalPages={docs.totalPages}
@@ -235,9 +192,8 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
             />
           </div>
         )}
-      </div>
+      </TableWrap>
 
-      {/* Detail Modal */}
       {detailDoc && (
         <DocumentDetailModal
           docId={detailDoc.id}

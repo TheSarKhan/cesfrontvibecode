@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import { X, Layers, Pencil } from 'lucide-react'
+import { X, Building2, Pencil } from 'lucide-react'
 import { departmentsApi } from '../../api/departments'
 import toast from 'react-hot-toast'
+import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { v } from '../../utils/validation'
 
@@ -59,63 +60,57 @@ export default function DepartmentModal({ editing, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-7 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors"
-        >
-          <X size={14} className="text-white" />
-        </button>
-
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1 flex items-center gap-2">
-          {editing ? <Pencil size={18} className="text-amber-500 shrink-0" /> : <Layers size={18} className="text-amber-500 shrink-0" />}
-          {editing ? 'Şöbəni redaktə et' : 'Yeni şöbə əlavə et'}
-        </h2>
-        <p className="text-sm text-gray-400 mb-6">Şöbənin adını və təsvirini daxil edin</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Şöbənin adı <span className="text-red-500">*</span>
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => set('name', e.target.value)}
-              className={`w-full border rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:border-transparent ${errors.name ? 'border-red-400 dark:border-red-500 focus:ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-amber-500'}`}
-              placeholder="Şöbənin adı"
-            />
-            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
+      <div className="ces-modal" style={{ maxWidth: 480 }}>
+        <div className="ces-m-head">
+          <div className={clsx('ces-m-ic', editing ? 'gold' : '')}>
+            {editing ? <Pencil size={20} /> : <Building2 size={20} />}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Təsvir</label>
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              className={`w-full border border-dashed rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:border-transparent resize-none ${errors.description ? 'border-red-400 dark:border-red-500 focus:ring-red-400' : 'border-gray-300 dark:border-gray-600 focus:ring-amber-500'}`}
-              placeholder="Şöbəni təsvir edin"
-            />
-            {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
+          <div className="flex-1 min-w-0">
+            <h3>{editing ? 'Şöbəni redaktə et' : 'Yeni şöbə'}</h3>
+            <p>{editing ? editing.name : 'Şöbənin adını və təsvirini daxil edin'}</p>
+          </div>
+          <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="contents">
+          <div className="ces-m-body">
+            <div className="ces-field">
+              <label>Şöbənin adı <span className="req">*</span></label>
+              <div className={clsx('ces-input', errors.name && 'is-error')}>
+                <input
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  placeholder="Məs: Mühasibatlıq"
+                  autoFocus
+                />
+              </div>
+              {errors.name && <span className="ces-err">{errors.name}</span>}
+            </div>
+
+            <div className="ces-field">
+              <label>Təsvir</label>
+              <div className={clsx('ces-input', errors.description && 'is-error')} style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
+                <textarea
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => set('description', e.target.value)}
+                  placeholder="Şöbəni qısaca təsvir edin..."
+                />
+              </div>
+              {errors.description && <span className="ces-err">{errors.description}</span>}
+            </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-            >
-              {loading && (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              )}
-              {editing ? 'Yenilə' : 'Əlavə et'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
+          <div className="ces-m-foot">
+            <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost">
               Ləğv et
+            </button>
+            <button type="submit" disabled={loading} className="ces-btn ces-btn-primary">
+              {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              {editing ? 'Yadda saxla' : 'Əlavə et'}
             </button>
           </div>
         </form>

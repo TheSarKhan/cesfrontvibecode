@@ -3,8 +3,10 @@ import { X, CheckCircle, AlertCircle } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { useEscapeKey } from '../../hooks/useEscapeKey'
 
 export default function ProjectCompleteModal({ project, onClose, onSaved }) {
+  useEscapeKey(onClose)
   const { confirm, ConfirmDialog } = useConfirm()
   const [form, setForm] = useState({
     evacuationCost: '',
@@ -47,119 +49,124 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
     }
   }
 
+  const diff = form.scheduledHours && form.actualHours
+    ? parseFloat(form.actualHours) - parseFloat(form.scheduledHours)
+    : null
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><CheckCircle size={16} className="text-green-500 shrink-0" />Layihəni Bitir</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{project.projectCode || project.requestCode} · {project.companyName}</p>
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="ces-modal" style={{ maxWidth: 480 }}>
+        <div className="ces-m-head">
+          <div className="ces-m-ic" style={{ background: '#e8fbe5', color: 'var(--ces-ok)' }}>
+            <CheckCircle size={20} />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-          >
-            <X size={18} />
+          <div className="flex-1 min-w-0">
+            <h3>Layihəni bitir</h3>
+            <p className="mono truncate">{project.projectCode || project.requestCode} · {project.companyName}</p>
+          </div>
+          <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-5 space-y-4">
-          {/* Warning */}
-          <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-            <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-              Layihəni bağladıqdan sonra <strong>Mühasibatlıq moduluna</strong> avtomatik yönləndiriləcək. Bu əməliyyat geri alına bilməz.
+        <div className="ces-m-body">
+          {/* Warning banner */}
+          <div className="ces-alert gold" style={{ marginBottom: 16 }}>
+            <div className="ces-al-ic">
+              <AlertCircle size={18} />
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--ces-gold-700)', lineHeight: 1.55 }}>
+              Layihəni bağladıqdan sonra <strong>Mühasibatlıq</strong> moduluna avtomatik yönləndiriləcək. Bu əməliyyat geri alına bilməz.
             </p>
           </div>
 
           {/* Evacuation Cost */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
-              Evakuator Xərci (AZN) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              value={form.evacuationCost}
-              onChange={(e) => set('evacuationCost', e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
+          <div className="ces-field">
+            <label>Evakuator xərci (AZN) <span className="req">*</span></label>
+            <div className="ces-input">
+              <input
+                className="mono"
+                type="number"
+                value={form.evacuationCost}
+                onChange={(e) => set('evacuationCost', e.target.value)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+              />
+            </div>
           </div>
 
           {/* Work Hours */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
-                Planlaşdırılan İş Saatı <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={form.scheduledHours}
-                onChange={(e) => set('scheduledHours', e.target.value)}
-                placeholder="0"
-                min="0"
-                step="0.5"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="ces-field">
+              <label>Plan saat <span className="req">*</span></label>
+              <div className="ces-input">
+                <input
+                  className="mono"
+                  type="number"
+                  value={form.scheduledHours}
+                  onChange={(e) => set('scheduledHours', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="0.5"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
-                Faktiki İş Saatı <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={form.actualHours}
-                onChange={(e) => set('actualHours', e.target.value)}
-                placeholder="0"
-                min="0"
-                step="0.5"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+            <div className="ces-field">
+              <label>Faktiki saat <span className="req">*</span></label>
+              <div className="ces-input">
+                <input
+                  className="mono"
+                  type="number"
+                  value={form.actualHours}
+                  onChange={(e) => set('actualHours', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  step="0.5"
+                />
+              </div>
             </div>
           </div>
 
           {/* Summary preview */}
-          {(form.scheduledHours || form.actualHours) && (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-              {form.scheduledHours && form.actualHours && (
-                <div className="flex justify-between">
-                  <span>Fərq (faktiki − planlı):</span>
-                  <span className={parseFloat(form.actualHours) >= parseFloat(form.scheduledHours) ? 'text-green-600' : 'text-red-500'}>
-                    {(parseFloat(form.actualHours || 0) - parseFloat(form.scheduledHours || 0)).toFixed(1)} saat
-                  </span>
+          {(diff !== null || form.evacuationCost) && (
+            <div className="ces-card" style={{ padding: 14 }}>
+              <p className="ces-sec-label" style={{ marginBottom: 10 }}>Xülasə</p>
+              {diff !== null && (
+                <div className="ces-card-row">
+                  <span>Fərq (faktiki − plan)</span>
+                  <b
+                    className="mono"
+                    style={{ color: diff >= 0 ? 'var(--ces-ok)' : 'var(--ces-danger)' }}
+                  >
+                    {diff >= 0 ? '+' : ''}{diff.toFixed(1)} saat
+                  </b>
                 </div>
               )}
               {form.evacuationCost && (
-                <div className="flex justify-between">
-                  <span>Evakuator xərci:</span>
-                  <span className="text-red-500">
+                <div className="ces-card-row">
+                  <span>Evakuator xərci</span>
+                  <b className="mono" style={{ color: 'var(--ces-danger)' }}>
                     {parseFloat(form.evacuationCost || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼
-                  </span>
+                  </b>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            Ləğv et
-          </button>
+        <div className="ces-m-foot">
+          <button onClick={onClose} className="ces-btn ces-btn-ghost">Ləğv et</button>
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+            className="ces-btn"
+            style={{ background: 'var(--ces-ok)', color: '#fff' }}
           >
-            <CheckCircle size={15} />
-            {saving ? 'Bağlanır...' : 'Layihəni Bağla'}
+            {saving
+              ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <CheckCircle size={15} />}
+            {saving ? 'Bağlanır...' : 'Layihəni bağla'}
           </button>
         </div>
       </div>

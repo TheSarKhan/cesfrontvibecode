@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Edit3 } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
-import { inputCls, labelCls } from '../../constants/requests'
 import toast from 'react-hot-toast'
+import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
 export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
@@ -52,71 +52,111 @@ export default function BulkEditModal({ selectedIds, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Toplu redaktə</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{selectedIds.length} sorğu seçildi</p>
+    <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="ces-modal" style={{ maxWidth: 480 }}>
+        <div className="ces-m-head">
+          <div className="ces-m-ic gold">
+            <Edit3 size={20} />
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center transition-colors shrink-0">
-            <X size={14} className="text-white" />
+          <div className="flex-1 min-w-0">
+            <h3>Toplu redaktə</h3>
+            <p>{selectedIds.length} sorğu seçildi</p>
+          </div>
+          <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
+            <X size={16} />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          {/* Region */}
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input type="checkbox" checked={fields.region} onChange={(e) => toggleField('region', e.target.checked)} className="accent-amber-600 w-4 h-4" />
-              <span className={labelCls + ' !mb-0'}>Bölgə</span>
+        <div className="ces-m-body">
+          <p className="ces-sec-label" style={{ marginBottom: 12 }}>Yenilənəcək sahələr</p>
+
+          {/* Region toggle + input */}
+          <div className="ces-field">
+            <label
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                cursor: 'pointer', marginBottom: 8, padding: '10px 12px',
+                border: '1px solid var(--ces-line)', borderRadius: 11,
+                background: fields.region ? 'var(--ces-gold-50)' : 'var(--ces-surface)',
+                borderColor: fields.region ? 'var(--ces-gold)' : 'var(--ces-line)',
+                transition: 'background .15s, border-color .15s',
+              }}
+            >
+              <span className="ces-chk" style={{ pointerEvents: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={fields.region}
+                  onChange={(e) => toggleField('region', e.target.checked)}
+                />
+                <span className="ces-cb"></span>
+              </span>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ces-ink)' }}>Bölgə</span>
             </label>
             {fields.region && (
               <>
-                <input
-                  type="text"
-                  value={values.region}
-                  onChange={(e) => setValue('region', e.target.value)}
-                  placeholder="Yeni bölgə..."
-                  className={`${inputCls}${errors.region ? ' border-red-400 focus:ring-red-400' : ''}`}
-                />
-                {errors.region && <p className="text-[11px] text-red-500 mt-1">{errors.region}</p>}
+                <div className={clsx('ces-input', errors.region && 'is-error')}>
+                  <input
+                    value={values.region}
+                    onChange={(e) => setValue('region', e.target.value)}
+                    placeholder="Yeni bölgə..."
+                    autoFocus
+                  />
+                </div>
+                {errors.region && <span className="ces-err">{errors.region}</span>}
               </>
             )}
           </div>
 
-          {/* Notes */}
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
-              <input type="checkbox" checked={fields.notes} onChange={(e) => toggleField('notes', e.target.checked)} className="accent-amber-600 w-4 h-4" />
-              <span className={labelCls + ' !mb-0'}>Qeyd</span>
+          {/* Notes toggle + textarea */}
+          <div className="ces-field" style={{ marginBottom: 0 }}>
+            <label
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                cursor: 'pointer', marginBottom: 8, padding: '10px 12px',
+                border: '1px solid var(--ces-line)', borderRadius: 11,
+                background: fields.notes ? 'var(--ces-gold-50)' : 'var(--ces-surface)',
+                borderColor: fields.notes ? 'var(--ces-gold)' : 'var(--ces-line)',
+                transition: 'background .15s, border-color .15s',
+              }}
+            >
+              <span className="ces-chk" style={{ pointerEvents: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={fields.notes}
+                  onChange={(e) => toggleField('notes', e.target.checked)}
+                />
+                <span className="ces-cb"></span>
+              </span>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ces-ink)' }}>Qeyd</span>
             </label>
             {fields.notes && (
               <>
-                <textarea
-                  value={values.notes}
-                  onChange={(e) => setValue('notes', e.target.value)}
-                  rows={3}
-                  placeholder="Yeni qeyd..."
-                  className={`${inputCls} resize-none${errors.notes ? ' border-red-400 focus:ring-red-400' : ''}`}
-                />
-                {errors.notes && <p className="text-[11px] text-red-500 mt-1">{errors.notes}</p>}
+                <div className={clsx('ces-input', errors.notes && 'is-error')} style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
+                  <textarea
+                    rows={3}
+                    value={values.notes}
+                    onChange={(e) => setValue('notes', e.target.value)}
+                    placeholder="Yeni qeyd..."
+                  />
+                </div>
+                {errors.notes && <span className="ces-err">{errors.notes}</span>}
               </>
             )}
           </div>
         </div>
 
-        <div className="flex gap-3 p-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="ces-m-foot">
+          <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost">
+            Ləğv et
+          </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={loading || (!fields.region && !fields.notes)}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
+            className="ces-btn ces-btn-primary"
           >
             {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             Yenilə
-          </button>
-          <button onClick={onClose} className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            Ləğv et
           </button>
         </div>
       </div>

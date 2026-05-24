@@ -1,27 +1,36 @@
 import { create } from 'zustand'
 
-const applyTheme = (dark) => {
-  if (dark) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
-  localStorage.setItem('theme', dark ? 'dark' : 'light')
+export const THEMES = ['light', 'dark', 'galactic']
+
+const applyTheme = (theme) => {
+  const root = document.documentElement
+  root.classList.remove('dark', 'galactic')
+  if (theme === 'dark') root.classList.add('dark')
+  else if (theme === 'galactic') root.classList.add('galactic')
+  localStorage.setItem('theme', theme)
 }
 
 const savedTheme = localStorage.getItem('theme')
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-const initialDark = savedTheme ? savedTheme === 'dark' : prefersDark
+const initialTheme = THEMES.includes(savedTheme) ? savedTheme : (prefersDark ? 'dark' : 'light')
 
-applyTheme(initialDark)
+applyTheme(initialTheme)
 
 export const useThemeStore = create((set) => ({
-  isDark: initialDark,
+  theme: initialTheme,
+  isDark: initialTheme !== 'light',
+
+  setTheme: (theme) =>
+    set(() => {
+      const next = THEMES.includes(theme) ? theme : 'light'
+      applyTheme(next)
+      return { theme: next, isDark: next !== 'light' }
+    }),
 
   toggleTheme: () =>
     set((state) => {
-      const next = !state.isDark
+      const next = THEMES[(THEMES.indexOf(state.theme) + 1) % THEMES.length]
       applyTheme(next)
-      return { isDark: next }
+      return { theme: next, isDark: next !== 'light' }
     }),
 }))

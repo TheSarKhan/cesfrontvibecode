@@ -9,22 +9,44 @@ export const parseUTC = (d) => {
   return new Date(d.includes('Z') || d.includes('+') ? d : d + 'Z')
 }
 
-/** Yalnız tarix: 01.05.2026 */
-export const fmtDate = (d) => {
-  const date = parseUTC(d)
-  return date ? date.toLocaleDateString('az-AZ', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+/** Tarix hissələrini Asia/Baku saat qurşağı ilə çıxar */
+const partsInTZ = (date) => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date)
+  const get = (t) => parts.find(p => p.type === t)?.value || ''
+  return { day: get('day'), month: get('month'), year: get('year'), hour: get('hour'), minute: get('minute') }
 }
 
-/** Tarix + saat: 01.05.2026 14:30 */
+/** Yalnız tarix: 19.05.2026 */
+export const fmtDate = (d) => {
+  const date = parseUTC(d)
+  if (!date) return '—'
+  const { day, month, year } = partsInTZ(date)
+  return `${day}.${month}.${year}`
+}
+
+/** Tarix + saat: 19.05.2026 14:30 */
 export const fmtDateTime = (d) => {
   const date = parseUTC(d)
-  return date ? date.toLocaleString('az-AZ', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+  if (!date) return '—'
+  const { day, month, year, hour, minute } = partsInTZ(date)
+  return `${day}.${month}.${year} ${hour}:${minute}`
 }
 
 /** Yalnız saat: 14:30 */
 export const fmtTime = (d) => {
   const date = parseUTC(d)
-  return date ? date.toLocaleTimeString('az-AZ', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) : ''
+  if (!date) return ''
+  const { hour, minute } = partsInTZ(date)
+  return `${hour}:${minute}`
+}
+
+/** Period (ay + il): 05.2026 */
+export const fmtPeriod = (year, month) => {
+  if (year == null || month == null) return '—'
+  return `${String(month).padStart(2, '0')}.${year}`
 }
 
 /** "5 dəqiqə əvvəl" formatı */

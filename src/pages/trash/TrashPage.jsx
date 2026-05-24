@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { Trash2, RotateCcw, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import { trashApi } from '../../api/trash'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import Pagination from '../../components/common/Pagination'
+import TableSkeleton from '../../components/common/TableSkeleton'
+import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useSearchParams } from 'react-router-dom'
 
 const MODULES = [
@@ -35,13 +37,15 @@ function formatDate(dt) {
 function DetailGrid({ details }) {
   if (!details) return null
   const entries = Object.entries(details).filter(([, v]) => v && v !== '—')
-  if (entries.length === 0) return null
+  if (entries.length === 0) return (
+    <p className="text-[12.5px] text-[var(--ces-muted)] italic">Əlavə məlumat yoxdur</p>
+  )
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3.5">
       {entries.map(([label, value]) => (
         <div key={label}>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{label}</p>
-          <p className="text-sm text-gray-800 dark:text-gray-200 font-medium break-words">{value}</p>
+          <p className="text-[10.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.12em] mb-1">{label}</p>
+          <p className="text-[13px] text-[var(--ces-ink)] font-medium break-words">{value}</p>
         </div>
       ))}
     </div>
@@ -54,6 +58,7 @@ export default function TrashPage() {
   const [restoring, setRestoring] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
+  const { confirm, ConfirmDialog } = useConfirm()
 
   const activeModule = searchParams.get('module') || null
   const search = searchParams.get('q') || ''
@@ -81,7 +86,12 @@ export default function TrashPage() {
 
   const handleRestore = async (item, e) => {
     e.stopPropagation()
-    if (!confirm(`"${item.entityLabel}" bərpa edilsin?`)) return
+    if (!(await confirm({
+      title: 'Məlumatı bərpa et',
+      message: `"${item.entityLabel}" bərpa edilsin?`,
+      confirmText: 'Bərpa et',
+      danger: false,
+    }))) return
     const key = item.id + item.entityType
     setRestoring(key)
     try {
@@ -89,6 +99,7 @@ export default function TrashPage() {
       toast.success('Məlumat bərpa edildi')
       load()
     } catch {
+      // error toast handled by axios interceptor
     } finally {
       setRestoring(null)
     }
@@ -99,143 +110,162 @@ export default function TrashPage() {
   }
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-          <Trash2 size={20} className="text-red-600 dark:text-red-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Silinmiş Məlumatlar</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Silinmiş qeydlər bərpa edilə bilər</p>
+    <div className="ces-font">
+      {/* Page Header */}
+      <div className="flex items-end justify-between mb-7">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-[16px] bg-[var(--ces-danger-100)] grid place-items-center shrink-0">
+            <Trash2 size={22} className="text-[var(--ces-danger)]" />
+          </div>
+          <div>
+            <div className="font-mono text-[12px] font-semibold text-[var(--ces-danger)] tracking-wider mb-1.5">RECYCLE BIN</div>
+            <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--ces-ink)] leading-tight">Silinmiş Məlumatlar</h1>
+            <p className="text-sm text-[var(--ces-muted)] mt-1">
+              <span className="font-semibold text-[var(--ces-ink)]">{data.totalElements}</span> qeyd bərpa edilə bilər
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Module tabs */}
-      <div className="flex flex-wrap gap-2">
-        {MODULES.map(m => (
-          <button
-            key={m.code ?? 'all'}
-            onClick={() => setActiveModule(m.code)}
-            className={clsx(
-              'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-              activeModule === m.code
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            )}
-          >
-            {m.label}
-          </button>
-        ))}
+      {/* Module filter chips */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {MODULES.map(m => {
+          const on = activeModule === m.code
+          return (
+            <button
+              key={m.code ?? 'all'}
+              onClick={() => setActiveModule(m.code)}
+              className={clsx(
+                'px-3.5 py-1.5 rounded-full text-[12.5px] font-bold tracking-tight transition-colors',
+                on
+                  ? 'bg-[var(--ces-graphite)] text-[var(--ces-on-primary)]'
+                  : 'bg-white text-[var(--ces-graphite)] border border-[var(--ces-line)] hover:border-[var(--ces-graphite)]'
+              )}
+            >
+              {m.label}
+            </button>
+          )
+        })}
       </div>
 
-      {/* Search + count */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Search */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="relative flex-1 max-w-md">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ces-mute2)]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Axtar..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+            placeholder="Ad və ya identifikator ilə axtar..."
+            className="w-full pl-10 pr-3 py-2.5 text-sm bg-white border border-[var(--ces-line)] rounded-[11px] text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)] transition-all"
           />
         </div>
-        <span className="text-sm text-gray-500 dark:text-gray-400">{data.totalElements} qeyd</span>
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        {loading ? (
-          <div className="space-y-0">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-14 border-b border-gray-50 dark:border-gray-700/50 animate-pulse bg-gray-50 dark:bg-gray-700/30" />
-            ))}
-          </div>
-        ) : data.content.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
-            <Trash2 size={40} className="mb-3 opacity-30" />
-            <p className="text-sm">Silinmiş məlumat yoxdur</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700">
-                <th className="w-8 px-3 py-3" />
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Ad</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Modul</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Silinmə tarixi</th>
-                <th className="px-4 py-3" />
+      <div className="bg-[var(--ces-surface)] border border-[var(--ces-line)] rounded-[20px] overflow-hidden shadow-[0_1px_2px_rgba(58,58,58,0.06),0_1px_1px_rgba(58,58,58,0.04)]">
+        <table className="w-full text-[13.5px]">
+          <thead>
+            <tr className="border-b border-[var(--ces-line)] bg-white">
+              <th className="w-10 px-3 py-3.5" />
+              <th className="text-left px-4 py-3.5 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Ad</th>
+              <th className="text-left px-4 py-3.5 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Modul</th>
+              <th className="text-left px-4 py-3.5 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em]">Silinmə tarixi</th>
+              <th className="px-4 py-3.5 text-[11.5px] font-bold text-[var(--ces-muted)] uppercase tracking-[0.1em] text-right">Əməliyyat</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <TableSkeleton cols={5} rows={6} />
+            ) : data.content.length === 0 ? (
+              <tr>
+                <td colSpan={5}>
+                  <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                    <div className="w-16 h-16 rounded-[18px] bg-[var(--ces-graphite-50)] grid place-items-center mb-4 border border-[var(--ces-line)]">
+                      <Trash2 size={28} className="text-[var(--ces-mute2)]" />
+                    </div>
+                    <h3 className="text-[17px] font-extrabold text-[var(--ces-ink)] tracking-tight">Silinmiş məlumat yoxdur</h3>
+                    <p className="text-[13px] text-[var(--ces-muted)] mt-1.5 max-w-[380px]">
+                      {activeModule || search
+                        ? 'Seçilmiş filtrə uyğun qeyd tapılmadı'
+                        : 'Səbət təmizdir — bərpa ediləcək məlumat yoxdur'}
+                    </p>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {data.content.map((item) => {
+            ) : (
+              data.content.map((item) => {
                 const key = item.id + item.entityType
                 const isExpanded = expandedKey === key
+                const isRestoring = restoring === key
                 return (
-                  <>
+                  <Fragment key={key}>
                     <tr
-                      key={key}
                       onClick={() => toggleExpand(key)}
                       className={clsx(
-                        'border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors',
+                        'border-b border-[var(--ces-line-2)] cursor-pointer transition-colors',
                         isExpanded
-                          ? 'bg-red-50 dark:bg-red-900/10'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                          ? 'bg-[var(--ces-gold-50)]'
+                          : 'hover:bg-[var(--ces-graphite-50)]'
                       )}
                     >
-                      <td className="px-3 py-3 text-gray-400">
+                      <td className="px-3 py-3.5 text-[var(--ces-muted)]">
                         {isExpanded
                           ? <ChevronDown size={15} />
                           : <ChevronRight size={15} />
                         }
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">
-                        {item.entityLabel}
+                      <td className="px-4 py-3.5">
+                        <span className="text-sm font-semibold text-[var(--ces-ink)]">{item.entityLabel}</span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium">
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--ces-graphite-50)] text-[var(--ces-graphite)] text-[11.5px] font-bold">
                           {MODULE_LABEL_MAP[item.moduleCode] || item.moduleName}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
+                      <td className="px-4 py-3.5 text-[12.5px] text-[var(--ces-muted)] tabular-nums">
                         {formatDate(item.deletedAt)}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={(e) => handleRestore(item, e)}
-                          disabled={restoring === key}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-medium transition-colors disabled:opacity-50"
+                          disabled={isRestoring}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[var(--ces-ok-100)] hover:bg-[#d8f5d2] text-[var(--ces-ok)] text-[12px] font-bold transition-colors disabled:opacity-60 disabled:pointer-events-none"
                         >
-                          <RotateCcw size={13} className={restoring === key ? 'animate-spin' : ''} />
-                          Bərpa et
+                          <RotateCcw size={13} className={isRestoring ? 'animate-spin' : ''} />
+                          {isRestoring ? 'Bərpa olunur...' : 'Bərpa et'}
                         </button>
                       </td>
                     </tr>
 
                     {isExpanded && (
-                      <tr key={key + '_detail'} className="bg-red-50/60 dark:bg-red-900/5 border-b border-gray-100 dark:border-gray-700/50">
-                        <td colSpan={5} className="px-8 py-4">
-                          <DetailGrid details={item.details} />
+                      <tr className="bg-[var(--ces-gold-50)] border-b border-[var(--ces-line-2)]">
+                        <td />
+                        <td colSpan={4} className="px-4 pb-5 pt-2">
+                          <div className="bg-white border border-[var(--ces-line)] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(58,58,58,0.06)]">
+                            <p className="text-[11px] tracking-[0.16em] uppercase font-bold text-[var(--ces-muted)] mb-4">Silinmiş qeydin detalları</p>
+                            <DetailGrid details={item.details} />
+                          </div>
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
-              })}
-            </tbody>
-          </table>
-        )}
+              })
+            )}
+          </tbody>
+        </table>
+
+        <Pagination
+          page={data.page + 1}
+          pageSize={data.size}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          onPage={(p) => setPage(p - 1)}
+          onPageSize={(s) => { setPageSize(s); setPage(0) }}
+        />
       </div>
 
-      <Pagination
-        page={data.page + 1}
-        pageSize={data.size}
-        totalPages={data.totalPages}
-        totalElements={data.totalElements}
-        onPage={(p) => setPage(p - 1)}
-        onPageSize={(s) => { setPageSize(s); setPage(0) }}
-      />
-
+      <ConfirmDialog />
     </div>
   )
 }

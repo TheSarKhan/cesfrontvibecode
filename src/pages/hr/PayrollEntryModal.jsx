@@ -1,25 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Calculator } from 'lucide-react'
+import { Calculator } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
+import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { Field, Input, Textarea, ModalShell, Avatar } from './_shared'
+import { fmt } from './_constants'
 
-const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+/* ─── Calculation helpers ─── */
+function round2(n) { return Math.round(n * 100) / 100 }
 
-function round2(n) {
-  return Math.round(n * 100) / 100
-}
-
-// Xam (yuvarlaqlaşdırılmamış) bracket hesablaması — kumulyativ 0.01 fərq olmasın deyə.
 function bracketedRaw(amount, threshold, rateBelow, rateAbove) {
   if (!amount || amount <= 0) return 0
-  const t = Number(threshold ?? 0)
+  const t  = Number(threshold ?? 0)
   const rb = Number(rateBelow ?? 0)
   const ra = Number(rateAbove ?? 0)
   if (amount <= t) return amount * rb
   return t * rb + (amount - t) * ra
 }
 
-// Azərbaycan 2026 progressiv gəlir vergisi (xam — yuvarlaqlaşdırma sonda)
+// Azərbaycan 2026 progressiv gəlir vergisi
 function progressiveIncomeTaxRaw(taxBase) {
   if (!taxBase || taxBase <= 0) return 0
   if (taxBase <= 200)  return 0
@@ -34,9 +33,9 @@ function calcPreview(form, cfg, workingDaysInMonth) {
   const workingDays = workingDaysInMonth > 0 ? workingDaysInMonth : 22
   const actualDays  = Number(form.actualDaysWorked) || workingDays
   const overtimePay = Number(form.overtimePay)   || 0
-  const bonus       = Number(form.bonus)          || 0
-  const vacation    = Number(form.vacationPay)    || 0
-  const penalty     = Number(form.penalty)        || 0
+  const bonus       = Number(form.bonus)         || 0
+  const vacation    = Number(form.vacationPay)   || 0
+  const penalty     = Number(form.penalty)       || 0
 
   const proRated = actualDays === workingDays
     ? baseSalary
@@ -45,23 +44,18 @@ function calcPreview(form, cfg, workingDaysInMonth) {
   let gross = round2(proRated + overtimePay + bonus + vacation - penalty)
   if (gross < 0) gross = 0
 
-  // Xam dəyərlər — yuvarlaqlaşdırma yalnız sonunda (0.01 kumulyativ fərq olmasın deyə)
   const pensionRaw      = bracketedRaw(gross, cfg.employeePensionThreshold, cfg.employeePensionRateBelow, cfg.employeePensionRateAbove)
   const unemploymentRaw = gross * Number(cfg.employeeUnemploymentRate ?? 0)
   const medicalRaw      = bracketedRaw(gross, cfg.employeeMedicalThreshold, cfg.employeeMedicalRateBelow, cfg.employeeMedicalRateAbove)
 
   let taxBase = gross
-  if (cfg.deductSocialFromTaxBase) {
-    taxBase -= pensionRaw + unemploymentRaw + medicalRaw
-  }
-  if (Number(cfg.nonTaxableMinimum) > 0) {
-    taxBase -= Number(cfg.nonTaxableMinimum)
-  }
+  if (cfg.deductSocialFromTaxBase) taxBase -= pensionRaw + unemploymentRaw + medicalRaw
+  if (Number(cfg.nonTaxableMinimum) > 0) taxBase -= Number(cfg.nonTaxableMinimum)
   if (taxBase < 0) taxBase = 0
 
-  const incomeTaxRaw      = progressiveIncomeTaxRaw(taxBase)
+  const incomeTaxRaw       = progressiveIncomeTaxRaw(taxBase)
   const totalDeductionsRaw = incomeTaxRaw + pensionRaw + unemploymentRaw + medicalRaw
-  let   netPayRaw         = gross - totalDeductionsRaw
+  let   netPayRaw          = gross - totalDeductionsRaw
   if (netPayRaw < 0) netPayRaw = 0
 
   const employerPensionRaw      = bracketedRaw(gross, cfg.employerPensionThreshold, cfg.employerPensionRateBelow, cfg.employerPensionRateAbove)
@@ -70,22 +64,23 @@ function calcPreview(form, cfg, workingDaysInMonth) {
   const totalEmployerRaw        = employerPensionRaw + employerUnemploymentRaw + employerMedicalRaw
 
   return {
-    grossTotal: round2(gross),
-    incomeTax:           round2(incomeTaxRaw),
-    employeePension:     round2(pensionRaw),
-    employeeUnemployment: round2(unemploymentRaw),
-    employeeMedical:     round2(medicalRaw),
-    totalDeductions:     round2(totalDeductionsRaw),
-    netPay:              round2(netPayRaw),
-    employerPension:     round2(employerPensionRaw),
-    employerUnemployment: round2(employerUnemploymentRaw),
-    employerMedical:     round2(employerMedicalRaw),
+    grossTotal:                 round2(gross),
+    incomeTax:                  round2(incomeTaxRaw),
+    employeePension:            round2(pensionRaw),
+    employeeUnemployment:       round2(unemploymentRaw),
+    employeeMedical:            round2(medicalRaw),
+    totalDeductions:            round2(totalDeductionsRaw),
+    netPay:                     round2(netPayRaw),
+    employerPension:            round2(employerPensionRaw),
+    employerUnemployment:       round2(employerUnemploymentRaw),
+    employerMedical:            round2(employerMedicalRaw),
     totalEmployerContributions: round2(totalEmployerRaw),
-    totalCompanyCost:    round2(gross + totalEmployerRaw),
+    totalCompanyCost:           round2(gross + totalEmployerRaw),
   }
 }
 
 export default function PayrollEntryModal({ entry, onClose, onSaved }) {
+  useEscapeKey(onClose)
   const [form, setForm] = useState({
     actualDaysWorked: entry.actualDaysWorked,
     bonus:            entry.bonus       || 0,
@@ -99,9 +94,11 @@ export default function PayrollEntryModal({ entry, onClose, onSaved }) {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     hrApi.getActiveTaxRate()
-      .then(r => setCfg(r.data?.data ?? r.data))
+      .then(r => { if (!cancelled) setCfg(r.data?.data ?? r.data) })
       .catch(() => {})
+    return () => { cancelled = true }
   }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -111,7 +108,8 @@ export default function PayrollEntryModal({ entry, onClose, onSaved }) {
     [form, cfg, entry]
   )
 
-  const submit = async () => {
+  const submit = async (e) => {
+    e?.preventDefault?.()
     setSubmitting(true)
     try {
       const payload = {
@@ -132,93 +130,131 @@ export default function PayrollEntryModal({ entry, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl my-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <div className="flex items-center gap-2">
-              <Calculator size={18} className="text-emerald-600" />
-              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">{entry.employeeFullName}</h2>
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">{entry.positionName || '—'} • {entry.employeeFin || 'FİN —'}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600"><X size={18} /></button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 p-6">
-          {/* Inputs */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Daxiletmə</h3>
-            <Field label="Əməkhaqqı (Gross)">
-              <input type="number" step="0.01" value={form.baseSalary} onChange={(e) => set('baseSalary', e.target.value)} className={ipt} />
-            </Field>
-            <Field label={`Faktiki iş günü (max ${entry.workingDaysInMonth})`}>
-              <input type="number" min="0" max="31" value={form.actualDaysWorked} onChange={(e) => set('actualDaysWorked', e.target.value)} className={ipt} />
-            </Field>
-            <Field label="Mükafat (Bonus)">
-              <input type="number" step="0.01" min="0" value={form.bonus} onChange={(e) => set('bonus', e.target.value)} className={ipt} />
-            </Field>
-            <Field label="Məzuniyyət ödənişi">
-              <input type="number" step="0.01" min="0" value={form.vacationPay} onChange={(e) => set('vacationPay', e.target.value)} className={ipt} />
-            </Field>
-            <Field label="Saatlıq əlavə (overtime)">
-              <input type="number" step="0.01" min="0" value={form.overtimePay} onChange={(e) => set('overtimePay', e.target.value)} className={ipt} />
-            </Field>
-            <Field label="Cərimə">
-              <input type="number" step="0.01" min="0" value={form.penalty} onChange={(e) => set('penalty', e.target.value)} className={ipt} />
-            </Field>
-            <Field label="Qeyd">
-              <textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} className={ipt} />
-            </Field>
-          </div>
-
-          {/* Live preview */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Hesablama</h3>
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-              <Row label="HESABLANIB CƏMİ"    value={fmt(preview.grossTotal)}                bold />
-              <Row label="Gəlir vergisi (0/3/10/14%)" value={fmt(preview.incomeTax)} />
-              <Row label="Pensiya (3% / 10%)"  value={fmt(preview.employeePension)} />
-              <Row label="İşsizlik (0.5%)"     value={fmt(preview.employeeUnemployment)} />
-              <Row label="Tibbi (2% / 0.5%, ≷2500)" value={fmt(preview.employeeMedical)} />
-              <Row label="CƏMİ TUTULMUŞDUR"   value={fmt(preview.totalDeductions)}           bold negative />
-              <Row label="ÖDƏNİLMƏLİ MƏBLƏĞ" value={fmt(preview.netPay)}                    bold positive big />
-              <Row label="İGÖ Pensiya (22%/15%)" value={fmt(preview.employerPension)} />
-              <Row label="İGÖ İşsizlik (0.5%)" value={fmt(preview.employerUnemployment)} />
-              <Row label="İGÖ Tibbi"           value={fmt(preview.employerMedical)} />
-              <Row label="ŞİRKƏT XƏRCİ"       value={fmt(preview.totalCompanyCost)}          bold />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Bağla</button>
-          <button onClick={submit} disabled={submitting} className="px-5 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg">
+    <ModalShell
+      icon={Calculator}
+      eyebrow="Əməkhaqqı sətri"
+      title={entry.employeeFullName}
+      subtitle={
+        <>
+          {entry.positionName || '—'}
+          {entry.employeeFin && <> · <span className="font-mono">{entry.employeeFin}</span></>}
+        </>
+      }
+      onClose={onClose}
+      tone="gold"
+      maxWidth="900px"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost ces-btn-sm">Bağla</button>
+          <button onClick={submit} disabled={submitting} className="ces-btn ces-btn-primary">
+            {submitting && (
+              <span className="w-3.5 h-3.5 rounded-full animate-spin"
+                style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: 'var(--ces-on-primary)' }} />
+            )}
             {submitting ? 'Saxlanılır...' : 'Yadda saxla'}
           </button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        {/* Inputs */}
+        <div>
+          <div className="flex items-center gap-2.5 mb-4">
+            <Avatar name={entry.employeeFullName} size="sm" />
+            <div>
+              <h3 className="text-[10.5px] font-bold uppercase tracking-[.16em]" style={{ color: 'var(--ces-muted)' }}>
+                Daxiletmə
+              </h3>
+              <p className="text-[11px]" style={{ color: 'var(--ces-mute2)' }}>İş günü max: {entry.workingDaysInMonth}</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <Field label="Əməkhaqqı (Gross)">
+              <Input type="number" step="0.01" value={form.baseSalary} onChange={(e) => set('baseSalary', e.target.value)} suffix="₼" />
+            </Field>
+            <Field label="Faktiki iş günü">
+              <Input type="number" min="0" max="31" value={form.actualDaysWorked} onChange={(e) => set('actualDaysWorked', e.target.value)} suffix={`/ ${entry.workingDaysInMonth}`} />
+            </Field>
+            <Field label="Mükafat (Bonus)">
+              <Input type="number" step="0.01" min="0" value={form.bonus} onChange={(e) => set('bonus', e.target.value)} suffix="₼" />
+            </Field>
+            <Field label="Məzuniyyət ödənişi">
+              <Input type="number" step="0.01" min="0" value={form.vacationPay} onChange={(e) => set('vacationPay', e.target.value)} suffix="₼" />
+            </Field>
+            <Field label="Saatlıq əlavə">
+              <Input type="number" step="0.01" min="0" value={form.overtimePay} onChange={(e) => set('overtimePay', e.target.value)} suffix="₼" />
+            </Field>
+            <Field label="Cərimə">
+              <Input type="number" step="0.01" min="0" value={form.penalty} onChange={(e) => set('penalty', e.target.value)} suffix="₼" />
+            </Field>
+            <Field label="Qeyd">
+              <Textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={2} />
+            </Field>
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div>
+          <h3 className="text-[10.5px] font-bold uppercase tracking-[.16em] mb-4" style={{ color: 'var(--ces-muted)' }}>
+            Canlı hesablama
+          </h3>
+          <div
+            className="overflow-hidden divide-y"
+            style={{
+              border: '1px solid var(--ces-line)',
+              borderRadius: '14px',
+              background: 'var(--ces-surface)',
+              boxShadow: 'var(--ces-shadow-sm)',
+            }}
+          >
+            <Row label="HESABLANIB CƏMİ"               value={preview.grossTotal} bold />
+            <Row label="Gəlir vergisi (0/3/10/14%)"    value={preview.incomeTax} subtle />
+            <Row label="Pensiya (3% / 10%)"            value={preview.employeePension} subtle />
+            <Row label="İşsizlik (0.5%)"               value={preview.employeeUnemployment} subtle />
+            <Row label="Tibbi (2% / 0.5%, ≷2500)"      value={preview.employeeMedical} subtle />
+            <Row label="CƏMİ TUTULMUŞDUR"              value={preview.totalDeductions} bold negative />
+            <Row label="ÖDƏNİLMƏLİ MƏBLƏĞ"             value={preview.netPay} big />
+            <Row label="İGÖ Pensiya (22%/15%)"         value={preview.employerPension} subtle />
+            <Row label="İGÖ İşsizlik (0.5%)"           value={preview.employerUnemployment} subtle />
+            <Row label="İGÖ Tibbi"                     value={preview.employerMedical} subtle />
+            <Row label="ŞİRKƏT XƏRCİ"                  value={preview.totalCompanyCost} bold info />
+          </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 
-const ipt = "w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
-
-function Field({ label, children }) {
+function Row({ label, value, bold, negative, big, info, subtle }) {
   return (
-    <div>
-      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</label>
-      {children}
-    </div>
-  )
-}
-
-function Row({ label, value, bold, negative, positive, big }) {
-  return (
-    <div className={`flex items-center justify-between px-3 py-2 ${big ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
-      <span className={`${bold ? 'font-semibold text-gray-700 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400'} text-xs`}>{label}</span>
-      <span className={`font-medium ${big ? 'text-base text-emerald-700 dark:text-emerald-400 font-bold' : negative ? 'text-rose-600' : positive ? 'text-emerald-700' : 'text-gray-800 dark:text-gray-100'}`}>
-        {value} ₼
+    <div
+      className="flex items-center justify-between px-4 py-2.5"
+      style={{ background: big ? 'rgba(15,157,106,.06)' : 'transparent' }}
+    >
+      <span
+        className={bold ? 'font-bold' : 'font-medium'}
+        style={{
+          color: bold || big ? 'var(--ces-ink)' : 'var(--ces-muted)',
+          fontSize: bold || big ? '12.5px' : '11.5px',
+          letterSpacing: subtle ? '.02em' : 0,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        className="num"
+        style={{
+          fontSize: big ? '20px' : bold ? '14px' : '13px',
+          fontWeight: big ? 800 : bold ? 700 : 600,
+          color:
+            big      ? 'var(--ces-ok)' :
+            negative ? 'var(--ces-danger)' :
+            info     ? 'var(--ces-info)' :
+            bold     ? 'var(--ces-graphite-900)' :
+                       'var(--ces-ink)',
+        }}
+      >
+        {fmt(value)} ₼
       </span>
     </div>
   )

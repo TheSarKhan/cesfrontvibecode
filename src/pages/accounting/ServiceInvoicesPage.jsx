@@ -3,17 +3,14 @@ import { Search, Printer, Eye, Wrench, ArrowLeft, CheckCircle, AlertTriangle } f
 import { useNavigate } from 'react-router-dom'
 import { serviceApi } from '../../api/service'
 import ServiceInvoicePrintModal from '../service/ServiceInvoicePrintModal'
-import { clsx } from 'clsx'
-import { useAuthStore } from '../../store/authStore'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
-
 import { fmtDate } from '../../utils/date'
-const fmt      = fmtDate
-const fmtMoney = (v) => v != null
-  ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
-  : '—'
+import { Pill, TableWrap, PageHeader, Select } from './_shared'
+import { fmtMoney } from './_constants'
+
+const fmt = fmtDate
 
 const STATUS_LABELS = {
   AVAILABLE:     'Hazırdır',
@@ -23,22 +20,35 @@ const STATUS_LABELS = {
   IN_TRANSIT:    'Yoldadır',
   RENTED:        'Layihədə',
 }
-const STATUS_COLORS = {
-  AVAILABLE:     'bg-green-100 text-green-700 border-green-200',
-  DEFECTIVE:     'bg-red-100 text-red-700 border-red-200',
-  IN_REPAIR:     'bg-orange-100 text-orange-700 border-orange-200',
-  IN_INSPECTION: 'bg-amber-100 text-amber-700 border-amber-200',
+
+const STATCARD_TONES = {
+  gold:   { bg: 'var(--ces-gold-100)',  color: 'var(--ces-gold-700)' },
+  ok:     { bg: 'var(--ces-ok-100)',              color: 'var(--ces-ok)' },
+  danger: { bg: 'var(--ces-danger-100)',              color: 'var(--ces-danger)' },
+  info:   { bg: 'var(--ces-info-100)',              color: 'var(--ces-info)' },
+  warn:   { bg: 'var(--ces-warn-100)',              color: 'var(--ces-warn)' },
 }
 
-function StatCard({ icon: Icon, label, value, color }) {
+function StatCard({ icon: Icon, label, value, tone }) {
+  const t = STATCARD_TONES[tone] || STATCARD_TONES.gold
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3">
-      <div className={clsx('w-8 h-8 rounded-xl flex items-center justify-center shrink-0', color)}>
-        <Icon size={14} className="text-white" />
+    <div
+      className="flex items-center gap-3"
+      style={{
+        background: 'var(--ces-surface)',
+        border: '1px solid var(--ces-line)',
+        borderRadius: 'var(--ces-radius-lg)',
+        padding: '14px 16px',
+        boxShadow: 'var(--ces-shadow-sm)',
+      }}
+    >
+      <div className="w-9 h-9 rounded-[10px] grid place-items-center flex-none"
+        style={{ background: t.bg, color: t.color }}>
+        {Icon && <Icon size={15} />}
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{label}</p>
-        <p className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight">{value}</p>
+        <p className="text-[10.5px] font-bold uppercase tracking-[.14em] truncate" style={{ color: 'var(--ces-muted)' }}>{label}</p>
+        <p className="text-[18px] font-extrabold leading-tight num" style={{ color: 'var(--ces-graphite-900)' }}>{value}</p>
       </div>
     </div>
   )
@@ -46,17 +56,15 @@ function StatCard({ icon: Icon, label, value, color }) {
 
 export default function ServiceInvoicesPage() {
   const navigate = useNavigate()
-  const hasPermission = useAuthStore(s => s.hasPermission)
-  const canView = hasPermission('SERVICE_MANAGEMENT', 'canGet')
 
   const [records, setRecords]     = useState([])
   const [loading, setLoading]     = useState(true)
   const [printModal, setPrintModal] = useState(null)
 
-  const [search, setSearch]           = useState('')
-  const [typeFilter, setTypeFilter]   = useState('')   // 'INSPECTION' | 'REPAIR' | ''
-  const [dateFrom, setDateFrom]       = useState('')
-  const [dateTo, setDateTo]           = useState('')
+  const [search, setSearch]         = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [dateFrom, setDateFrom]     = useState('')
+  const [dateTo, setDateTo]         = useState('')
   const searchRef = useRef(null)
 
   usePageShortcuts({ searchRef })
@@ -66,13 +74,9 @@ export default function ServiceInvoicesPage() {
     try {
       const res = await serviceApi.getAll()
       const all = res.data.data || res.data || []
-      // Yalnız tamamlanmış və xərci olan qeydlər
       setRecords(all.filter(r => r.completed && r.cost != null && parseFloat(r.cost) > 0))
-    } catch {
-      // silent
-    } finally {
-      setLoading(false)
-    }
+    } catch { /* silent */ }
+    finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
@@ -88,179 +92,157 @@ export default function ServiceInvoicesPage() {
     })
   }, [records, search, typeFilter, dateFrom, dateTo])
 
-  const totalCost  = filtered.reduce((s, r) => s + parseFloat(r.cost || 0), 0)
-  const inspCount  = filtered.filter(r => r.recordType === 'INSPECTION').length
+  const totalCost   = filtered.reduce((s, r) => s + parseFloat(r.cost || 0), 0)
+  const inspCount   = filtered.filter(r => r.recordType === 'INSPECTION').length
   const repairCount = filtered.filter(r => r.recordType !== 'INSPECTION').length
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/accounting')}
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Servis Qaimələri</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Tamamlanmış baxış və servis xərcləri</p>
-          </div>
-        </div>
-      </div>
+    <div style={{ color: 'var(--ces-ink)' }}>
+      <PageHeader
+        eyebrow="Mühasibatlıq"
+        title="Servis Qaimələri"
+        subtitle="Tamamlanmış baxış və servis xərcləri"
+        right={<button onClick={() => navigate('/accounting')} className="ces-btn ces-btn-outline ces-btn-sm">
+          <ArrowLeft size={14} /> Geri
+        </button>}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <StatCard icon={Printer}      label="Cəmi Qaimə"    value={filtered.length}    color="bg-amber-500" />
-        <StatCard icon={CheckCircle}  label="Cəmi Xərc"     value={fmtMoney(totalCost)} color="bg-red-500" />
-        <StatCard icon={Eye}          label="Baxış Qaimələri" value={inspCount}         color="bg-amber-400" />
-        <StatCard icon={Wrench}       label="Servis Qaimələri" value={repairCount}      color="bg-orange-500" />
+        <StatCard icon={Printer}     label="Cəmi Qaimə"        value={filtered.length} tone="gold" />
+        <StatCard icon={CheckCircle} label="Cəmi Xərc"         value={fmtMoney(totalCost)} tone="danger" />
+        <StatCard icon={Eye}         label="Baxış Qaimələri"   value={inspCount}  tone="warn" />
+        <StatCard icon={Wrench}      label="Servis Qaimələri"  value={repairCount} tone="info" />
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="flex items-center gap-2 flex-1 max-w-[360px]"
+          style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '10px', padding: '0 12px', minHeight: '40px' }}>
+          <Search size={14} style={{ color: 'var(--ces-mute2)' }} />
           <input
             ref={searchRef}
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Texnika, növ..."
-            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="flex-1 outline-none bg-transparent text-[13px]"
           />
         </div>
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="">Bütün növlər</option>
-          <option value="INSPECTION">Texniki Baxış</option>
-          <option value="REPAIR">Texniki Servis</option>
-        </select>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={e => setDateFrom(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        />
-        <input
-          type="date"
-          value={dateTo}
-          onChange={e => setDateTo(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        />
+        <div className="min-w-[170px]">
+          <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="">Bütün növlər</option>
+            <option value="INSPECTION">Texniki Baxış</option>
+            <option value="REPAIR">Texniki Servis</option>
+          </Select>
+        </div>
+        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+          className="text-[13px]"
+          style={{
+            padding: '0 12px', minHeight: '40px',
+            background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '10px',
+            color: 'var(--ces-graphite)', outline: 'none',
+          }} />
+        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+          className="text-[13px]"
+          style={{
+            padding: '0 12px', minHeight: '40px',
+            background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '10px',
+            color: 'var(--ces-graphite)', outline: 'none',
+          }} />
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <TableWrap>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
+          <table className="ces-tbl w-full min-w-[760px]">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">№</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarix</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kateqoriya</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nəticə</th>
-                <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Xərc</th>
-                <th className="py-3 px-4 w-12" />
+              <tr>
+                <th>№</th>
+                <th>Texnika</th>
+                <th>Növ</th>
+                <th>Tarix</th>
+                <th>Kateqoriya</th>
+                <th>Nəticə</th>
+                <th className="r">Xərc</th>
+                <th className="w-act"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <TableSkeleton cols={8} rows={6} />
               ) : filtered.length === 0 ? (
-                <EmptyState
-                  icon={Printer}
-                  title="Servis qaiməsi yoxdur"
-                  description={records.length === 0 ? 'Xərci olan tamamlanmış servis qeydi tapılmadı' : 'Axtarış şərtlərini dəyişin'}
-                />
-              ) : (
-                filtered.map((rec, idx) => {
-                  const isInspection = rec.recordType === 'INSPECTION'
-                  const isAvailable  = rec.statusAfter === 'AVAILABLE'
-                  return (
-                    <tr key={rec.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                      <td className="py-3 px-4 text-xs text-gray-400 font-mono">
-                        SRV-{String(rec.id).padStart(5, '0')}
-                      </td>
-                      <td className="py-3 px-4">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{rec.equipmentName || '—'}</p>
-                        {rec.plateNumber && <p className="text-[10px] text-gray-400">{rec.plateNumber}</p>}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={clsx(
-                          "px-2 py-0.5 rounded-md text-[10px] font-bold border",
-                          isInspection
-                            ? "bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"
-                            : "bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800"
-                        )}>
-                          {rec.serviceType}
+                <tr><td colSpan={8} style={{ padding: 0 }}>
+                  <EmptyState
+                    icon={Printer}
+                    title="Servis qaiməsi yoxdur"
+                    description={records.length === 0 ? 'Xərci olan tamamlanmış servis qeydi tapılmadı' : 'Axtarış şərtlərini dəyişin'}
+                  />
+                </td></tr>
+              ) : filtered.map((rec) => {
+                const isInspection = rec.recordType === 'INSPECTION'
+                const isAvailable  = rec.statusAfter === 'AVAILABLE'
+                return (
+                  <tr key={rec.id}>
+                    <td className="mono" style={{ color: 'var(--ces-muted)', fontSize: '11.5px' }}>
+                      SRV-{String(rec.id).padStart(5, '0')}
+                    </td>
+                    <td>
+                      <p className="text-[13.5px] font-bold" style={{ color: 'var(--ces-ink)' }}>{rec.equipmentName || '—'}</p>
+                      {rec.plateNumber && <p className="text-[10.5px]" style={{ color: 'var(--ces-mute2)' }}>{rec.plateNumber}</p>}
+                    </td>
+                    <td>
+                      <Pill tone={isInspection ? 'warn' : 'info'} sm>{rec.serviceType}</Pill>
+                    </td>
+                    <td style={{ color: 'var(--ces-muted)', fontSize: '12px' }}>{fmt(rec.serviceDate)}</td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        {isInspection
+                          ? <Eye size={12} style={{ color: 'var(--ces-warn)' }} />
+                          : <Wrench size={12} style={{ color: 'var(--ces-info)' }} />}
+                        <span className="text-[12.5px]" style={{ color: 'var(--ces-ink)' }}>
+                          {isInspection ? 'Texniki Baxış' : 'Texniki Servis'}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-[11px] text-gray-600 dark:text-gray-300">{fmt(rec.serviceDate)}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5">
-                          {isInspection
-                            ? <Eye size={12} className="text-amber-500 shrink-0" />
-                            : <Wrench size={12} className="text-orange-500 shrink-0" />
-                          }
-                          <span className="text-xs text-gray-600 dark:text-gray-300">
-                            {isInspection ? 'Texniki Baxış' : 'Texniki Servis'}
+                      </div>
+                    </td>
+                    <td>
+                      {rec.statusAfter && (
+                        <div className="flex items-center gap-1">
+                          {isAvailable
+                            ? <CheckCircle size={11} style={{ color: 'var(--ces-ok)' }} />
+                            : <AlertTriangle size={11} style={{ color: 'var(--ces-danger)' }} />}
+                          <span className="text-[10.5px] font-bold"
+                            style={{ color: isAvailable ? 'var(--ces-ok)' : 'var(--ces-danger)' }}>
+                            {STATUS_LABELS[rec.statusAfter] || rec.statusAfter}
                           </span>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        {rec.statusAfter && (
-                          <div className="flex items-center gap-1">
-                            {isAvailable
-                              ? <CheckCircle size={11} className="text-green-500 shrink-0" />
-                              : <AlertTriangle size={11} className="text-red-500 shrink-0" />
-                            }
-                            <span className={clsx(
-                              "text-[10px] font-bold",
-                              isAvailable ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                            )}>
-                              {STATUS_LABELS[rec.statusAfter] || rec.statusAfter}
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-sm font-bold text-red-500">−{fmtMoney(rec.cost)}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          onClick={() => setPrintModal(rec)}
-                          className="p-1.5 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-400 hover:text-amber-600 transition-colors"
-                          title="Qaiməni çap et"
-                        >
-                          <Printer size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
+                      )}
+                    </td>
+                    <td className="r">
+                      <span className="text-[14px] font-bold num" style={{ color: 'var(--ces-danger)' }}>
+                        −{fmtMoney(rec.cost)}
+                      </span>
+                    </td>
+                    <td>
+                      <button onClick={() => setPrintModal(rec)} className="ces-row-act gold" title="Qaiməni çap et">
+                        <Printer size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
         {filtered.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-            <span className="text-xs text-gray-500">{filtered.length} qaimə</span>
-            <span className="text-sm font-bold text-red-500">Cəmi: −{fmtMoney(totalCost)}</span>
+          <div className="flex items-center justify-between px-4 py-3"
+            style={{ borderTop: '1px solid var(--ces-line)', background: 'var(--ces-graphite-50)' }}>
+            <span className="text-[12px]" style={{ color: 'var(--ces-muted)' }}>{filtered.length} qaimə</span>
+            <span className="text-[14px] font-bold num" style={{ color: 'var(--ces-danger)' }}>Cəmi: −{fmtMoney(totalCost)}</span>
           </div>
         )}
-      </div>
+      </TableWrap>
 
       {printModal && (
-        <ServiceInvoicePrintModal
-          record={printModal}
-          onClose={() => setPrintModal(null)}
-        />
+        <ServiceInvoicePrintModal record={printModal} onClose={() => setPrintModal(null)} />
       )}
     </div>
   )
