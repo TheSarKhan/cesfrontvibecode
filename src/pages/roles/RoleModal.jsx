@@ -22,6 +22,7 @@ const MODULE_LABELS = {
   EMPLOYEE_MANAGEMENT:  'İstifadəçi İdarəetməsi',
   GARAGE:               'Qaraj Modulu',
   REQUESTS:             'Sorğular Modulu',
+  PROJECT_MANAGER:      'Layihə Meneceri Modulu',
   COORDINATOR:          'Koordinator Modulu',
   PROJECTS:             'Layihələr Modulu',
   ACCOUNTING:           'Mühasibatlıq Modulu',
@@ -29,12 +30,24 @@ const MODULE_LABELS = {
   OPERATIONS_APPROVAL:  'Əməliyyat Təsdiqi',
 }
 
+// Hər modul üçün əlavə (custom action) icazələr. Birdən çox extra ola bilər.
 const EXTRA_PERMS = {
-  REQUESTS:    { key: 'canSendToCoordinator', label: 'Kordinatora göndər' },
-  COORDINATOR: { key: 'canSubmitOffer',       label: 'Təklif göndər' },
-  PROJECTS:    { key: 'canSendToAccounting',  label: 'Mühasibatlığa göndər' },
-  ACCOUNTING:  { key: 'canReturnToProject',   label: 'Layihəyə geri göndər' },
+  REQUESTS:        [{ key: 'canSendToCoordinator', label: 'PM-ə göndər' }],
+  PROJECT_MANAGER: [{ key: 'canApproveByPm',       label: 'PM təsdiqi' }],
+  COORDINATOR:     [
+    { key: 'canSubmitOffer', label: 'Təklif göndər' },
+    { key: 'canDispatch',    label: 'Texnika göndər' },
+    { key: 'canDeliver',     label: 'Təhvil-təslim' },
+  ],
+  PROJECTS:        [{ key: 'canSendToAccounting',  label: 'Mühasibatlığa göndər' }],
+  ACCOUNTING:      [
+    { key: 'canCheckDocuments', label: 'Sənəd təsdiqi' },
+    { key: 'canReturnToProject', label: 'Layihəyə geri göndər' },
+  ],
 }
+
+// Bütün ola biləcək extra key-lər siyahısı (state init və validation üçün)
+const ALL_EXTRA_KEYS = Object.values(EXTRA_PERMS).flat().map((e) => e.key)
 
 const APPROVAL_MODULE_CODE = 'OPERATIONS_APPROVAL'
 
@@ -68,16 +81,14 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         const map = {}
         mods.forEach((mod) => {
           const existing = editing?.permissions?.find((p) => p.moduleId === mod.id)
-          map[mod.id] = {
+          const row = {
             canGet: existing?.canGet || false,
             canPost: existing?.canPost || false,
             canPut: existing?.canPut || false,
             canDelete: existing?.canDelete || false,
-            canSendToCoordinator: existing?.canSendToCoordinator || false,
-            canSubmitOffer: existing?.canSubmitOffer || false,
-            canSendToAccounting: existing?.canSendToAccounting || false,
-            canReturnToProject: existing?.canReturnToProject || false,
           }
+          ALL_EXTRA_KEYS.forEach((k) => { row[k] = existing?.[k] || false })
+          map[mod.id] = row
         })
         setPermMap(map)
         setInitialPermMap(map)
@@ -132,10 +143,14 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
   const approvalModuleId = modules.find((m) => m.code === APPROVAL_MODULE_CODE)?.id
   const hasApprovalPerm = approvalModuleId && PERM_COLS.some((c) => permMap[approvalModuleId]?.[c.key])
 
+  const rowHasAnyPerm = (p) => {
+    if (!p) return false
+    if (p.canGet || p.canPost || p.canPut || p.canDelete) return true
+    return ALL_EXTRA_KEYS.some((k) => p[k])
+  }
+
   const handleSave = async () => {
-    const hasAnyPerm = Object.values(permMap).some(p =>
-      p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator || p.canSubmitOffer || p.canSendToAccounting || p.canReturnToProject
-    )
+    const hasAnyPerm = Object.values(permMap).some(rowHasAnyPerm)
     if (!hasAnyPerm) {
       toast.error('Ən azı bir modul üçün icazə seçilməlidir')
       return
@@ -153,7 +168,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     setLoading(true)
     try {
       const permissions = Object.entries(permMap)
-        .filter(([, p]) => p.canGet || p.canPost || p.canPut || p.canDelete || p.canSendToCoordinator || p.canSubmitOffer || p.canSendToAccounting || p.canReturnToProject)
+        .filter(([, p]) => rowHasAnyPerm(p))
         .map(([moduleId, p]) => ({ moduleId: Number(moduleId), ...p }))
 
       const payload = {
@@ -398,7 +413,7 @@ function ModuleRow({
   approvalExpanded, approvalDeptIds, departments,
   onTogglePerm, onToggleAll, onToggleApprovalExpand, onToggleApprovalDept,
 }) {
-  const extra = EXTRA_PERMS[mod.code]
+  const extras = EXTRA_PERMS[mod.code] || []
   return (
     <>
       <tr style={isApproval && anyPerm ? { background: 'var(--ces-gold-50)' } : undefined}>
@@ -442,18 +457,22 @@ function ModuleRow({
           </label>
         </td>
         <td>
-          {extra ? (
-            <label className="ces-chk" style={{ whiteSpace: 'nowrap' }}>
-              <input
-                type="checkbox"
-                checked={permMap[mod.id]?.[extra.key] || false}
-                onChange={() => onTogglePerm(mod.id, extra.key)}
-              />
-              <span className="ces-cb" />
-              <span className="text-xs font-semibold" style={{ color: 'var(--ces-info)' }}>
-                {extra.label}
-              </span>
-            </label>
+          {extras.length > 0 ? (
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {extras.map((extra) => (
+                <label key={extra.key} className="ces-chk" style={{ whiteSpace: 'nowrap' }}>
+                  <input
+                    type="checkbox"
+                    checked={permMap[mod.id]?.[extra.key] || false}
+                    onChange={() => onTogglePerm(mod.id, extra.key)}
+                  />
+                  <span className="ces-cb" />
+                  <span className="text-xs font-semibold" style={{ color: 'var(--ces-info)' }}>
+                    {extra.label}
+                  </span>
+                </label>
+              ))}
+            </div>
           ) : null}
         </td>
       </tr>

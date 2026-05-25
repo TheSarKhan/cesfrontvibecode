@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, Trash2, X } from 'lucide-react'
 
 /**
@@ -42,16 +43,17 @@ export function useConfirm() {
 
     if (!state) return null
 
-    return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center ces-font p-4">
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-[rgba(58,58,58,0.45)] backdrop-blur-sm"
-          onClick={handleCancel}
-        />
-
+    return createPortal((
+      <div
+        className="fixed inset-0 flex items-center justify-center ces-font p-4"
+        style={{ zIndex: 1200, background: 'rgba(58,58,58,0.45)', backdropFilter: 'blur(4px)' }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) handleCancel() }}
+      >
         {/* Dialog */}
-        <div className="relative bg-[var(--ces-surface)] rounded-[18px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] w-full max-w-[420px] p-6 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="bg-[var(--ces-surface)] rounded-[18px] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] w-full max-w-[420px] p-6 animate-in fade-in zoom-in-95 duration-150"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {/* Close */}
           <button
             onClick={handleCancel}
@@ -108,7 +110,7 @@ export function useConfirm() {
           </div>
         </div>
       </div>
-    )
+    ), document.body)
   }
 
   return { confirm, ConfirmDialog: Dialog }

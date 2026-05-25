@@ -175,17 +175,16 @@ export default function ProjectsPage() {
               <tr>
                 <th>Kod</th>
                 <th>Şirkət / Layihə</th>
+                <th>Bölgə</th>
                 <th>Texnika</th>
-                <th>Tarixlər</th>
                 <th>Müqavilə</th>
-                <th className="r">Maliyyə</th>
                 <th>Status</th>
                 <th className="w-act"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <TableSkeleton cols={8} rows={6} />
+                <TableSkeleton cols={7} rows={6} />
               ) : data.content.length === 0 ? (
                 <EmptyState
                   icon={FolderKanban}
@@ -195,11 +194,6 @@ export default function ProjectsPage() {
               ) : (
                 data.content.map((p) => {
                   const status = STATUS_CONFIG[p.status] || STATUS_CONFIG.PENDING
-                  const totalRevAll = parseFloat(p.totalRevenue || 0)
-                  const totalExpAll = parseFloat(p.totalExpense || 0)
-                                    + parseFloat(p.planTransportationPrice || 0)
-                                    + parseFloat(p.planOperatorPayment || 0)
-                  const net         = totalRevAll - totalExpAll
                   const isSelected = selected?.id === p.id
                   const ownership = OWNERSHIP_CFG[p.ownershipType]
 
@@ -228,7 +222,15 @@ export default function ProjectsPage() {
                         {p.projectName && (
                           <p className="truncate" style={{ fontSize: 12, color: 'var(--ces-muted)', maxWidth: 180 }}>{p.projectName}</p>
                         )}
-                        {p.region && <p style={{ fontSize: 11.5, color: 'var(--ces-mute2)' }}>{p.region}</p>}
+                      </td>
+
+                      {/* Bölgə */}
+                      <td>
+                        {p.region ? (
+                          <span style={{ fontSize: 12.5, color: 'var(--ces-ink)' }}>{p.region}</span>
+                        ) : (
+                          <span style={{ color: 'var(--ces-mute2)' }}>—</span>
+                        )}
                       </td>
 
                       {/* Texnika */}
@@ -257,35 +259,6 @@ export default function ProjectsPage() {
                         ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
                       </td>
 
-                      {/* Tarixlər */}
-                      <td>
-                        {p.projectType && (
-                          <p style={{ fontSize: 12, color: 'var(--ces-muted)' }}>
-                            {PROJ_TYPE[p.projectType]} · {calcDuration(p)}
-                          </p>
-                        )}
-                        {(p.startDate ?? p.planStartDate) && (
-                          <p className="mono" style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
-                            {fmt(p.startDate ?? p.planStartDate)}
-                          </p>
-                        )}
-                        {(p.endDate ?? p.planEndDate) && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="mono" style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
-                              → {fmt(p.endDate ?? p.planEndDate)}
-                            </p>
-                            {p.status === 'ACTIVE' && (() => {
-                              const today = new Date(); today.setHours(0,0,0,0)
-                              const end = new Date(p.endDate ?? p.planEndDate); end.setHours(0,0,0,0)
-                              const diff = Math.ceil((end - today) / 86400000)
-                              if (diff < 0) return <span className="ces-pill ces-p-danger sm">Vaxtı keçib</span>
-                              if (diff <= 3) return <span className="ces-pill ces-p-warn sm">{diff}g qalıb</span>
-                              return null
-                            })()}
-                          </div>
-                        )}
-                      </td>
-
                       {/* Müqavilə */}
                       <td>
                         {p.hasContract ? (
@@ -299,22 +272,6 @@ export default function ProjectsPage() {
                             Gözlənilir
                           </span>
                         )}
-                      </td>
-
-                      {/* Maliyyə */}
-                      <td className="r mono" style={{ fontSize: 11.5 }}>
-                        <p style={{ color: 'var(--ces-ok)' }}>+{fmtMoney(totalRevAll)} ₼</p>
-                        <p style={{ color: 'var(--ces-danger)' }}>−{fmtMoney(totalExpAll)} ₼</p>
-                        <p
-                          style={{
-                            fontSize: 12.5, fontWeight: 800,
-                            borderTop: '1px solid var(--ces-line)',
-                            paddingTop: 2, marginTop: 2,
-                            color: net >= 0 ? 'var(--ces-ok)' : 'var(--ces-danger)',
-                          }}
-                        >
-                          {net >= 0 ? '+' : ''}{fmtMoney(net)} ₼
-                        </p>
                       </td>
 
                       {/* Status */}

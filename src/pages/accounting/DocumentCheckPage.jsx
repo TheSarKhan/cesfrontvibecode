@@ -1,10 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Search, RefreshCw, Upload, FileText, Download, Trash2, CheckCircle, X } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Search, RefreshCw, Upload, FileText, Download, Trash2, CheckCircle, X, FileCheck, FileClock, FileX, Files } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { documentCheckApi } from '../../api/documentCheck'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+
+const STAT_CARDS = [
+  { id: 'ALL',     label: 'Hamısı',     icon: Files,     color: 'text-gray-500' },
+  { id: 'EMPTY',   label: 'Sənədsiz',   icon: FileX,     color: 'text-red-500' },
+  { id: 'PARTIAL', label: 'Yarımçıq',   icon: FileClock, color: 'text-amber-500' },
+  { id: 'READY',   label: 'Tam',        icon: FileCheck, color: 'text-green-500' },
+]
+
+const classifyRow = (r) => {
+  if (r.contractUploaded && r.priceProtocolUploaded) return 'READY'
+  if (r.contractUploaded || r.priceProtocolUploaded) return 'PARTIAL'
+  return 'EMPTY'
+}
 
 export default function DocumentCheckPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission)
@@ -16,6 +29,7 @@ export default function DocumentCheckPage() {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [quickFilter, setQuickFilter] = useState('ALL')
   const [selected, setSelected] = useState(null)
 
   const load = useCallback(async () => {
@@ -30,7 +44,26 @@ export default function DocumentCheckPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Focus / visibility avtomatik yeniləmə
+  useEffect(() => {
+    const refresh = () => load()
+    window.addEventListener('focus', refresh)
+    const visHandler = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', visHandler)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', visHandler)
+    }
+  }, [load])
+
+  const stats = useMemo(() => {
+    const s = { ALL: list.length, EMPTY: 0, PARTIAL: 0, READY: 0 }
+    list.forEach((r) => { s[classifyRow(r)]++ })
+    return s
+  }, [list])
+
   const filtered = list.filter(r => {
+    if (quickFilter !== 'ALL' && classifyRow(r) !== quickFilter) return false
     if (!search) return true
     const q = search.toLowerCase()
     return r.requestCode?.toLowerCase().includes(q)
@@ -47,6 +80,32 @@ export default function DocumentCheckPage() {
         </div>
       </div>
 
+      {/* Stat cards */}
+      <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none">
+        {STAT_CARDS.map((s) => {
+          const Icon = s.icon
+          const active = quickFilter === s.id
+          return (
+            <button
+              key={s.id}
+              onClick={() => setQuickFilter(s.id)}
+              className={clsx(
+                'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[110px]',
+                active
+                  ? 'bg-cyan-50 border-cyan-200 dark:bg-cyan-900/10 dark:border-cyan-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-cyan-200 dark:hover:border-cyan-700',
+              )}
+            >
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Icon size={10} className={s.color} />
+                {s.label}
+              </p>
+              <p className={clsx('text-lg font-bold mt-0.5', s.color)}>{stats[s.id] ?? 0}</p>
+            </button>
+          )
+        })}
+      </div>
+
       <div className="flex gap-2 mb-3">
         <div className="relative flex-1 min-w-0">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -54,10 +113,10 @@ export default function DocumentCheckPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Sorğu ID, şirkət, layihə..."
-            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
-        <button onClick={load} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors">
+        <button onClick={load} title="Yenilə" className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-cyan-600 transition-colors">
           <RefreshCw size={13} />
         </button>
       </div>
@@ -85,7 +144,9 @@ export default function DocumentCheckPage() {
                   </tr>
                 ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">Sənəd yoxlamasını gözləyən sorğu yoxdur</td></tr>
+                <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">
+                  {list.length === 0 ? 'Sənəd yoxlamasını gözləyən sorğu yoxdur' : 'Filtrlərə uyğun nəticə tapılmadı'}
+                </td></tr>
               ) : (
                 filtered.map(r => (
                   <tr
@@ -225,9 +286,15 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
 
   if (loading || !data) {
     return (
-      <div className="fixed inset-0 z-50 flex">
-        <div className="absolute inset-0" style={{background:"rgba(0,0,0,0.08)"}} />
-        <div className="relative z-10 ml-auto h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex items-center justify-center text-sm text-gray-400">
+      <div
+        className="fixed inset-0 z-[900] flex justify-end"
+        style={{background:"rgba(0,0,0,0.25)"}}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      >
+        <div
+          className="h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex items-center justify-center text-sm text-gray-400"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           Yüklənir...
         </div>
       </div>
@@ -237,9 +304,15 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
   const allReady = data.contractUploaded && data.priceProtocolUploaded
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div className="absolute inset-0" style={{background:"rgba(0,0,0,0.08)"}} />
-      <div className="relative z-10 ml-auto h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex flex-col">
+    <div
+      className="fixed inset-0 z-[900] flex justify-end"
+      style={{background:"rgba(0,0,0,0.25)"}}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="h-full w-full max-w-xl bg-white dark:bg-gray-800 shadow-2xl flex flex-col"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between">
           <div>
             <span className="text-xs font-mono font-semibold text-amber-600">{data.requestCode}</span>

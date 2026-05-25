@@ -8,6 +8,7 @@ import { useThemeStore } from '../../store/themeStore'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { dashboardApi } from '../../api/dashboard'
 import UserAvatar from '../common/UserAvatar'
+// Light → logo white.png; Dark & Galactic → logo2.png (galactic-də ağ BG mix-blend ilə silinir)
 import logoLight from '../../assets/logo white.png'
 import logoDark from '../../assets/logo2.png'
 
@@ -22,8 +23,8 @@ export default function Sidebar({ collapsed, onToggle }) {
   const user = useAuthStore((s) => s.user)
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const theme = useThemeStore((s) => s.theme)
-  // logo white.png — açıq mod üçün; logo2.png — gecə və qalaktika modları üçün
-  const brandLogo = theme === 'light' ? logoLight : logoDark
+  // light + galactic → logo white.png; dark → logo2.png
+  const brandLogo = theme === 'dark' ? logoDark : logoLight
   const [pendingCount, setPendingCount] = useState(0)
   const approvalQueueVersion = useNotificationStore((s) => s.approvalQueueVersion)
 

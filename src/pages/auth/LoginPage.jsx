@@ -11,7 +11,7 @@ const SESSION_KEY = 'login_form_draft'
 
 export default function LoginPage() {
   const theme = useThemeStore((s) => s.theme)
-  const brandLogo = theme === 'light' ? logoLight : logoDark
+  const brandLogo = theme === 'dark' ? logoDark : logoLight
   const [form, setForm] = useState(() => {
     const draft = sessionStorage.getItem(SESSION_KEY)
     if (draft) {

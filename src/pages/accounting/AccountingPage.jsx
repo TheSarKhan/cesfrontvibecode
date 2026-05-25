@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
-import { Receipt, BarChart3, TrendingDown, TrendingUp, Wrench, ArrowRight } from 'lucide-react'
+import { Receipt, BarChart3, TrendingDown, TrendingUp, Wrench, ArrowRight, FileCheck } from 'lucide-react'
 import { PageHeader, Pill } from './_shared'
 import { PILL_STYLES } from './_constants'
 
 const CARDS = [
+  { id: 'document-checks',    title: 'Sənəd Yoxlanışı',             description: 'Müqavilə və qiymət razılaşma protokolunun yüklənməsi və təsdiqi', icon: FileCheck,    path: '/accounting/document-checks', tone: 'info' },
   { id: 'invoices',           title: 'Qaimələr',                    description: 'E-qaimələrin idarə edilməsi, təsdiqlənməsi və izlənməsi', icon: Receipt,      path: '/accounting/invoices',  tone: 'gold' },
   { id: 'reports',            title: 'Hesabat',                     description: 'Maliyyə analitikası, statistikalar və hesabatlar',         icon: BarChart3,    path: '/accounting/reports',   tone: 'info' },
   { id: 'debitor',            title: 'Debitor',                     description: 'Müştəri borclarının izlənməsi və ödəniş təqibi',           icon: TrendingDown, path: '/accounting/debitor',   tone: 'ok' },

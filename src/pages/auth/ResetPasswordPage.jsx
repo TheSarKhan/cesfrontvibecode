@@ -26,7 +26,7 @@ function passwordStrength(pwd) {
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
   const theme = useThemeStore((s) => s.theme)
-  const brandLogo = theme === 'light' ? logoLight : logoDark
+  const brandLogo = theme === 'dark' ? logoDark : logoLight
   const [verificationToken, setVerificationToken] = useState('')
   const [resetEmail, setResetEmail] = useState('')
   const [form, setForm] = useState({ newPassword: '', confirm: '' })

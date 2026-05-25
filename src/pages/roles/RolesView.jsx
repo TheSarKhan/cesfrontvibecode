@@ -154,9 +154,13 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
               {PERM_LABELS.map(({ key, label }) => (
                 <PermPill key={key} active={perm[key]}>{label}</PermPill>
               ))}
-              {perm.canSendToCoordinator && <PermPill active accent="purple">Kordinatora göndər</PermPill>}
+              {perm.canSendToCoordinator && <PermPill active accent="purple">PM-ə göndər</PermPill>}
+              {perm.canApproveByPm && <PermPill active accent="purple">PM təsdiqi</PermPill>}
               {perm.canSubmitOffer && <PermPill active accent="purple">Təklif göndər</PermPill>}
+              {perm.canDispatch && <PermPill active accent="purple">Texnika göndər</PermPill>}
+              {perm.canDeliver && <PermPill active accent="purple">Təhvil-təslim</PermPill>}
               {perm.canSendToAccounting && <PermPill active accent="purple">Mühasibatlığa göndər</PermPill>}
+              {perm.canCheckDocuments && <PermPill active accent="purple">Sənəd təsdiqi</PermPill>}
               {perm.canReturnToProject && <PermPill active accent="purple">Layihəyə qaytar</PermPill>}
             </div>
           </td>

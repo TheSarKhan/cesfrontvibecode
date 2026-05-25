@@ -1,30 +1,24 @@
 import api from './axios'
 
 export const coordinatorApi = {
+  // Liste + filtreleme
+  getStats: () => api.get('/coordinator/stats'),
   getRequests: () => api.get('/coordinator/requests'),
   getRequestsPaged: (params) => api.get('/coordinator/requests/paged', { params }),
   getPlan: (requestId) => api.get(`/coordinator/requests/${requestId}/plan`),
+
+  // Mərhələ A — Danışıq
   savePlan: (requestId, data) => api.post(`/coordinator/requests/${requestId}/plan`, data),
   submitPlan: (requestId) => api.post(`/coordinator/requests/${requestId}/submit`),
-  selectEquipment: (requestId, equipmentId) =>
-    api.put(`/coordinator/requests/${requestId}/equipment`, null, { params: { equipmentId } }),
-  uploadDocument: (requestId, formData) =>
-    api.post(`/coordinator/requests/${requestId}/plan/documents`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
-  deleteDocument: (requestId, documentId) =>
-    api.delete(`/coordinator/requests/${requestId}/plan/documents/${documentId}`),
-  getDocumentDownloadUrl: (requestId, documentId) =>
-    `/api/coordinator/requests/${requestId}/plan/documents/${documentId}/download`,
+  rejectRequest: (requestId) => api.post(`/coordinator/requests/${requestId}/reject`),
 
-  acceptOffer: (requestId) => api.post(`/coordinator/requests/${requestId}/accept`),
-  rejectOffer: (requestId) => api.post(`/coordinator/requests/${requestId}/reject`),
-
-  // Mərhələ B (icra)
+  // Mərhələ B — İcra
   assignOperator: (requestId, operatorId) =>
     api.post(`/coordinator/requests/${requestId}/assign-operator`, null, { params: { operatorId } }),
   verifyEquipmentDocs: (requestId) =>
     api.post(`/coordinator/requests/${requestId}/verify-equipment-docs`),
-  dispatch: (requestId) => api.post(`/coordinator/requests/${requestId}/dispatch`),
-  deliver: (requestId, notes) => api.post(`/coordinator/requests/${requestId}/deliver`, { notes }),
+  dispatch: (requestId) =>
+    api.post(`/coordinator/requests/${requestId}/dispatch`),
+  deliver: (requestId, notes) =>
+    api.post(`/coordinator/requests/${requestId}/deliver`, { notes }),
 }

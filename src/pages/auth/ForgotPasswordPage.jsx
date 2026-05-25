@@ -12,7 +12,7 @@ const OTP_LENGTH = 6  // Backend 6 rəqəmli OTP göndərir
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
   const theme = useThemeStore((s) => s.theme)
-  const brandLogo = theme === 'light' ? logoLight : logoDark
+  const brandLogo = theme === 'dark' ? logoDark : logoLight
   const [step, setStep] = useState('email')
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''))

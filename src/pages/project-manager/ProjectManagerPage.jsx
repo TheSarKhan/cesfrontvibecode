@@ -1,119 +1,168 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Search, ClipboardCheck, RefreshCw, CheckCircle, XCircle, AlertCircle, Send, FileText, MessageSquare, ListChecks } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import {
+  Search, RefreshCw, FileText, Send, ClipboardCheck, ListChecks,
+  AlertCircle, MessageSquare, CheckCircle, XCircle,
+  ArrowUpDown, ArrowUp, ArrowDown,
+} from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
+import { useSearchParams } from 'react-router-dom'
 import { projectManagerApi } from '../../api/projectManager'
-import { useAuthStore } from '../../store/authStore'
-import { useConfirm } from '../../components/common/ConfirmDialog'
 import { STATUS_CFG } from '../../constants/requests'
+import Pagination from '../../components/common/Pagination'
+import { fmtDate } from '../../utils/date'
 import PmRequestSlideOver from './PmRequestSlideOver'
 
 const STAT_CARDS = [
-  { id: 'ALL',                   label: 'Hamısı',            icon: FileText,      color: 'text-gray-500' },
-  { id: 'PENDING',               label: 'Yeni gəldi',        icon: Send,          color: 'text-blue-500' },
-  { id: 'PM_REVIEW',             label: 'Nəzərdən keçirir',  icon: ClipboardCheck,color: 'text-sky-500' },
-  { id: 'PM_SHORTLIST_READY',    label: 'Shortlist hazır',   icon: ListChecks,    color: 'text-indigo-500' },
-  { id: 'COORDINATOR_PROPOSED',  label: 'Təklif gəldi',      icon: AlertCircle,   color: 'text-fuchsia-500' },
-  { id: 'PM_PRICE_NEGOTIATION',  label: 'Sifarişçi ilə',     icon: MessageSquare, color: 'text-amber-500' },
-  { id: 'PM_APPROVED',           label: 'Təsdiqləndi',       icon: CheckCircle,   color: 'text-green-500' },
-  { id: 'REJECTED',              label: 'Rədd',              icon: XCircle,       color: 'text-red-500' },
+  { id: 'ALL',                  label: 'Hamısı',           icon: FileText,       color: 'text-gray-500' },
+  { id: 'PENDING',              label: 'Yeni gəldi',        icon: Send,           color: 'text-blue-500' },
+  { id: 'PM_REVIEW',            label: 'Nəzərdən keçirir',  icon: ClipboardCheck, color: 'text-sky-500' },
+  { id: 'PM_SHORTLIST_READY',   label: 'Shortlist hazır',   icon: ListChecks,     color: 'text-indigo-500' },
+  { id: 'COORDINATOR_PROPOSED', label: 'Təklif gəldi',      icon: AlertCircle,    color: 'text-fuchsia-500' },
+  { id: 'PM_PRICE_NEGOTIATION', label: 'Sifarişçi ilə',     icon: MessageSquare,  color: 'text-amber-500' },
+  { id: 'PM_APPROVED',          label: 'Təsdiqləndi',       icon: CheckCircle,    color: 'text-green-500' },
+  { id: 'REJECTED',             label: 'Rədd',              icon: XCircle,        color: 'text-red-500' },
 ]
 
-export default function ProjectManagerPage() {
-  const hasPermission = useAuthStore((s) => s.hasPermission)
-  const canPut = hasPermission('PROJECT_MANAGER', 'canPut')
-  const { confirm, ConfirmDialog } = useConfirm()
+const PROJECT_TYPE_LABEL = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
 
-  const [requests, setRequests] = useState([])
+function SortHeader({ label, field, sortBy, sortDir, onSort, className = '' }) {
+  const active = sortBy === field
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className={clsx(
+        'text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-300 transition-colors',
+        className,
+      )}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {active
+          ? (sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)
+          : <ArrowUpDown size={11} className="text-gray-300" />}
+      </div>
+    </th>
+  )
+}
+
+export default function ProjectManagerPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const searchRef = useRef(null)
+
+  const [stats, setStats] = useState({ ALL: 0 })
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [quickFilter, setQuickFilter] = useState('ALL')
-  const [selected, setSelected] = useState(null)
-  const [actionLoading, setActionLoading] = useState(null)
+  const [selectedId, setSelectedId] = useState(null)
+
+  const quickFilter = searchParams.get('status') || 'ALL'
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = parseInt(searchParams.get('size') || '15')
+  const sortBy = searchParams.get('sortBy') || 'createdAt'
+  const sortDir = searchParams.get('sortDir') || 'desc'
+
+  const updateParams = useCallback((updater) => {
+    setSearchParams((prev) => {
+      const n = new URLSearchParams(prev)
+      updater(n)
+      return n
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const handleSort = (field) => {
+    updateParams((n) => {
+      if (sortBy === field) {
+        n.set('sortDir', sortDir === 'asc' ? 'desc' : 'asc')
+      } else {
+        n.set('sortBy', field)
+        n.set('sortDir', 'asc')
+      }
+      n.delete('page')
+    })
+  }
+
+  const handleQuickFilter = (id) => {
+    updateParams((n) => {
+      if (id === 'ALL') n.delete('status')
+      else n.set('status', id)
+      n.delete('page')
+    })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await projectManagerApi.getRequests()
-      setRequests(res.data.data || [])
-    } catch {
+      const params = { page, size: pageSize, sortBy, sortDir }
+      if (search) params.search = search
+      if (quickFilter !== 'ALL') params.status = quickFilter
+      const res = await projectManagerApi.getRequestsPaged(params)
+      setData(res.data.data || res.data)
+    } catch (err) {
+      console.error('PM list fetch failed', err)
+      const msg = err?.response?.status === 403
+        ? 'İcazəniz yoxdur (PROJECT_MANAGER:GET)'
+        : err?.response?.data?.message || 'Sorğular yüklənmədi'
+      toast.error(msg)
     } finally {
       setLoading(false)
+    }
+  }, [page, pageSize, search, quickFilter, sortBy, sortDir])
+
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await projectManagerApi.getStats()
+      const counts = res.data.data || {}
+      const total = Object.values(counts).reduce((a, b) => a + (b || 0), 0)
+      setStats({ ALL: total, ...counts })
+    } catch (err) {
+      console.error('PM stats fetch failed', err)
     }
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadStats() }, [loadStats, data.totalElements])
 
-  const stats = useMemo(() => {
-    const s = { ALL: requests.length }
-    STAT_CARDS.forEach(c => {
-      if (c.id !== 'ALL') s[c.id] = requests.filter(r => r.status === c.id).length
+  // Window focus / tab visible olanda avtomatik yenilə — başqa yerdə sorğu
+  // yaradıldıqda istifadəçinin manual yeniləməsinə ehtiyac qalmasın
+  useEffect(() => {
+    const refresh = () => { load(); loadStats() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh()
     })
-    return s
-  }, [requests])
-
-  const filtered = useMemo(() => {
-    return requests.filter(r => {
-      if (quickFilter !== 'ALL' && r.status !== quickFilter) return false
-      if (search) {
-        const q = search.toLowerCase()
-        if (!(r.requestCode?.toLowerCase().includes(q)
-            || r.companyName?.toLowerCase().includes(q)
-            || r.projectName?.toLowerCase().includes(q)
-            || r.region?.toLowerCase().includes(q))) return false
-      }
-      return true
-    })
-  }, [requests, quickFilter, search])
-
-  const handleAccept = async (r, e) => {
-    e?.stopPropagation()
-    if (!(await confirm({ title: 'Sorğunu qəbul et', message: `"${r.companyName}" sorğusu sizə təyin edilsin?`, danger: false }))) return
-    setActionLoading(r.requestId)
-    try {
-      await projectManagerApi.accept(r.requestId)
-      toast.success('Sorğu qəbul edildi')
-      load()
-    } catch {} finally {
-      setActionLoading(null)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
     }
-  }
+  }, [load, loadStats])
 
-  const handleReject = async (r, e) => {
-    e?.stopPropagation()
-    if (!(await confirm({ title: 'Sorğunu rədd et', message: `"${r.companyName}" sorğusu rədd edilsin?`, danger: true }))) return
-    setActionLoading(r.requestId)
-    try {
-      await projectManagerApi.reject(r.requestId, 'PM tərəfindən rədd edildi')
-      toast.success('Sorğu rədd edildi')
-      load()
-    } catch {} finally {
-      setActionLoading(null)
-    }
-  }
+  const totalActive = useMemo(() => stats.ALL ?? 0, [stats])
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Layihə Meneceri</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{requests.length} sorğu</p>
+          <p className="text-xs text-gray-400 mt-0.5">{totalActive} sorğu</p>
         </div>
       </div>
 
       {/* Stat cards */}
       <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-none">
-        {STAT_CARDS.map(s => {
+        {STAT_CARDS.map((s) => {
           const Icon = s.icon
+          const active = quickFilter === s.id
           return (
             <button
               key={s.id}
-              onClick={() => setQuickFilter(s.id)}
+              onClick={() => handleQuickFilter(s.id)}
               className={clsx(
                 'rounded-xl border px-3 py-2 text-left transition-colors shrink-0 min-w-[110px]',
-                quickFilter === s.id
+                active
                   ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-700'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-700',
               )}
             >
               <p className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -131,13 +180,21 @@ export default function ProjectManagerPage() {
         <div className="relative flex-1 min-w-0">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              updateParams((n) => n.delete('page'))
+            }}
             placeholder="Sorğu ID, şirkət, layihə, bölgə..."
             className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
-        <button onClick={load} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors" title="Yenilə">
+        <button
+          onClick={() => { load(); loadStats() }}
+          className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-amber-600 transition-colors"
+          title="Yenilə"
+        >
           <RefreshCw size={13} />
         </button>
       </div>
@@ -145,15 +202,15 @@ export default function ProjectManagerPage() {
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[840px]">
+          <table className="w-full min-w-[860px]">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">ID</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Şirkət / Layihə</th>
+                <SortHeader label="ID" field="requestCode" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Şirkət / Layihə" field="companyName" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Bölgə</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Növ / Müddət</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Əməliyyat</th>
+                <SortHeader label="Müddət" field="dayCount" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Daxil oldu" field="createdAt" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+                <SortHeader label="Status" field="status" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
               </tr>
             </thead>
             <tbody>
@@ -161,71 +218,45 @@ export default function ProjectManagerPage() {
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
                     {Array.from({ length: 6 }).map((_, j) => (
-                      <td key={j} className="py-3 px-4"><div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /></td>
+                      <td key={j} className="py-3 px-4">
+                        <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+                      </td>
                     ))}
                   </tr>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : data.content.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-sm text-gray-400">
-                    {requests.length === 0 ? 'PM-ə hələ sorğu gəlməyib' : 'Filtrlərə uyğun nəticə tapılmadı'}
+                    {totalActive === 0 ? 'PM-ə hələ sorğu gəlməyib' : 'Filtrlərə uyğun nəticə tapılmadı'}
                   </td>
                 </tr>
               ) : (
-                filtered.map(r => {
+                data.content.map((r) => {
                   const status = STATUS_CFG[r.status] || { label: r.status, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
                   return (
                     <tr
                       key={r.requestId}
-                      onClick={() => setSelected(r)}
+                      onClick={() => setSelectedId(r.requestId)}
                       className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer"
                     >
-                      <td className="py-3 px-4"><span className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400">{r.requestCode}</span></td>
+                      <td className="py-3 px-4">
+                        <span className="text-xs font-mono font-semibold text-amber-600 dark:text-amber-400">{r.requestCode}</span>
+                      </td>
                       <td className="py-3 px-4">
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{r.companyName}</p>
                         {r.projectName && <p className="text-xs text-gray-400">{r.projectName}</p>}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{r.region || '—'}</td>
                       <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
-                        {r.projectType ? `${r.dayCount ? `${r.dayCount} ${r.projectType === 'DAILY' ? 'gün' : 'ay'}` : r.projectType}` : '—'}
+                        {r.projectType
+                          ? (r.dayCount ? `${r.dayCount} ${r.projectType === 'DAILY' ? 'gün' : 'ay'}` : PROJECT_TYPE_LABEL[r.projectType])
+                          : '—'}
                       </td>
+                      <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{fmtDate(r.createdAt) || '—'}</td>
                       <td className="py-3 px-4">
                         <span className={clsx('px-2 py-0.5 rounded-md text-xs font-medium border', status.cls)}>
                           {status.label}
                         </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 justify-end flex-wrap">
-                          {r.status === 'PENDING' && canPut && (
-                            <button
-                              disabled={actionLoading === r.requestId}
-                              onClick={(e) => handleAccept(r, e)}
-                              className="flex items-center gap-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
-                            >
-                              <CheckCircle size={13} />
-                              Qəbul et
-                            </button>
-                          )}
-                          {!['REJECTED','PM_APPROVED','DELIVERED'].includes(r.status) && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSelected(r) }}
-                              className="flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 px-2.5 py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                            >
-                              <ClipboardCheck size={13} />
-                              Aç
-                            </button>
-                          )}
-                          {!['REJECTED','PM_APPROVED','DELIVERED'].includes(r.status) && canPut && (
-                            <button
-                              disabled={actionLoading === r.requestId}
-                              onClick={(e) => handleReject(r, e)}
-                              className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 rounded-lg transition-colors"
-                            >
-                              <XCircle size={13} />
-                              Ləğv
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   )
@@ -236,14 +267,22 @@ export default function ProjectManagerPage() {
         </div>
       </div>
 
-      {selected && (
+      <Pagination
+        page={data.page + 1}
+        pageSize={data.size}
+        totalPages={data.totalPages}
+        totalElements={data.totalElements}
+        onPage={(p) => updateParams((n) => n.set('page', String(p - 1)))}
+        onPageSize={(s) => updateParams((n) => { n.set('size', String(s)); n.delete('page') })}
+      />
+
+      {selectedId && (
         <PmRequestSlideOver
-          requestId={selected.requestId}
-          onClose={() => setSelected(null)}
-          onChanged={load}
+          requestId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onChanged={() => { load(); loadStats() }}
         />
       )}
-      <ConfirmDialog />
     </div>
   )
 }

@@ -252,9 +252,9 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
             </span>
           ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
         </InfoRow>
-        <InfoRow label="Növ / Müddət">
+        <InfoRow label="Növ">
           {project.projectType
-            ? `${PROJ_TYPE[project.projectType] || project.projectType} · ${calcDuration(project, editingStartDate ? startDate : null, editingDate ? date : null)}`
+            ? (PROJ_TYPE[project.projectType] || project.projectType)
             : '—'}
         </InfoRow>
         {project.transportationRequired && (
@@ -383,7 +383,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </Section>
       )}
 
-      <Section title="Müddət" icon={Calendar}>
+      <Section title="Tarixlər" icon={Calendar}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px dashed var(--ces-line)' }}>
           <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>Başlanğıc</span>
           {project.status !== 'COMPLETED' ? (
@@ -927,11 +927,6 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
         <SummaryRow label="Tip" value={PROJ_TYPE[project.projectType] || '—'} />
         <SummaryRow label="Başlanğıc" value={fmt(project.startDate ?? project.planStartDate)} />
         <SummaryRow label="Bitmə"     value={fmt(project.endDate ?? project.planEndDate)} />
-        <SummaryRow label="Müddət" value={
-          effectiveDays > 0
-            ? (project.projectType === 'MONTHLY' ? `${Math.round(effectiveDays / 30)} ay` : `${effectiveDays} gün`)
-            : '—'
-        } />
       </div>
 
       {/* Qaimə statusu */}
