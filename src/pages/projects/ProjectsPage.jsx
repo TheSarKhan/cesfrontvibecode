@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Search, Clock, Zap, CheckCircle, TrendingUp, ChevronRight, FileText, FolderKanban } from 'lucide-react'
+import { Search, Clock, Zap, CheckCircle, ChevronRight, FileText, FolderKanban } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import { fmtDate } from '../../utils/date'
 import ProjectSlideOver from './ProjectSlideOver'
@@ -104,16 +104,7 @@ export default function ProjectsPage() {
     const pending   = allProjects.filter(p => p.status === 'PENDING').length
     const active    = allProjects.filter(p => p.status === 'ACTIVE').length
     const completed = allProjects.filter(p => p.status === 'COMPLETED').length
-    const totalNet = allProjects
-      .filter(p => ['ACTIVE', 'COMPLETED'].includes(p.status))
-      .reduce((s, p) => {
-        const rev = parseFloat(p.totalRevenue || 0)
-        const exp = parseFloat(p.totalExpense || 0)
-                  + parseFloat(p.planTransportationPrice || 0)
-                  + parseFloat(p.planOperatorPayment || 0)
-        return s + (rev - exp)
-      }, 0)
-    return { pending, active, completed, totalNet }
+    return { pending, active, completed }
   }, [allProjects])
 
   const fmtMoney = (v) => parseFloat(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
@@ -130,17 +121,10 @@ export default function ProjectsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <StatCard icon={Clock}       label="Gözləmədə"  value={stats.pending}   sub="müqavilə gözlənilir" />
         <StatCard icon={Zap}         label="Aktiv"      value={stats.active}    sub="icra mərhələsində"      iconCls="ok" />
         <StatCard icon={CheckCircle} label="Bağlanmış"  value={stats.completed} sub="mühasibatlığa göndərildi" />
-        <StatCard
-          icon={TrendingUp}
-          label="Xalis gəlir"
-          value={`${fmtMoney(stats.totalNet)} ₼`}
-          sub="aktiv + bağlanmış"
-          iconCls={stats.totalNet >= 0 ? 'gold' : 'danger'}
-        />
       </div>
 
       {/* Filters */}

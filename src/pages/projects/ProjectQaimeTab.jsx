@@ -222,6 +222,7 @@ export default function ProjectQaimeTab({ project }) {
   const [justCreatedId, setJustCreatedId] = useState(null)
   const [viewInvoice, setViewInvoice] = useState(null)
   const [editingInvoice, setEditingInvoice] = useState(null)
+  const [ratesUnlocked, setRatesUnlocked] = useState(false)
   const [aktFile, setAktFile] = useState(null)
   const [aktUploading, setAktUploading] = useState(false)
   const { confirm, ConfirmDialog } = useConfirm()
@@ -610,36 +611,71 @@ export default function ProjectQaimeTab({ project }) {
             </div>
           </div>
 
-          {/* Tarif */}
+          {/* Tarif — default readonly, açıla bilər */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: -4 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ces-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>Tarif parametrləri</span>
+            <button
+              type="button"
+              onClick={() => setRatesUnlocked(v => !v)}
+              className="ces-btn ces-btn-ghost ces-btn-xs"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+            >
+              {ratesUnlocked ? <><Lock size={12} /> Kilidlə</> : <><Pencil size={12} /> Dəyiş</>}
+            </button>
+          </div>
           {isDaily ? (
             <div>
               <label style={fieldLabel}>Günlük tarif (₼)</label>
-              <div className="ces-input sm">
-                <input className="mono" type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="0.01" step="0.01" required />
-              </div>
+              {ratesUnlocked ? (
+                <div className="ces-input sm">
+                  <input className="mono" type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="0.01" step="0.01" required />
+                </div>
+              ) : (
+                <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
+                  {form.monthlyRate || '—'} <span style={{ color: 'var(--ces-muted)', fontWeight: 400 }}>₼</span>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div>
                 <label style={fieldLabel}>Aylıq tarif (₼)</label>
-                <div className="ces-input sm">
-                  <input className="mono" type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="1" step="0.01" required />
-                </div>
+                {ratesUnlocked ? (
+                  <div className="ces-input sm">
+                    <input className="mono" type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="1" step="0.01" required />
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
+                    {form.monthlyRate || '—'} <span style={{ color: 'var(--ces-muted)', fontWeight: 400 }}>₼</span>
+                  </div>
+                )}
               </div>
               <div>
                 <label style={fieldLabel}>Norma gün/ay</label>
-                <div className="ces-input sm">
-                  <input className="mono" type="number" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)} min="1" max="31" required />
-                </div>
+                {ratesUnlocked ? (
+                  <div className="ces-input sm">
+                    <input className="mono" type="number" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)} min="1" max="31" required />
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
+                    {form.workingDaysInMonth || '—'}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           <div>
             <label style={fieldLabel}>Norma saat/gün</label>
-            <div className="ces-input sm">
-              <input className="mono" type="number" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)} min="1" max="24" required />
-            </div>
+            {ratesUnlocked ? (
+              <div className="ces-input sm">
+                <input className="mono" type="number" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)} min="1" max="24" required />
+              </div>
+            ) : (
+              <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
+                {form.workingHoursPerDay || '—'}
+              </div>
+            )}
           </div>
 
           {/* Preview */}

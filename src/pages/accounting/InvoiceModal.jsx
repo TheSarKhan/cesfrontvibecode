@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useMemo } from 'react'
-import { Receipt, Pencil, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
+import { Receipt, Pencil, ChevronDown, ChevronUp, Calendar, Lock } from 'lucide-react'
 import { accountingApi } from '../../api/accounting'
 import { projectsApi } from '../../api/projects'
 import { contractorsApi } from '../../api/contractors'
@@ -48,6 +48,7 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
   })
   const [saving, setSaving]               = useState(false)
   const [showTimesheet, setShowTimesheet] = useState(!!(editing?.periodMonth))
+  const [ratesUnlocked, setRatesUnlocked] = useState(false)
   const [projects, setProjects]           = useState([])
   const [contractors, setContractors]     = useState([])
   const [customers, setCustomers]         = useState([])
@@ -301,15 +302,44 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
                 <Field label="Əlavə saat">
                   <Input type="number" min="0" step="0.5" value={form.extraHours} onChange={(e) => set('extraHours', e.target.value)} placeholder="0" />
                 </Field>
+                <div className="flex items-center justify-between" style={{ marginBottom: -4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ces-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>Tarif parametrləri</span>
+                  <button
+                    type="button"
+                    onClick={() => setRatesUnlocked(v => !v)}
+                    className="ces-btn ces-btn-ghost ces-btn-xs"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}
+                  >
+                    {ratesUnlocked ? <><Lock size={12} /> Kilidlə</> : <><Pencil size={12} /> Dəyiş</>}
+                  </button>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <Field label="Aylıq tarif">
-                    <Input type="number" min="1" step="0.01" value={form.monthlyRate} onChange={(e) => set('monthlyRate', e.target.value)} suffix="₼" />
+                    {ratesUnlocked ? (
+                      <Input type="number" min="1" step="0.01" value={form.monthlyRate} onChange={(e) => set('monthlyRate', e.target.value)} suffix="₼" />
+                    ) : (
+                      <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }}>
+                        {form.monthlyRate || '—'} <span style={{ color: 'var(--ces-muted)', fontWeight: 400 }}>₼</span>
+                      </div>
+                    )}
                   </Field>
-                  <Field label="Norma gün">
-                    <Input type="number" min="1" max="31" value={form.workingDaysInMonth} onChange={(e) => set('workingDaysInMonth', e.target.value)} />
+                  <Field label="Norma gün/ay">
+                    {ratesUnlocked ? (
+                      <Input type="number" min="1" max="31" value={form.workingDaysInMonth} onChange={(e) => set('workingDaysInMonth', e.target.value)} />
+                    ) : (
+                      <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }}>
+                        {form.workingDaysInMonth || '—'}
+                      </div>
+                    )}
                   </Field>
-                  <Field label="Norma saat">
-                    <Input type="number" min="1" max="24" value={form.workingHoursPerDay} onChange={(e) => set('workingHoursPerDay', e.target.value)} />
+                  <Field label="Norma saat/gün">
+                    {ratesUnlocked ? (
+                      <Input type="number" min="1" max="24" value={form.workingHoursPerDay} onChange={(e) => set('workingHoursPerDay', e.target.value)} />
+                    ) : (
+                      <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }}>
+                        {form.workingHoursPerDay || '—'}
+                      </div>
+                    )}
                   </Field>
                 </div>
                 {timesheetCalc && (
