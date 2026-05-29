@@ -1,3 +1,5 @@
+import { enumLabel } from '../../utils/enumLabel'
+
 /* ─── Money / Number formatting ─── */
 export const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 export const fmtMoney = (n) => `${fmt(n)} ₼`
@@ -14,41 +16,41 @@ export const PILL_STYLES = {
   solid:  { bg: 'var(--ces-graphite)',     color: 'var(--ces-on-primary)' },
 }
 
-/* ─── Status mappings ─── */
+/* ─── Status mappings ─── (etiketlər mərkəzi enum mənbəsindən; stil/short lokal) */
 export const EMPLOYEE_STATUS = {
-  ACTIVE:     { label: 'Aktiv',         tone: 'ok' },
-  ON_LEAVE:   { label: 'Məzuniyyətdə',  tone: 'info' },
-  TERMINATED: { label: 'İşdən çıxıb',   tone: 'muted' },
+  ACTIVE:     { get label() { return enumLabel('EmployeeStatus', 'ACTIVE') },     tone: 'ok' },
+  ON_LEAVE:   { get label() { return enumLabel('EmployeeStatus', 'ON_LEAVE') },   tone: 'info' },
+  TERMINATED: { get label() { return enumLabel('EmployeeStatus', 'TERMINATED') }, tone: 'muted' },
 }
 
 export const PAYROLL_STATUS = {
-  DRAFT:    { label: 'Layihə',      tone: 'warn' },
-  APPROVED: { label: 'Təsdiqlənib', tone: 'info' },
-  PAID:     { label: 'Ödənilib',    tone: 'ok' },
+  DRAFT:    { get label() { return enumLabel('PayrollStatus', 'DRAFT') },    tone: 'warn' },
+  APPROVED: { get label() { return enumLabel('PayrollStatus', 'APPROVED') }, tone: 'info' },
+  PAID:     { get label() { return enumLabel('PayrollStatus', 'PAID') },     tone: 'ok' },
 }
 
 export const LEAVE_STATUS = {
-  PENDING:   { label: 'Gözləyir',    tone: 'warn' },
-  APPROVED:  { label: 'Təsdiqlənib', tone: 'ok' },
-  REJECTED:  { label: 'Rədd edilib', tone: 'danger' },
-  CANCELLED: { label: 'Ləğv edilib', tone: 'muted' },
+  PENDING:   { get label() { return enumLabel('LeaveStatus', 'PENDING') },   tone: 'warn' },
+  APPROVED:  { get label() { return enumLabel('LeaveStatus', 'APPROVED') },  tone: 'ok' },
+  REJECTED:  { get label() { return enumLabel('LeaveStatus', 'REJECTED') },  tone: 'danger' },
+  CANCELLED: { get label() { return enumLabel('LeaveStatus', 'CANCELLED') }, tone: 'muted' },
 }
 
 export const LEAVE_TYPES = [
-  { v: 'ANNUAL',        label: 'İllik' },
-  { v: 'SICK',          label: 'Xəstəlik' },
-  { v: 'UNPAID',        label: 'Ödənişsiz' },
-  { v: 'MATERNITY',     label: 'Dekret' },
-  { v: 'BUSINESS_TRIP', label: 'Ezamiyyət' },
+  { v: 'ANNUAL',        get label() { return enumLabel('LeaveType', 'ANNUAL') } },
+  { v: 'SICK',          get label() { return enumLabel('LeaveType', 'SICK') } },
+  { v: 'UNPAID',        get label() { return enumLabel('LeaveType', 'UNPAID') } },
+  { v: 'MATERNITY',     get label() { return enumLabel('LeaveType', 'MATERNITY') } },
+  { v: 'BUSINESS_TRIP', get label() { return enumLabel('LeaveType', 'BUSINESS_TRIP') } },
 ]
 
 export const ATTENDANCE_STATUSES = [
-  { v: 'PRESENT',       label: 'İşdə',       tone: 'ok',     short: 'İ' },
-  { v: 'ABSENT',        label: 'Yoxdur',     tone: 'danger', short: 'Y' },
-  { v: 'LEAVE',         label: 'Məzuniyyət', tone: 'info',   short: 'M' },
-  { v: 'SICK',          label: 'Xəstə',      tone: 'warn',   short: 'X' },
-  { v: 'HOLIDAY',       label: 'Bayram',     tone: 'gold',   short: 'B' },
-  { v: 'BUSINESS_TRIP', label: 'Ezamiyyət',  tone: 'info',   short: 'E' },
+  { v: 'PRESENT',       get label() { return enumLabel('AttendanceStatus', 'PRESENT') },       tone: 'ok',     short: 'İ' },
+  { v: 'ABSENT',        get label() { return enumLabel('AttendanceStatus', 'ABSENT') },        tone: 'danger', short: 'Y' },
+  { v: 'LEAVE',         get label() { return enumLabel('AttendanceStatus', 'LEAVE') },         tone: 'info',   short: 'M' },
+  { v: 'SICK',          get label() { return enumLabel('AttendanceStatus', 'SICK') },          tone: 'warn',   short: 'X' },
+  { v: 'HOLIDAY',       get label() { return enumLabel('AttendanceStatus', 'HOLIDAY') },       tone: 'gold',   short: 'B' },
+  { v: 'BUSINESS_TRIP', get label() { return enumLabel('AttendanceStatus', 'BUSINESS_TRIP') }, tone: 'info',   short: 'E' },
 ]
 
 export const AZ_MONTHS = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun', 'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr']

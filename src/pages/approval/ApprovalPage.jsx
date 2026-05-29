@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import ApprovalDiffModal from './ApprovalDiffModal'
 import Pagination from '../../components/common/Pagination'
 import { clsx } from 'clsx'
+import { enumLabel } from '../../utils/enumLabel'
 
 const MODULE_LABEL = {
   CUSTOMER_MANAGEMENT: 'Müştərilər',
@@ -20,10 +21,11 @@ const MODULE_LABEL = {
   SERVICE_MANAGEMENT: 'Texniki Servis',
 }
 
+// Etiket mərkəzi enum mənbəsindən (OperationStatus); stil/ikon lokal
 const STATUS_CFG = {
-  PENDING:  { pill: 'ces-p-warn',   label: 'Gözləyir',     icon: Clock },
-  APPROVED: { pill: 'ces-p-ok',     label: 'Təsdiqləndi',  icon: Check },
-  REJECTED: { pill: 'ces-p-danger', label: 'Rədd edildi',  icon: XCircle },
+  PENDING:  { pill: 'ces-p-warn',   get label() { return enumLabel('OperationStatus', 'PENDING') },  icon: Clock },
+  APPROVED: { pill: 'ces-p-ok',     get label() { return enumLabel('OperationStatus', 'APPROVED') }, icon: Check },
+  REJECTED: { pill: 'ces-p-danger', get label() { return enumLabel('OperationStatus', 'REJECTED') }, icon: XCircle },
 }
 
 const getOpLabel = (op) => {

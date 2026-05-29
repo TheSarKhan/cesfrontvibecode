@@ -11,19 +11,22 @@ import ActivityFeed from '../../components/common/ActivityFeed'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
 import { fmtDate } from '../../utils/date'
+import { enumLabel } from '../../utils/enumLabel'
+import { STATUS_CFG as EQUIPMENT_STATUS } from '../../constants/garage'
 const fmt = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
   : '—'
 
+// Etiketlər mərkəzi enum mənbəsindən (RiskLevel / ContractorStatus); stil lokal
 const RISK_CONFIG = {
-  LOW:    { label: 'Aşağı',   cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
-  MEDIUM: { label: 'Orta',    cls: 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' },
-  HIGH:   { label: 'Yüksək', cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' },
+  LOW:    { get label() { return enumLabel('RiskLevel', 'LOW') },    cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
+  MEDIUM: { get label() { return enumLabel('RiskLevel', 'MEDIUM') }, cls: 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' },
+  HIGH:   { get label() { return enumLabel('RiskLevel', 'HIGH') },   cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' },
 }
 const STATUS_CONFIG = {
-  ACTIVE:   { label: 'Aktiv',   cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
-  INACTIVE: { label: 'Deaktiv', cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
+  ACTIVE:   { get label() { return enumLabel('ContractorStatus', 'ACTIVE') },   cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
+  INACTIVE: { get label() { return enumLabel('ContractorStatus', 'INACTIVE') }, cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
 }
 const PAYMENT_LABEL = { CASH: 'Nağd', TRANSFER: 'Köçürmə' }
 
@@ -37,18 +40,13 @@ function Field({ label, value, alwaysShow = false }) {
   )
 }
 
-const EQUIPMENT_STATUS = {
-  AVAILABLE:     { label: 'Mövcud',      cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
-  IN_USE:        { label: 'İstifadədə',  cls: 'bg-[var(--ces-info-100)] text-[var(--ces-info)]' },
-  UNDER_REPAIR:  { label: 'Təmirdə',     cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
-  DECOMMISSIONED:{ label: 'Silinmiş',    cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
-}
+// EQUIPMENT_STATUS qaraj-ın kanonik EquipmentStatus xəritəsindən import olunur (yuxarıda)
 
 const PROJECT_STATUS = {
-  PENDING:   { label: 'Gözləmədə',  cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
-  ACTIVE:    { label: 'Aktiv',      cls: 'bg-[var(--ces-info-100)] text-[var(--ces-info)]' },
-  COMPLETED: { label: 'Tamamlandı', cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
-  CANCELLED: { label: 'Ləğv edildi',cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
+  PENDING:   { get label() { return enumLabel('ProjectStatus', 'PENDING') },   cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
+  ACTIVE:    { get label() { return enumLabel('ProjectStatus', 'ACTIVE') },    cls: 'bg-[var(--ces-info-100)] text-[var(--ces-info)]' },
+  COMPLETED: { get label() { return enumLabel('ProjectStatus', 'COMPLETED') }, cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
+  CANCELLED: { get label() { return enumLabel('ProjectStatus', 'CANCELLED') }, cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
 }
 
 const TABS = [

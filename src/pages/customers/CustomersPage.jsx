@@ -15,19 +15,22 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import ColumnToggle from '../../components/common/ColumnToggle'
 import { useColumnStore } from '../../store/columnStore'
 import Pagination from '../../components/common/Pagination'
+import { enumLabel } from '../../utils/enumLabel'
 
+// Etiketlər mərkəzi enum mənbəsindən (RiskLevel / CustomerStatus); stil lokal
 const RISK_CONFIG = {
-  LOW:    { label: 'Aşağı',  pill: 'ces-p-ok' },
-  MEDIUM: { label: 'Orta',   pill: 'ces-p-warn' },
-  HIGH:   { label: 'Yüksək', pill: 'ces-p-danger' },
+  LOW:    { get label() { return enumLabel('RiskLevel', 'LOW') },    pill: 'ces-p-ok' },
+  MEDIUM: { get label() { return enumLabel('RiskLevel', 'MEDIUM') }, pill: 'ces-p-warn' },
+  HIGH:   { get label() { return enumLabel('RiskLevel', 'HIGH') },   pill: 'ces-p-danger' },
 }
 
 const STATUS_CONFIG = {
-  ACTIVE:   { label: 'Aktiv',     pill: 'ces-p-ok' },
-  PASSIVE:  { label: 'Passiv',    pill: 'ces-p-mute' },
-  VARIABLE: { label: 'Dəyişkən',  pill: 'ces-p-info' },
+  ACTIVE:   { get label() { return enumLabel('CustomerStatus', 'ACTIVE') },   pill: 'ces-p-ok' },
+  PASSIVE:  { get label() { return enumLabel('CustomerStatus', 'PASSIVE') },  pill: 'ces-p-mute' },
+  VARIABLE: { get label() { return enumLabel('CustomerStatus', 'VARIABLE') }, pill: 'ces-p-info' },
 }
 
+// CASH/TRANSFER backend enum deyil — lokal saxlanılır
 const PAYMENT_LABEL = { CASH: 'Nağd', TRANSFER: 'Köçürmə' }
 
 function PaymentBadges({ types }) {

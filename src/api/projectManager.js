@@ -22,6 +22,10 @@ export const projectManagerApi = {
 
   approve: (id) => api.post(`/project-manager/requests/${id}/approve`),
 
+  // Geri qaytarma — koordinatora yeni təklif üçün (səbəb məcburi)
+  sendBackToCoordinator: (id, reason) =>
+    api.post(`/project-manager/requests/${id}/send-back-to-coordinator`, { reason }),
+
   // Sənəd yükləmə (PM_PRICE_NEGOTIATION mərhələsində)
   uploadContract: (id, file) => {
     const fd = new FormData()

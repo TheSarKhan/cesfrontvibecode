@@ -3,6 +3,23 @@ import { authApi } from '../api/auth'
 import { usersApi } from '../api/users'
 import { isTokenExpired } from '../utils/jwt'
 
+// Frontend canX action adları → backend ACTION suffiksi (MODULE:ACTION kodu üçün).
+// Mövcud ~27 hasPermission(moduleCode, 'canX') çağırışı pozulmasın deyə saxlanılır.
+const ACTION_MAP = {
+  canGet: 'GET',
+  canPost: 'POST',
+  canPut: 'PUT',
+  canDelete: 'DELETE',
+  canSendToCoordinator: 'SEND_COORDINATOR',
+  canSubmitOffer: 'SUBMIT_OFFER',
+  canSendToAccounting: 'SEND_ACCOUNTING',
+  canReturnToProject: 'RETURN_PROJECT',
+  canApproveByPm: 'APPROVE_PM',
+  canCheckDocuments: 'CHECK_DOCUMENTS',
+  canDispatch: 'DISPATCH',
+  canDeliver: 'DELIVER',
+}
+
 const parseUser = () => {
   try {
     return JSON.parse(localStorage.getItem('user')) || null
@@ -68,6 +85,10 @@ export const useAuthStore = create((set, get) => ({
         email: fresh.email,
         phone: fresh.phone,
         profileImage: fresh.profileImage,
+        // İcazə/rol məlumatını da təzələ (rol dəyişikliyindən sonra)
+        ...(fresh.permissions !== undefined ? { permissions: fresh.permissions } : {}),
+        ...(fresh.roleName !== undefined ? { roleName: fresh.roleName } : {}),
+        ...(fresh.roleNames !== undefined ? { roleNames: fresh.roleNames } : {}),
       }
       localStorage.setItem('user', JSON.stringify(merged))
       set({ user: merged })
@@ -77,13 +98,21 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  // Tam permission-əsaslı, fail-CLOSED: user/icazə yoxdursa false. Xüsusi super-admin halı yoxdur.
   hasPermission: (moduleCode, action = 'canGet') => {
     const { user } = get()
     if (!user) return false
-    // Super Admin — bütün icazələr açıqdır
-    if (user.roleName === 'Super Admin') return true
-    // No permissions data → show all (fallback for legacy sessions)
-    if (!user.permissions) return true
-    return user.permissions.some((p) => p.moduleCode === moduleCode && p[action])
+    const codes = user.permissions
+    if (!Array.isArray(codes) || codes.length === 0) return false
+    const act = ACTION_MAP[action] || action // canX → ACTION; artıq ACTION-dursa olduğu kimi
+    return codes.includes(`${moduleCode}:${act}`)
+  },
+
+  // Əlavə/qeyri-standart icazələr üçün — tam kodla yoxlama.
+  hasAuthority: (code) => {
+    const { user } = get()
+    if (!user) return false
+    const codes = user.permissions
+    return Array.isArray(codes) && codes.includes(code)
   },
 }))

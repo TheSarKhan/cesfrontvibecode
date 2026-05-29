@@ -3,7 +3,7 @@ import {
   X, Info, FileText, MessageSquare, ClipboardList, Building2, MapPin,
   Calendar, CheckCircle, XCircle, AlertTriangle, Send, Save, Truck,
   Phone, User, Trophy, DollarSign,
-  PackageCheck, UserPlus, FileCheck, ShieldCheck, Plus,
+  PackageCheck, UserPlus, FileCheck, ShieldCheck, Plus, CornerUpLeft,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
@@ -12,6 +12,7 @@ import { operatorsApi } from '../../api/operators'
 import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
 import { fmtDateTime } from '../../utils/date'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentDetailsModal from '../../components/common/EquipmentDetailsModal'
 
@@ -553,6 +554,21 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, onSaved 
     }
   }
 
+  // Operatoru dəyişmək üçün geri qaytarma (OPERATOR_ASSIGNED → EXECUTION_READY)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const handleResetOperator = async (reason) => {
+    setResetting(true)
+    try {
+      await coordinatorApi.resetOperator(requestId, reason)
+      toast.success('Operator təyini sıfırlandı')
+      setResetOpen(false)
+      onSaved?.()
+    } catch { /* xəta interceptor-də göstərilir */ } finally {
+      setResetting(false)
+    }
+  }
+
   // ── Step 2: docs verify ──
   const [verifying, setVerifying] = useState(false)
   const handleVerify = async () => {
@@ -598,9 +614,20 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, onSaved 
       {/* Step 1 — Operator təyini */}
       <StepCard num={1} title="Operator təyini" active={activeStep === 1} done={operatorAssigned}>
         {operatorAssigned ? (
-          <div className="flex items-center gap-2 text-sm">
-            <UserPlus size={14} className="text-green-600" />
-            <span className="font-semibold text-gray-800 dark:text-gray-200">{data?.operatorName || '—'}</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <UserPlus size={14} className="text-green-600" />
+              <span className="font-semibold text-gray-800 dark:text-gray-200">{data?.operatorName || '—'}</span>
+            </div>
+            {status === 'OPERATOR_ASSIGNED' && canPut && (
+              <button
+                onClick={() => setResetOpen(true)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors inline-flex items-center gap-1.5"
+              >
+                <CornerUpLeft size={13} />
+                Operatoru dəyiş
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -754,6 +781,17 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, onSaved 
           </p>
         </div>
       )}
+
+      {resetOpen && (
+        <ReasonPromptModal
+          title="Operatoru dəyiş"
+          message="Sorğu icra hazırlığına qaytarılır və yeni operator təyin etmək mümkün olur."
+          confirmLabel="Geri qaytar"
+          loading={resetting}
+          onConfirm={handleResetOperator}
+          onClose={() => setResetOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -772,6 +810,8 @@ export default function CoordinatorSlideOver({ requestId, onClose, onChanged }) 
   const [detailsEqId, setDetailsEqId] = useState(null)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejecting, setRejecting] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
 
   const refresh = () => {
     if (!requestId) return
@@ -809,6 +849,19 @@ export default function CoordinatorSlideOver({ requestId, onClose, onChanged }) 
     }
   }
 
+  const handleWithdrawOffer = async (reason) => {
+    setWithdrawing(true)
+    try {
+      await coordinatorApi.withdrawOffer(requestId, reason)
+      toast.success('Təklif geri alındı — yenidən danışıq')
+      setWithdrawOpen(false)
+      refresh()
+      onChanged?.()
+    } catch { /* xəta interceptor-də göstərilir */ } finally {
+      setWithdrawing(false)
+    }
+  }
+
   if (!requestId) return null
 
   const status = data ? (STATUS_CFG[data.requestStatus] || STATUS_CFG.COORDINATOR_NEGOTIATING) : null
@@ -816,6 +869,7 @@ export default function CoordinatorSlideOver({ requestId, onClose, onChanged }) 
   const code = data?.requestCode || '...'
   const editablePhaseA = data?.requestStatus === PHASE_A_STATUS && canPut
   const canReject = canPut && data && ['COORDINATOR_NEGOTIATING'].includes(data.requestStatus)
+  const canWithdraw = canPut && data?.requestStatus === 'COORDINATOR_PROPOSED'
 
   return (
     <>
@@ -1014,6 +1068,30 @@ export default function CoordinatorSlideOver({ requestId, onClose, onChanged }) 
               Rədd et
             </button>
           </div>
+        )}
+
+        {/* Footer — təklifi geri al (COORDINATOR_PROPOSED) */}
+        {!loading && data && canWithdraw && (
+          <div className="ces-drawer-foot">
+            <button
+              onClick={() => setWithdrawOpen(true)}
+              className="px-4 py-2 text-sm font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors inline-flex items-center gap-1.5"
+            >
+              <CornerUpLeft size={14} />
+              Təklifi geri al
+            </button>
+          </div>
+        )}
+
+        {withdrawOpen && (
+          <ReasonPromptModal
+            title="Təklifi geri al"
+            message="Təklif geri alınır və sorğu yenidən danışığa qayıdır. Seçilmiş texnika sərbəstləşir."
+            confirmLabel="Geri al"
+            loading={withdrawing}
+            onConfirm={handleWithdrawOffer}
+            onClose={() => setWithdrawOpen(false)}
+          />
         )}
 
         {rejectOpen && (

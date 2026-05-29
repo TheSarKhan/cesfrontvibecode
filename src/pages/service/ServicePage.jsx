@@ -14,6 +14,7 @@ import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 
 import { fmtDate } from '../../utils/date'
+import { enumLabel } from '../../utils/enumLabel'
 const fmt      = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
@@ -29,16 +30,8 @@ const STATUS_COLORS = {
   DEFECTIVE:      'bg-red-100 text-red-700 border-red-200',
   OUT_OF_SERVICE: 'bg-gray-100 text-gray-700 border-gray-200',
 }
-const STATUS_LABELS = {
-  AVAILABLE:      'Hazırdır',
-  RENTED:         'Layihədə',
-  IN_TRANSIT:     'Yoldadır',
-  IN_INSPECTION:  'Servisdədir',
-  UNDER_CHECK:    'Baxışda',
-  IN_REPAIR:      'Təmirdə',
-  DEFECTIVE:      'Nasaz',
-  OUT_OF_SERVICE: 'İstismardan kənar',
-}
+// Etiket mərkəzi enum mənbəsindən (EquipmentStatus) — uyğunsuz adlandırma aradan qalxır
+const STATUS_LABELS = new Proxy({}, { get: (_, code) => enumLabel('EquipmentStatus', String(code)) })
 
 function StatusBadge({ status }) {
   if (!status) return null

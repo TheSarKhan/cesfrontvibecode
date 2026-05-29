@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   X, Info, FileText, Building2, MapPin, Calendar, ClipboardCheck,
   CheckCircle, XCircle, AlertTriangle, ListChecks, Plus, Save, Send,
-  Trash2, Phone, User, Handshake, Trophy, DollarSign, Truck, Upload, Download,
+  Trash2, Phone, User, Handshake, Trophy, DollarSign, Truck, Upload, Download, CornerUpLeft,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
@@ -12,6 +12,7 @@ import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
 import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentCard from '../../components/common/EquipmentCard'
 import EquipmentDetailsModal from '../../components/common/EquipmentDetailsModal'
@@ -938,6 +939,7 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
   const [actionLoading, setActionLoading] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [sendBackOpen, setSendBackOpen] = useState(false)
 
   const refresh = () => {
     if (!requestId) return
@@ -1003,6 +1005,19 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
     }
   }
 
+  const handleSendBackToCoordinator = async (reason) => {
+    setActionLoading(true)
+    try {
+      await projectManagerApi.sendBackToCoordinator(requestId, reason)
+      toast.success('Koordinatora geri qaytarıldı')
+      setSendBackOpen(false)
+      refresh()
+      onChanged?.()
+    } catch { /* xəta interceptor-də göstərilir */ } finally {
+      setActionLoading(false)
+    }
+  }
+
   if (!requestId) return null
 
   const status = data ? (STATUS_CFG[data.status] || STATUS_CFG.PENDING) : null
@@ -1023,7 +1038,8 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
   const canReject = canPut && data && !TERMINAL_STATUSES.includes(data.status)
   const canSendToCoord = canPut && data && PM_EDITABLE_STATUSES.includes(data.status) && hasShortlistItems
   const canApprove = canApproveByPm && data?.status === 'PM_PRICE_NEGOTIATION' && data?.agreedTotalPrice != null
-  const showFooter = canAccept || canReject || canSendToCoord || canApprove
+  const canSendBack = canPut && data?.status === 'PM_PRICE_NEGOTIATION'
+  const showFooter = canAccept || canReject || canSendToCoord || canApprove || canSendBack
 
   const handleApprove = async () => {
     setActionLoading(true)
@@ -1268,6 +1284,16 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
                 {actionLoading ? 'Göndərilir...' : 'Koordinatora göndər'}
               </button>
             )}
+            {canSendBack && (
+              <button
+                onClick={() => setSendBackOpen(true)}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+              >
+                <CornerUpLeft size={14} />
+                Koordinatora geri qaytar
+              </button>
+            )}
             {canApprove && (
               <button
                 onClick={handleApprove}
@@ -1279,6 +1305,17 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
               </button>
             )}
           </div>
+        )}
+
+        {sendBackOpen && (
+          <ReasonPromptModal
+            title="Koordinatora geri qaytar"
+            message="Müştəri ilə qiymət razılaşmadı — koordinatordan yeni təklif istənilir. Seçilmiş texnika sərbəstləşir."
+            confirmLabel="Geri qaytar"
+            loading={actionLoading}
+            onConfirm={handleSendBackToCoordinator}
+            onClose={() => setSendBackOpen(false)}
+          />
         )}
 
         {rejectOpen && (

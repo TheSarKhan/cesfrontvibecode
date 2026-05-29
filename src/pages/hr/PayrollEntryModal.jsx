@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Calculator } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
@@ -9,26 +9,8 @@ import { fmt } from './_constants'
 /* ─── Calculation helpers ─── */
 function round2(n) { return Math.round(n * 100) / 100 }
 
-function bracketedRaw(amount, threshold, rateBelow, rateAbove) {
-  if (!amount || amount <= 0) return 0
-  const t  = Number(threshold ?? 0)
-  const rb = Number(rateBelow ?? 0)
-  const ra = Number(rateAbove ?? 0)
-  if (amount <= t) return amount * rb
-  return t * rb + (amount - t) * ra
-}
-
-// Azərbaycan 2026 progressiv gəlir vergisi
-function progressiveIncomeTaxRaw(taxBase) {
-  if (!taxBase || taxBase <= 0) return 0
-  if (taxBase <= 200)  return 0
-  if (taxBase <= 2500) return (taxBase - 200) * 0.03
-  if (taxBase <= 8000) return 75 + (taxBase - 2500) * 0.10
-  return 625 + (taxBase - 8000) * 0.14
-}
-
-function calcPreview(form, cfg, workingDaysInMonth) {
-  if (!cfg) return null
+/** Gross client-side: faktiki günə görə proration + əlavələr − cərimə. Tutulmalar backend /preview-dən. */
+function computeGross(form, workingDaysInMonth) {
   const baseSalary  = Number(form.baseSalary)    || 0
   const workingDays = workingDaysInMonth > 0 ? workingDaysInMonth : 22
   const actualDays  = Number(form.actualDaysWorked) || workingDays
@@ -43,39 +25,31 @@ function calcPreview(form, cfg, workingDaysInMonth) {
 
   let gross = round2(proRated + overtimePay + bonus + vacation - penalty)
   if (gross < 0) gross = 0
+  return gross
+}
 
-  const pensionRaw      = bracketedRaw(gross, cfg.employeePensionThreshold, cfg.employeePensionRateBelow, cfg.employeePensionRateAbove)
-  const unemploymentRaw = gross * Number(cfg.employeeUnemploymentRate ?? 0)
-  const medicalRaw      = bracketedRaw(gross, cfg.employeeMedicalThreshold, cfg.employeeMedicalRateBelow, cfg.employeeMedicalRateAbove)
+const CODE = { incomeTax: 'GELIR_VERGISI', pension: 'DSMF', unemployment: 'ISH', medical: 'ITS' }
+const lineOf = (res, code) => res?.lines?.find((l) => l.code === code)
 
-  let taxBase = gross
-  if (cfg.deductSocialFromTaxBase) taxBase -= pensionRaw + unemploymentRaw + medicalRaw
-  if (Number(cfg.nonTaxableMinimum) > 0) taxBase -= Number(cfg.nonTaxableMinimum)
-  if (taxBase < 0) taxBase = 0
-
-  const incomeTaxRaw       = progressiveIncomeTaxRaw(taxBase)
-  const totalDeductionsRaw = incomeTaxRaw + pensionRaw + unemploymentRaw + medicalRaw
-  let   netPayRaw          = gross - totalDeductionsRaw
-  if (netPayRaw < 0) netPayRaw = 0
-
-  const employerPensionRaw      = bracketedRaw(gross, cfg.employerPensionThreshold, cfg.employerPensionRateBelow, cfg.employerPensionRateAbove)
-  const employerUnemploymentRaw = gross * Number(cfg.employerUnemploymentRate ?? 0)
-  const employerMedicalRaw      = bracketedRaw(gross, cfg.employerMedicalThreshold, cfg.employerMedicalRateBelow, cfg.employerMedicalRateAbove)
-  const totalEmployerRaw        = employerPensionRaw + employerUnemploymentRaw + employerMedicalRaw
-
+/** Backend /preview nəticəsini ekran formatına çevirir. */
+function mapPreview(gross, res) {
+  if (!res) return null
+  const it = lineOf(res, CODE.incomeTax), p = lineOf(res, CODE.pension)
+  const u = lineOf(res, CODE.unemployment), m = lineOf(res, CODE.medical)
+  const employer = Number(res.totalEmployerContributions ?? 0)
   return {
     grossTotal:                 round2(gross),
-    incomeTax:                  round2(incomeTaxRaw),
-    employeePension:            round2(pensionRaw),
-    employeeUnemployment:       round2(unemploymentRaw),
-    employeeMedical:            round2(medicalRaw),
-    totalDeductions:            round2(totalDeductionsRaw),
-    netPay:                     round2(netPayRaw),
-    employerPension:            round2(employerPensionRaw),
-    employerUnemployment:       round2(employerUnemploymentRaw),
-    employerMedical:            round2(employerMedicalRaw),
-    totalEmployerContributions: round2(totalEmployerRaw),
-    totalCompanyCost:           round2(gross + totalEmployerRaw),
+    incomeTax:                  it?.employeeAmount ?? 0,
+    employeePension:            p?.employeeAmount ?? 0,
+    employeeUnemployment:       u?.employeeAmount ?? 0,
+    employeeMedical:            m?.employeeAmount ?? 0,
+    totalDeductions:            res.totalEmployeeDeductions ?? 0,
+    netPay:                     res.netPay ?? 0,
+    employerPension:            p?.employerAmount ?? 0,
+    employerUnemployment:       u?.employerAmount ?? 0,
+    employerMedical:            m?.employerAmount ?? 0,
+    totalEmployerContributions: employer,
+    totalCompanyCost:           round2(gross + employer),
   }
 }
 
@@ -90,23 +64,42 @@ export default function PayrollEntryModal({ entry, onClose, onSaved }) {
     baseSalary:       entry.baseSalary,
     notes:            entry.notes       || '',
   })
-  const [cfg, setCfg]           = useState(null)
+  const [groups, setGroups]     = useState(null)
+  const [preview, setPreview]   = useState(entry)
   const [submitting, setSubmitting] = useState(false)
+  const previewTimer = useRef(null)
 
+  // Aktiv tutulma konfiqurasiyasının qruplarını yüklə
   useEffect(() => {
     let cancelled = false
-    hrApi.getActiveTaxRate()
-      .then(r => { if (!cancelled) setCfg(r.data?.data ?? r.data) })
+    hrApi.getActiveDeductionConfig()
+      .then(r => { if (!cancelled) setGroups((r.data?.data ?? r.data)?.groups ?? []) })
       .catch(() => {})
     return () => { cancelled = true }
   }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const preview = useMemo(
-    () => calcPreview(form, cfg, entry.workingDaysInMonth) ?? entry,
-    [form, cfg, entry]
-  )
+  // Canlı hesablama — gross client-side, tutulmalar backend /preview (debounce)
+  useEffect(() => {
+    if (!groups) return
+    const gross = computeGross(form, entry.workingDaysInMonth)
+    if (previewTimer.current) clearTimeout(previewTimer.current)
+    previewTimer.current = setTimeout(async () => {
+      try {
+        const payload = {
+          base: gross,
+          groups: groups.map(g => ({
+            code: g.code, name: g.name, appliesTo: g.appliesTo, deductedFromNet: g.deductedFromNet,
+            isciBrackets: g.isciBrackets, isegoturenBrackets: g.isegoturenBrackets,
+          })),
+        }
+        const res = (await hrApi.previewDeductions(payload)).data?.data
+        setPreview(mapPreview(gross, res) ?? entry)
+      } catch { /* önizləmə xətası səssiz */ }
+    }, 300)
+    return () => previewTimer.current && clearTimeout(previewTimer.current)
+  }, [form, groups, entry])
 
   const submit = async (e) => {
     e?.preventDefault?.()

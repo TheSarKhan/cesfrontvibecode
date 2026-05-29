@@ -9,17 +9,12 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import { fmtDate } from '../../utils/date'
 import { Pill, TableWrap, PageHeader, Select } from './_shared'
 import { fmtMoney } from './_constants'
+import { enumLabel } from '../../utils/enumLabel'
 
 const fmt = fmtDate
 
-const STATUS_LABELS = {
-  AVAILABLE:     'Hazırdır',
-  DEFECTIVE:     'Nasaz',
-  IN_REPAIR:     'Təmirdə',
-  IN_INSPECTION: 'Servisdədir',
-  IN_TRANSIT:    'Yoldadır',
-  RENTED:        'Layihədə',
-}
+// Etiket mərkəzi enum mənbəsindən (EquipmentStatus)
+const STATUS_LABELS = new Proxy({}, { get: (_, code) => enumLabel('EquipmentStatus', String(code)) })
 
 const STATCARD_TONES = {
   gold:   { bg: 'var(--ces-gold-100)',  color: 'var(--ces-gold-700)' },

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Search, RefreshCw, Upload, FileText, Download, Trash2, CheckCircle, X, FileCheck, FileClock, FileX, Files } from 'lucide-react'
+import { Search, RefreshCw, Upload, FileText, Download, Trash2, CheckCircle, X, FileCheck, FileClock, FileX, Files, CornerUpLeft } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { documentCheckApi } from '../../api/documentCheck'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 
 const STAT_CARDS = [
   { id: 'ALL',     label: 'Hamısı',     icon: Files,     color: 'text-gray-500' },
@@ -284,6 +285,20 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
     }
   }
 
+  const [sendBackOpen, setSendBackOpen] = useState(false)
+  const handleSendBack = async (reason) => {
+    setBusy(true)
+    try {
+      await documentCheckApi.sendBack(requestId, reason)
+      toast.success('Sorğu LM-ə geri qaytarıldı')
+      setSendBackOpen(false)
+      onChanged?.()
+      onClose()
+    } catch { /* xəta interceptor-də göstərilir */ } finally {
+      setBusy(false)
+    }
+  }
+
   if (loading || !data) {
     return (
       <div
@@ -362,17 +377,39 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
           <div className="text-xs text-gray-500">
             {allReady ? 'Bütün sənədlər tam' : 'Müqavilə + Protokol yüklənməlidir'}
           </div>
-          {canComplete && (
-            <button
-              onClick={complete}
-              disabled={!allReady || busy}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
-            >
-              <CheckCircle size={13} /> Yoxlamanı tamamla
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canComplete && (
+              <button
+                onClick={() => setSendBackOpen(true)}
+                disabled={busy}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-amber-700 border border-amber-300 hover:bg-amber-50 rounded-lg disabled:opacity-50"
+              >
+                <CornerUpLeft size={13} /> LM-ə geri qaytar
+              </button>
+            )}
+            {canComplete && (
+              <button
+                onClick={complete}
+                disabled={!allReady || busy}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+              >
+                <CheckCircle size={13} /> Yoxlamanı tamamla
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {sendBackOpen && (
+        <ReasonPromptModal
+          title="LM-ə geri qaytar"
+          message="Sənədlərdə əskiklik/səhv var — sorğu Layihə Menecerinə (qiymət danışığına) geri qaytarılır."
+          confirmLabel="Geri qaytar"
+          loading={busy}
+          onConfirm={handleSendBack}
+          onClose={() => setSendBackOpen(false)}
+        />
+      )}
     </div>
   )
 }

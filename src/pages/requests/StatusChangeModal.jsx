@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, ArrowRight, GitBranch } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
-import { STATUS_CFG, ALLOWED_TRANSITIONS } from '../../constants/requests'
+import { STATUS_CFG, ALLOWED_TRANSITIONS, isSendBack } from '../../constants/requests'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -16,16 +16,17 @@ export default function StatusChangeModal({ request, onClose, onSaved }) {
   const allowed = ALLOWED_TRANSITIONS[currentStatus] || []
   const current = STATUS_CFG[currentStatus] || STATUS_CFG.DRAFT
   const code = request.requestCode || `REQ-${String(request.id).padStart(4, '0')}`
+  const reasonRequired = selected ? isSendBack(currentStatus, selected) : false
 
   const handleSubmit = async () => {
     if (!selected) return toast.error('Yeni status seçin')
+    if (reasonRequired && !reason.trim()) return toast.error('Geri qaytarma üçün səbəb göstərilməlidir')
     setLoading(true)
     try {
       await requestsApi.changeStatus(request.id, { status: selected, reason: reason.trim() || null })
       toast.success('Status dəyişdirildi')
       onSaved()
-    } catch {
-    } finally {
+    } catch { /* xəta interceptor-də göstərilir */ } finally {
       setLoading(false)
     }
   }
@@ -95,7 +96,9 @@ export default function StatusChangeModal({ request, onClose, onSaved }) {
               </div>
 
               <div className="ces-field" style={{ marginTop: 16, marginBottom: 0 }}>
-                <label>Səbəb <span style={{ color: 'var(--ces-mute2)', fontWeight: 500 }}>(ixtiyari)</span></label>
+                <label>Səbəb {reasonRequired
+                  ? <span style={{ color: 'var(--ces-danger)', fontWeight: 600 }}>(məcburi)</span>
+                  : <span style={{ color: 'var(--ces-mute2)', fontWeight: 500 }}>(ixtiyari)</span>}</label>
                 <div className="ces-input" style={{ alignItems: 'flex-start', paddingTop: 4, paddingBottom: 4 }}>
                   <textarea
                     rows={3}
@@ -117,7 +120,7 @@ export default function StatusChangeModal({ request, onClose, onSaved }) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!selected || loading}
+              disabled={!selected || loading || (reasonRequired && !reason.trim())}
               className="ces-btn ces-btn-primary"
             >
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}

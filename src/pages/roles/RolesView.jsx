@@ -10,14 +10,29 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
-const SUPER_ADMIN_ROLE = 'Super Admin'
+// Action suffiksi → AZ etiket (rol icazə pill-ləri üçün)
+const ACTION_LABELS = {
+  GET: 'Oxumaq', POST: 'Yazmaq', PUT: 'Redaktə', DELETE: 'Silmək',
+  SEND_COORDINATOR: 'Koordinatora göndər', SUBMIT_OFFER: 'Təklif göndər',
+  SEND_ACCOUNTING: 'Mühasibatlığa göndər', RETURN_PROJECT: 'Layihəyə qaytar',
+  APPROVE_PM: 'PM təsdiqi', CHECK_DOCUMENTS: 'Sənəd təsdiqi',
+  DISPATCH: 'Texnika göndər', DELIVER: 'Təhvil-təslim',
+}
+const CRUD = new Set(['GET', 'POST', 'PUT', 'DELETE'])
 
-const PERM_LABELS = [
-  { key: 'canGet', label: 'Oxumaq' },
-  { key: 'canPost', label: 'Yazmaq' },
-  { key: 'canPut', label: 'Redaktə' },
-  { key: 'canDelete', label: 'Silmək' },
-]
+// Kod siyahısını modul üzrə qruplaşdır: ["ACCOUNTING:GET", ...] → [["ACCOUNTING", ["GET", ...]], ...]
+function groupByModule(codes) {
+  const map = new Map()
+  ;(codes || []).forEach((code) => {
+    const i = code.indexOf(':')
+    if (i < 0) return
+    const mod = code.slice(0, i)
+    const act = code.slice(i + 1)
+    if (!map.has(mod)) map.set(mod, [])
+    map.get(mod).push(act)
+  })
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+}
 
 function initials(name) {
   const parts = (name || '').trim().split(/\s+/)
@@ -101,7 +116,7 @@ function PermPill({ active, children, accent }) {
 
 function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
   const [expanded, setExpanded] = useState(false)
-  const roleUsers = users.filter((u) => u.roleId === role.id)
+  const roleUsers = users.filter((u) => (u.roleIds || (u.roleId != null ? [u.roleId] : [])).includes(role.id))
 
   return (
     <>
@@ -142,26 +157,20 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
         </td>
       </tr>
 
-      {expanded && role.permissions?.length > 0 && role.permissions.map((perm) => (
-        <tr key={perm.moduleId} style={{ background: 'var(--ces-gold-50)' }}>
+      {expanded && groupByModule(role.permissions).map(([moduleCode, actions]) => (
+        <tr key={moduleCode} style={{ background: 'var(--ces-gold-50)' }}>
           <td style={{ paddingLeft: 50 }}>
             <span className="text-xs font-semibold" style={{ color: 'var(--ces-gold-700)' }}>
-              {perm.moduleNameAz}
+              {moduleCode}
             </span>
           </td>
           <td colSpan={3}>
             <div className="flex items-center gap-2 flex-wrap py-1">
-              {PERM_LABELS.map(({ key, label }) => (
-                <PermPill key={key} active={perm[key]}>{label}</PermPill>
+              {actions.map((a) => (
+                <PermPill key={a} active accent={CRUD.has(a) ? undefined : 'purple'}>
+                  {ACTION_LABELS[a] || a}
+                </PermPill>
               ))}
-              {perm.canSendToCoordinator && <PermPill active accent="purple">PM-ə göndər</PermPill>}
-              {perm.canApproveByPm && <PermPill active accent="purple">PM təsdiqi</PermPill>}
-              {perm.canSubmitOffer && <PermPill active accent="purple">Təklif göndər</PermPill>}
-              {perm.canDispatch && <PermPill active accent="purple">Texnika göndər</PermPill>}
-              {perm.canDeliver && <PermPill active accent="purple">Təhvil-təslim</PermPill>}
-              {perm.canSendToAccounting && <PermPill active accent="purple">Mühasibatlığa göndər</PermPill>}
-              {perm.canCheckDocuments && <PermPill active accent="purple">Sənəd təsdiqi</PermPill>}
-              {perm.canReturnToProject && <PermPill active accent="purple">Layihəyə qaytar</PermPill>}
             </div>
           </td>
         </tr>
@@ -182,8 +191,6 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
 
 export default function RolesView({ dept, users, departments, onBack }) {
   const hasPermission = useAuthStore((s) => s.hasPermission)
-  const currentUser   = useAuthStore((s) => s.user)
-  const isSuperAdmin  = currentUser?.roleName === SUPER_ADMIN_ROLE
   const canCreate = hasPermission('ROLE_PERMISSION', 'canPost')
   const canEdit   = hasPermission('ROLE_PERMISSION', 'canPut')
   const canDelete = hasPermission('ROLE_PERMISSION', 'canDelete')
@@ -238,7 +245,7 @@ export default function RolesView({ dept, users, departments, onBack }) {
     }
   }
 
-  const roles = isSuperAdmin ? data.content : data.content.filter((r) => r.name !== SUPER_ADMIN_ROLE)
+  const roles = data.content
 
   return (
     <div>

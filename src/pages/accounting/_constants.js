@@ -1,3 +1,5 @@
+import { enumLabel } from '../../utils/enumLabel'
+
 /* ─── Money / Number formatting ─── */
 export const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 export const fmtMoney = (n) => `${fmt(n)} ₼`
@@ -15,28 +17,28 @@ export const PILL_STYLES = {
   solid:  { bg: 'var(--ces-graphite)',     color: 'var(--ces-on-primary)' },
 }
 
-/* ─── Invoice types ─── */
+/* ─── Invoice types ─── (etiket: mərkəzi InvoiceType; stil/desc lokal) */
 export const INVOICE_TYPES = {
-  INCOME:             { label: 'Gəlir',  desc: 'Layihədən qazanılan gəlir',     tone: 'ok' },
-  CONTRACTOR_EXPENSE: { label: 'Ödəmə',  desc: 'İnvestor / Podratçı ödənişi',   tone: 'warn' },
-  COMPANY_EXPENSE:    { label: 'Xərc',   desc: 'Şirkət daxili xərclər',         tone: 'danger' },
+  INCOME:             { get label() { return enumLabel('InvoiceType', 'INCOME') },             desc: 'Layihədən qazanılan gəlir',   tone: 'ok' },
+  CONTRACTOR_EXPENSE: { get label() { return enumLabel('InvoiceType', 'CONTRACTOR_EXPENSE') }, desc: 'İnvestor / Podratçı ödənişi', tone: 'warn' },
+  COMPANY_EXPENSE:    { get label() { return enumLabel('InvoiceType', 'COMPANY_EXPENSE') },    desc: 'Şirkət daxili xərclər',       tone: 'danger' },
+  INVESTOR_EXPENSE:   { get label() { return enumLabel('InvoiceType', 'INVESTOR_EXPENSE') },   desc: 'İnvestor ödənişi',            tone: 'warn' },
 }
 
-/* ─── Invoice statuses ─── */
+/* ─── Invoice statuses ─── (etiket: mərkəzi InvoiceStatus) */
 export const INVOICE_STATUS = {
-  DRAFT:    { label: 'Qaralama',     tone: 'muted' },
-  SENT:     { label: 'Göndərilib',    tone: 'info' },
-  APPROVED: { label: 'Təsdiqlənib',  tone: 'ok' },
-  REJECTED: { label: 'Rədd edilib',  tone: 'danger' },
-  CANCELLED:{ label: 'Ləğv edilib',  tone: 'muted' },
+  DRAFT:    { get label() { return enumLabel('InvoiceStatus', 'DRAFT') },    tone: 'muted' },
+  SENT:     { get label() { return enumLabel('InvoiceStatus', 'SENT') },     tone: 'info' },
+  APPROVED: { get label() { return enumLabel('InvoiceStatus', 'APPROVED') }, tone: 'ok' },
+  RETURNED: { get label() { return enumLabel('InvoiceStatus', 'RETURNED') }, tone: 'danger' },
 }
 
-/* ─── Payment statuses ─── */
+/* ─── Payment statuses ─── (etiket: mərkəzi PayableStatus = ReceivableStatus) */
 export const PAYMENT_STATUS = {
-  PENDING:   { label: 'Gözləyir',    tone: 'warn' },
-  PARTIAL:   { label: 'Qismən',      tone: 'info' },
-  COMPLETED: { label: 'Tamamlandı',  tone: 'ok' },
-  OVERDUE:   { label: 'Gecikmiş',    tone: 'danger' },
+  PENDING:   { get label() { return enumLabel('PayableStatus', 'PENDING') },   tone: 'warn' },
+  PARTIAL:   { get label() { return enumLabel('PayableStatus', 'PARTIAL') },   tone: 'info' },
+  COMPLETED: { get label() { return enumLabel('PayableStatus', 'COMPLETED') }, tone: 'ok' },
+  OVERDUE:   { get label() { return enumLabel('PayableStatus', 'OVERDUE') },   tone: 'danger' },
 }
 
 /* ─── Document statuses ─── */

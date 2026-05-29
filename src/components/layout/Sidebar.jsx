@@ -34,12 +34,14 @@ export default function Sidebar({ collapsed, onToggle }) {
       .catch(() => {})
   }, [approvalQueueVersion])
 
+  // hasPermission Zustand-da sabit referansdır — icazələr dəyişəndə (refetchMe sonrası)
+  // yenidən hesablanması üçün user.permissions-ı asılılığa daxil edirik.
   const grouped = useMemo(() => {
     const allowed = NAV_ITEMS.filter((item) => !item.module || hasPermission(item.module))
     return NAV_SECTIONS
       .map((sec) => ({ ...sec, items: allowed.filter((i) => i.section === sec.key) }))
       .filter((sec) => sec.items.length > 0)
-  }, [hasPermission])
+  }, [hasPermission, user?.permissions])
 
   return (
     <aside

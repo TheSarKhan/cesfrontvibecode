@@ -5,15 +5,23 @@ import { useAuthStore } from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useEnumStore } from '../../store/enumStore'
+import { enumLabel } from '../../utils/enumLabel'
 
 const FIELD_LABELS = {
   createdAt: 'Yaradılma tarixi', updatedAt: 'Yenilənmə tarixi',
   companyName: 'Şirkət adı', voen: 'VÖEN', contactPerson: 'Əlaqə şəxsi',
+  contactPhone: 'Əlaqə telefonu',
   phone: 'Telefon', address: 'Ünvan', notes: 'Qeydlər',
   status: 'Status', riskLevel: 'Risk səviyyəsi', rating: 'Reytinq',
-  paymentType: 'Ödəniş növü', email: 'E-poçt',
+  paymentType: 'Ödəniş növü', paymentTypes: 'Ödəniş növləri', email: 'E-poçt',
   investmentAmount: 'İnvestisiya məbləği', sharePercent: 'Pay faizi',
-  firstName: 'Ad', lastName: 'Soyad', specialization: 'İxtisas', busy: 'Məşğul',
+  firstName: 'Ad', lastName: 'Soyad', fullName: 'Tam ad',
+  specialization: 'İxtisas', busy: 'Məşğul',
+  documentsComplete: 'Sənədlər tamdır', uploadedDocumentTypes: 'Yüklənmiş sənəd növləri',
+  directorName: 'Direktor',
+  supplierPerson: 'Təchizatçı şəxs', supplierPhone: 'Təchizatçı telefonu',
+  officeContactPerson: 'Ofis əlaqə şəxsi', officeContactPhone: 'Ofis telefonu',
   equipmentCode: 'Texnika kodu', name: 'Adı', type: 'Növ', brand: 'Marka', model: 'Model',
   serialNumber: 'Seriya nömrəsi', plateNumber: 'Qeydiyyat nişanı',
   yearOfManufacture: 'İstehsal ili', manufactureYear: 'İstehsal ili',
@@ -35,18 +43,91 @@ const FIELD_LABELS = {
   operatorPayment: 'Operator haqqı', contractorDailyRate: 'Podratçı/İnvestor günlük', contractorPayment: 'Podratçı/İnvestor cəmi',
   dayCount: 'Gün sayı', startDate: 'Başlanğıc tarixi', endDate: 'Bitmə tarixi',
   operatorName: 'Operator', selectedEquipmentCode: 'Seçilmiş texnika',
+  selectedEquipmentName: 'Seçilmiş texnika adı',
   invoiceNumber: 'Faktura nömrəsi', amount: 'Məbləğ', invoiceDate: 'Faktura tarixi',
   equipmentName: 'Texnika adı', serviceDescription: 'Xidmət təsviri',
   etaxesId: 'ETaxes ID', invoiceType: 'Faktura növü',
   projectCode: 'Layihə kodu', contractorName: 'Podratçı',
   requestCode: 'Sorğu kodu', requestType: 'Sorğu növü', projectType: 'Layihə növü',
   location: 'Yer', description: 'Təsvir', requestDate: 'Sorğu tarixi',
+  createdByName: 'Yaradan',
+
+  // Sorğu / Koordinator / Layihə (PM)
+  projectName: 'Layihə adı', region: 'Region',
+  transportationRequired: 'Nəqliyyat tələb olunur',
+  requestStatus: 'Sorğu statusu',
+  agreedEquipmentPrice: 'Razılaşdırılmış texnika qiyməti',
+  agreedTransportPrice: 'Razılaşdırılmış nəqliyyat qiyməti',
+  agreedTotalPrice: 'Razılaşdırılmış ümumi qiymət',
+  customerOfficeContact: 'Ofis əlaqə şəxsi', customerOfficePhone: 'Ofis telefonu',
+  agreementNote: 'Razılaşma qeydi',
+  shortlistNotes: 'Qısa siyahı qeydi', shortlistItems: 'Qısa siyahı (namizədlər)',
+  coordinatorOffer: 'Koordinator təklifi',
+  contractUploaded: 'Müqavilə yükləndi', priceProtocolUploaded: 'Qiymət protokolu yükləndi',
+  customerVoen: 'Müştəri VÖEN', customerAddress: 'Müştəri ünvanı',
+  customerName: 'Müştəri',
+  customerSupplierPerson: 'Müştəri təchizatçı şəxs', customerSupplierPhone: 'Müştəri təchizatçı telefonu',
+  customerOfficeContactPerson: 'Müştəri ofis əlaqə şəxsi', customerOfficeContactPhone: 'Müştəri ofis telefonu',
+  equipmentDocumentTypes: 'Texnika sənəd növləri',
+  hasPendingSubmit: 'Təsdiq gözləyən təqdimat var',
+  customerEquipmentPrice: 'Müştəri texnika qiyməti',
+  transportContractorName: 'Nəqliyyat podratçısı',
+  totalAmount: 'Ümumi məbləğ', companyProfit: 'Şirkət mənfəəti',
+  planCreatedAt: 'Plan yaradılma tarixi',
+  equipmentDocsVerified: 'Texnika sənədləri təsdiqlənib', equipmentDocsCheckedAt: 'Sənəd yoxlama tarixi',
+  dispatchedAt: 'Göndərilmə tarixi', deliveredAt: 'Çatdırılma tarixi', deliveryNotes: 'Çatdırılma qeydi',
+  winnerPartyType: 'Qalib tərəf növü', winnerPartyName: 'Qalib tərəf',
+  winnerEquipmentName: 'Qalib texnika adı', winnerEquipmentCode: 'Qalib texnika kodu',
+
+  // Qısa siyahı sətri (namizəd)
+  partyType: 'Tərəf növü',
+  contractorVoen: 'Podratçı VÖEN', contractorPhone: 'Podratçı telefonu',
+  contractorContactPerson: 'Podratçı əlaqə şəxsi', contractorAddress: 'Podratçı ünvanı',
+  investorName: 'İnvestor', investorVoen: 'İnvestor VÖEN', investorPhone: 'İnvestor telefonu',
+  investorContactPerson: 'İnvestor əlaqə şəxsi', investorAddress: 'İnvestor ünvanı',
+  equipmentType: 'Texnika növü', equipmentBrand: 'Texnika markası',
+  equipmentModel: 'Texnika modeli', equipmentYear: 'Texnika ili',
+  equipmentPlateNumber: 'Qeydiyyat nişanı', equipmentOwnership: 'Mülkiyyət növü',
+  negotiatedPrice: 'Razılaşdırılmış qiymət', rank: 'Sıra',
+
+  // Sənədlər / fayllar (iç-içə)
+  documentName: 'Sənəd adı', documentType: 'Sənəd növü', documentDate: 'Sənəd tarixi',
+  fileName: 'Fayl adı', fileType: 'Fayl növü',
+  uploadedByUserName: 'Yükləyən', uploadedByName: 'Yükləyən', uploadedAt: 'Yükləmə tarixi',
+
+  // Mühasibatlıq (faktura)
+  typeLabel: 'Faktura növü',
+  paidAmount: 'Ödənilmiş məbləğ', remainingAmount: 'Qalıq məbləğ',
+  aktFileName: 'Akt faylı', aktFileUploaded: 'Akt yükləndi',
+  projectCompanyName: 'Layihə şirkəti', projectNetProfit: 'Layihə xalis mənfəəti',
+  periodMonth: 'Dövr (ay)', periodYear: 'Dövr (il)',
+  standardDays: 'Standart günlər', extraDays: 'Əlavə günlər', extraHours: 'Əlavə saatlar',
+  workingDaysInMonth: 'Aydakı iş günləri', workingHoursPerDay: 'Gündəlik iş saatı',
+  overtimeRate: 'Əlavə iş tarifi',
+  hasTransport: 'Nəqliyyat var', totalTransportAmount: 'Ümumi nəqliyyat məbləği',
+  transports: 'Nəqliyyatlar', transportDate: 'Nəqliyyat tarixi',
+  transportDirection: 'Nəqliyyat istiqaməti', transportAmount: 'Nəqliyyat məbləği',
+
+  // İstifadəçi / Rol / Şöbə
+  active: 'Aktiv', hasApproval: 'Təsdiq səlahiyyəti',
+  departmentName: 'Şöbə', roleName: 'Rol', roleNames: 'Rollar',
+  superAdmin: 'Tam giriş (Super Admin)', lastLoginAt: 'Son giriş',
+  permissions: 'İcazələr', approvalDepartments: 'Təsdiq şöbələri',
+  moduleCode: 'Modul kodu', moduleName: 'Modul', moduleNameAz: 'Modul',
+  canGet: 'Oxumaq', canPost: 'Yazmaq', canPut: 'Redaktə', canDelete: 'Silmək',
 }
 
 const FIELD_EXCLUDE = new Set([
   'id', 'deleted', 'deletedAt', 'documents', 'images', 'inspections',
   'projectHistory', 'params', 'responsibleUserId',
   'ownerContractorId', 'ownerInvestorId', 'selectedEquipmentId', 'operatorId',
+  // Xam texniki ID-lər — istifadəçiyə mənası yoxdur, anlamlı qarşılıqları (ad/kod) onsuz da görünür
+  'requestId', 'customerId', 'shortlistId', 'equipmentId', 'planId',
+  'transportContractorId', 'winnerItemId', 'contractorId', 'investorId',
+  'projectId', 'accountingId', 'sourceInvoiceId',
+  'departmentId', 'roleId', 'moduleId', 'performedByUserId', 'uploadedByUserId',
+  // RBAC xam ID siyahıları — anlamlı qarşılıqları (roleNames, permissions code-ları) görünür
+  'roleIds', 'grantedPermissionIds',
 ])
 
 const MODULE_LABEL = {
@@ -63,25 +144,152 @@ const MODULE_LABEL = {
   SERVICE_MANAGEMENT: 'Texniki Servis',
 }
 
+// Etiket mərkəzi enum mənbəsindən (OperationStatus); pill stili lokal
 const STATUS_CFG = {
-  PENDING:  { pill: 'ces-p-warn',   label: 'Gözləyir' },
-  APPROVED: { pill: 'ces-p-ok',     label: 'Təsdiqləndi' },
-  REJECTED: { pill: 'ces-p-danger', label: 'Rədd edildi' },
+  PENDING:  { pill: 'ces-p-warn',   get label() { return enumLabel('OperationStatus', 'PENDING') } },
+  APPROVED: { pill: 'ces-p-ok',     get label() { return enumLabel('OperationStatus', 'APPROVED') } },
+  REJECTED: { pill: 'ces-p-danger', get label() { return enumLabel('OperationStatus', 'REJECTED') } },
 }
 
-function formatValue(val) {
+// Sahə açarı (+ lazım olduqda modul) → enum tipi. Diff-də enum kodlarını
+// Azərbaycan etiketinə çevirmək üçün istifadə olunur.
+const STATUS_ENUM_BY_MODULE = {
+  CUSTOMER_MANAGEMENT: 'CustomerStatus',
+  CONTRACTOR_MANAGEMENT: 'ContractorStatus',
+  INVESTORS: 'ContractorStatus',
+  GARAGE: 'EquipmentStatus',
+  SERVICE_MANAGEMENT: 'EquipmentStatus',
+  REQUESTS: 'RequestStatus',
+  COORDINATOR: 'RequestStatus',
+  PROJECTS: 'ProjectStatus',
+  ACCOUNTING: 'InvoiceStatus',
+  EMPLOYEE_MANAGEMENT: 'EmployeeStatus',
+}
+const FIELD_ENUM_TYPE = {
+  requestStatus: 'RequestStatus',
+  ownershipType: 'OwnershipType',
+  equipmentOwnership: 'OwnershipType',
+  partyType: 'PartyType',
+  winnerPartyType: 'PartyType',
+  riskLevel: 'RiskLevel',
+  projectType: 'ProjectType',
+  invoiceType: 'InvoiceType',
+  operationType: 'OperationType',
+  gender: 'Gender',
+}
+function resolveEnumType(key, moduleCode) {
+  if (key === 'status') return STATUS_ENUM_BY_MODULE[moduleCode] || null
+  if (key === 'type') return moduleCode === 'ACCOUNTING' ? 'InvoiceType' : null
+  return FIELD_ENUM_TYPE[key] || null
+}
+// String dəyər enum kodudursa Azərbaycan etiketini qaytarır; deyilsə null
+// (ad/ünvan/sərbəst mətn toxunulmaz qalsın deyə yalnız tanınan kodlar çevrilir).
+function enumValueLabel(val, key, moduleCode) {
+  if (typeof val !== 'string' || !val) return null
+  const { enums, byCode } = useEnumStore.getState()
+  const type = resolveEnumType(key, moduleCode)
+  if (type && enums[type]) {
+    const hit = enums[type].find(o => o.code === val)
+    if (hit) return hit.label
+  }
+  if (Object.prototype.hasOwnProperty.call(byCode, val)) return byCode[val]
+  return null
+}
+
+// Güvənlik şəbəkəsi: lüğətdə olmayan açarı son çarə olaraq oxunaqlı formata çevirir
+// (camelCase/snake_case → "Sözlər", ilk hərf böyük). Əsas hədəf yuxarıdakı tam əhatədir.
+function humanizeKey(key) {
+  const s = String(key)
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function labelFor(key) {
+  return FIELD_LABELS[key] || humanizeKey(key)
+}
+
+function isBlank(v) {
+  return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+}
+
+// Sadə {id, name} kimi istinad obyekti? (ad göstərilir, xam ID yox)
+function isSimpleRef(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false
+  if (!obj.name) return false
+  return Object.keys(obj).filter(k => !FIELD_EXCLUDE.has(k)).length <= 1
+}
+
+const nestedStyles = {
+  wrap: { border: '1px solid var(--ces-line-2)', borderRadius: 8, overflow: 'hidden', margin: '2px 0' },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  tr: { borderBottom: '1px solid var(--ces-line-2)' },
+  keyTd: { padding: '5px 9px', fontSize: 11.5, color: 'var(--ces-muted)', fontWeight: 600, width: '40%', verticalAlign: 'top', background: 'rgba(0,0,0,.015)' },
+  valTd: { padding: '5px 9px', fontSize: 12, color: 'var(--ces-ink)', verticalAlign: 'top' },
+  card: { border: '1px solid var(--ces-line-2)', borderRadius: 8, padding: 2, marginBottom: 6 },
+  cardHead: { fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ces-muted)', padding: '3px 9px' },
+}
+
+// İç-içə obyekti oxunaqlı alt-cədvəl kimi göstər (JSON yox, rekursiv)
+function NestedObject({ obj, moduleCode }) {
+  const keys = Object.keys(obj).filter(k => !FIELD_EXCLUDE.has(k) && !isBlank(obj[k]))
+  if (keys.length === 0) return <span style={{ color: 'var(--ces-mute2)', fontStyle: 'italic', fontSize: 12 }}>—</span>
+  return (
+    <div style={nestedStyles.wrap}>
+      <table style={nestedStyles.table}>
+        <tbody>
+          {keys.map(k => (
+            <tr key={k} style={nestedStyles.tr}>
+              <td style={nestedStyles.keyTd}>{labelFor(k)}</td>
+              <td style={nestedStyles.valTd}>{formatValue(obj[k], k, moduleCode)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// Obyekt massivini kartlar kimi göstər (rekursiv)
+function NestedList({ arr, moduleCode }) {
+  return (
+    <div>
+      {arr.map((item, i) => (
+        <div key={i} style={nestedStyles.card}>
+          <div style={nestedStyles.cardHead}>#{i + 1}</div>
+          {item && typeof item === 'object' ? <NestedObject obj={item} moduleCode={moduleCode} /> : formatValue(item, undefined, moduleCode)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function formatValue(val, key, moduleCode) {
   if (val === null || val === undefined) return <span style={{ color: 'var(--ces-mute2)', fontStyle: 'italic', fontSize: 12 }}>—</span>
   if (typeof val === 'boolean') return val ? 'Bəli' : 'Xeyr'
   if (Array.isArray(val)) {
     if (val.length === 0) return <span style={{ color: 'var(--ces-mute2)', fontStyle: 'italic', fontSize: 12 }}>Boş</span>
-    if (val[0] && typeof val[0] === 'object' && val[0].name) {
+    // Sadə istinad siyahısı ({id, name}) → adları vergüllə birləşdir
+    if (val.every(v => isSimpleRef(v))) {
       return <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{val.map(v => v.name).join(', ')}</span>
     }
-    return <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{val.join(', ')}</span>
+    // Zəngin obyekt massivi → oxunaqlı kartlar (xam JSON yox)
+    if (val.some(v => v && typeof v === 'object')) {
+      return <NestedList arr={val} moduleCode={moduleCode} />
+    }
+    // Primitiv massiv — elementlər enum kodu ola bilər
+    return <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{val.map(v => enumValueLabel(v, key, moduleCode) ?? v).join(', ')}</span>
   }
   if (typeof val === 'object') {
-    if (val.name) return String(val.name)
-    return <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>{JSON.stringify(val)}</span>
+    if (isSimpleRef(val)) return String(val.name)
+    // Zəngin obyekt → oxunaqlı alt-cədvəl (xam JSON yox)
+    return <NestedObject obj={val} moduleCode={moduleCode} />
+  }
+  if (typeof val === 'string') {
+    // Enum kodu → Azərbaycan etiketi (yalnız tanınan kodlar; sərbəst mətn toxunulmur)
+    const el = enumValueLabel(val, key, moduleCode)
+    if (el != null) return el
   }
   return String(val)
 }
@@ -95,7 +303,35 @@ const diffStyles = {
   newVal: { background: 'rgba(15, 157, 106, .06)', color: 'var(--ces-ok)', fontWeight: 600 },
 }
 
-function DiffTable({ oldSnap, newSnap, isDelete }) {
+// İcazə kodu (MODULE:ACTION) → oxunaqlı "Modul — Aksiya"; başqa primitivlər olduğu kimi
+const DIFF_ACTION_LABELS = {
+  GET: 'Oxumaq', POST: 'Yazmaq', PUT: 'Redaktə', DELETE: 'Silmək',
+  SEND_COORDINATOR: 'Koordinatora göndər', SUBMIT_OFFER: 'Təklif göndər',
+  SEND_ACCOUNTING: 'Mühasibatlığa göndər', RETURN_PROJECT: 'Layihəyə qaytar',
+  APPROVE_PM: 'PM təsdiqi', CHECK_DOCUMENTS: 'Sənəd təsdiqi',
+  DISPATCH: 'Texnika göndər', DELIVER: 'Təhvil-təslim',
+}
+function codeLabel(v) {
+  const s = String(v)
+  const i = s.indexOf(':')
+  if (i > 0 && /^[A-Z0-9_]+:[A-Z0-9_]+$/.test(s)) {
+    const mod = s.slice(0, i), act = s.slice(i + 1)
+    return `${MODULE_LABEL[mod] || mod} — ${DIFF_ACTION_LABELS[act] || act}`
+  }
+  return s
+}
+const isPrimArray = (x) => Array.isArray(x) && x.every(e => typeof e === 'string' || typeof e === 'number')
+
+function ChipList({ items, tone }) {
+  if (!items.length) return <span style={{ color: 'var(--ces-mute2)', fontStyle: 'italic', fontSize: 12 }}>—</span>
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {items.map((v, i) => <span key={i} className={clsx('ces-pill sm', tone)}>{codeLabel(v)}</span>)}
+    </div>
+  )
+}
+
+function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
   if (!oldSnap) return <p className="text-sm py-4 text-center" style={{ color: 'var(--ces-mute2)' }}>Köhnə məlumat yoxdur</p>
 
   if (!isDelete && !newSnap) {
@@ -114,8 +350,8 @@ function DiffTable({ oldSnap, newSnap, isDelete }) {
             <tbody>
               {keys.map(key => (
                 <tr key={key} style={diffStyles.tr}>
-                  <td style={{ ...diffStyles.fieldTd, width: '32%' }}>{FIELD_LABELS[key] || key}</td>
-                  <td style={diffStyles.valTd}>{formatValue(oldSnap[key])}</td>
+                  <td style={{ ...diffStyles.fieldTd, width: '32%' }}>{labelFor(key)}</td>
+                  <td style={diffStyles.valTd}>{formatValue(oldSnap[key], key, moduleCode)}</td>
                 </tr>
               ))}
             </tbody>
@@ -143,9 +379,9 @@ function DiffTable({ oldSnap, newSnap, isDelete }) {
           <tbody>
             {allKeys.map(key => (
               <tr key={key} style={diffStyles.tr}>
-                <td style={diffStyles.fieldTd}>{FIELD_LABELS[key] || key}</td>
+                <td style={diffStyles.fieldTd}>{labelFor(key)}</td>
                 <td style={{ ...diffStyles.valTd, ...diffStyles.oldVal }}>
-                  {formatValue(oldSnap[key])}
+                  {formatValue(oldSnap[key], key, moduleCode)}
                 </td>
               </tr>
             ))}
@@ -169,22 +405,47 @@ function DiffTable({ oldSnap, newSnap, isDelete }) {
           </tr>
         </thead>
         <tbody>
-          {changedKeys.map(key => (
-            <tr key={key} style={{ ...diffStyles.tr, background: 'rgba(255, 244, 220, .35)' }}>
-              <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{FIELD_LABELS[key] || key}</td>
-              <td style={{ ...diffStyles.valTd, ...diffStyles.oldVal, textDecoration: 'line-through', textDecorationColor: 'rgba(212,56,90,.45)' }}>
-                {formatValue(oldSnap?.[key])}
-              </td>
-              <td style={{ ...diffStyles.valTd, ...diffStyles.newVal }}>
-                {formatValue(newSnap?.[key])}
-              </td>
-            </tr>
-          ))}
+          {changedKeys.map(key => {
+            const ov = oldSnap?.[key], nv = newSnap?.[key]
+            // Primitiv massiv (məs. icazə kodları, roleNames) → "Çıxarılan / Əlavə olunan"
+            if (isPrimArray(ov) && isPrimArray(nv)) {
+              const oldSet = new Set(ov.map(String)), newSet = new Set(nv.map(String))
+              const removed = ov.filter(v => !newSet.has(String(v)))
+              const added = nv.filter(v => !oldSet.has(String(v)))
+              return (
+                <tr key={key} style={{ ...diffStyles.tr, background: 'rgba(255, 244, 220, .35)' }}>
+                  <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{labelFor(key)}</td>
+                  <td style={diffStyles.valTd}>
+                    <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ces-danger)', marginBottom: 4 }}>Çıxarılan</p>
+                    <ChipList items={removed} tone="ces-p-danger" />
+                  </td>
+                  <td style={diffStyles.valTd}>
+                    <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ces-ok)', marginBottom: 4 }}>Əlavə olunan</p>
+                    <ChipList items={added} tone="ces-p-ok" />
+                  </td>
+                </tr>
+              )
+            }
+            return (
+              <tr key={key} style={{ ...diffStyles.tr, background: 'rgba(255, 244, 220, .35)' }}>
+                <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{labelFor(key)}</td>
+                <td style={{ ...diffStyles.valTd, ...diffStyles.oldVal, textDecoration: 'line-through', textDecorationColor: 'rgba(212,56,90,.45)' }}>
+                  {formatValue(ov, key, moduleCode)}
+                </td>
+                <td style={{ ...diffStyles.valTd, ...diffStyles.newVal }}>
+                  {formatValue(nv, key, moduleCode)}
+                </td>
+              </tr>
+            )
+          })}
           {unchangedKeys.map(key => (
             <tr key={key} style={diffStyles.tr}>
-              <td style={diffStyles.fieldTd}>{FIELD_LABELS[key] || key}</td>
-              <td style={{ ...diffStyles.valTd, color: 'var(--ces-muted)', fontSize: 12.5 }}>{formatValue(oldSnap?.[key])}</td>
-              <td style={{ ...diffStyles.valTd, color: 'var(--ces-mute2)', fontSize: 12.5 }}>—</td>
+              <td style={diffStyles.fieldTd}>{labelFor(key)}</td>
+              {/* Dəyişməyən sahə — dəyər hər iki tərəfdə eyni; yanlış "→ —" göstərilmir */}
+              <td style={{ ...diffStyles.valTd, color: 'var(--ces-muted)', fontSize: 12.5 }} colSpan={2}>
+                {formatValue(oldSnap?.[key], key, moduleCode)}
+                <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--ces-mute2)', fontStyle: 'italic' }}>(dəyişməyib)</span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -196,6 +457,7 @@ function DiffTable({ oldSnap, newSnap, isDelete }) {
 export default function ApprovalDiffModal({ operationId, onClose, onActionDone }) {
   useEscapeKey(onClose)
   const { user } = useAuthStore()
+  useEnumStore(s => s.loaded) // enum etiketləri yüklənəndə yenidən render olunsun
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [rejectMode, setRejectMode] = useState(false)

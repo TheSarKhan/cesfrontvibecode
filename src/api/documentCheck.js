@@ -24,4 +24,7 @@ export const documentCheckApi = {
     `/api/accounting/document-checks/${requestId}/documents/${documentId}/download`,
   completeCheck: (requestId) =>
     api.post(`/accounting/document-checks/${requestId}/complete-check`),
+  // Geri qaytarma — LM-ə (qiymət danışığına) iadə (səbəb məcburi)
+  sendBack: (requestId, reason) =>
+    api.post(`/accounting/document-checks/${requestId}/send-back`, { reason }),
 }

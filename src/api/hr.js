@@ -29,6 +29,19 @@ export const hrApi = {
   activateTaxRate: (id) => api.patch(`/hr/tax-rates/${id}/activate`),
   deleteTaxRate: (id) => api.delete(`/hr/tax-rates/${id}`),
 
+  // ── Deduction config (generic tutulma konfiqurasiyası) ──
+  getDeductionTypes: () => api.get('/hr/deduction-config/types'),
+  createDeductionType: (data) => api.post('/hr/deduction-config/types', data),
+  updateDeductionType: (id, data) => api.put(`/hr/deduction-config/types/${id}`, data),
+  deleteDeductionType: (id) => api.delete(`/hr/deduction-config/types/${id}`),
+  getDeductionVersions: () => api.get('/hr/deduction-config/versions'),
+  getDeductionVersion: (id) => api.get(`/hr/deduction-config/versions/${id}`),
+  getActiveDeductionConfig: () => api.get('/hr/deduction-config/active'),
+  createDeductionVersion: (data) => api.post('/hr/deduction-config/versions', data),
+  activateDeductionVersion: (id) => api.patch(`/hr/deduction-config/versions/${id}/activate`),
+  deleteDeductionVersion: (id) => api.delete(`/hr/deduction-config/versions/${id}`),
+  previewDeductions: (data) => api.post('/hr/deduction-config/preview', data),
+
   // ── Payroll periods ──
   getPeriods: () => api.get('/hr/payroll/periods'),
   getPeriodsPaged: (params) => api.get('/hr/payroll/periods/paged', { params }),

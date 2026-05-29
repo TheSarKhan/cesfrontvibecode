@@ -7,6 +7,7 @@ import MobileNav from './MobileNav'
 import { NAV_ITEMS } from '../../constants/navigation'
 import { useAuthStore } from '../../store/authStore'
 import { useNotifications } from '../../hooks/useNotifications'
+import { usePermissionSync } from '../../hooks/usePermissionSync'
 
 function getPageTitle(pathname) {
   if (pathname.startsWith('/profile')) return 'Profil'
@@ -22,6 +23,7 @@ export default function MainLayout() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   useNotifications(!!user)
+  usePermissionSync(!!user)
 
   useEffect(() => {
     const handler = (e) => {

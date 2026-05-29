@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import { useEnumStore } from '../../store/enumStore'
 import { isTokenExpired } from '../../utils/jwt'
 
 export default function ProtectedRoute() {
@@ -16,6 +17,11 @@ export default function ProtectedRoute() {
       logout()
     }
   }, [logout])
+
+  // Auth təsdiqlənəndə enum kod→etiket xəritəsini bir dəfə çək (mərkəzi mənbə)
+  useEffect(() => {
+    if (isAuthenticated) useEnumStore.getState().fetchEnums()
+  }, [isAuthenticated])
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <Outlet />

@@ -17,6 +17,8 @@ const MOBILE_NAV = [
 
 export default function MobileNav() {
   const hasPermission = useAuthStore(s => s.hasPermission)
+  // user.permissions-a abunə ol ki, icazələr dəyişəndə (refetchMe sonrası) yenidən render olsun
+  useAuthStore(s => s.user?.permissions)
   const visible = MOBILE_NAV.filter(item => !item.module || hasPermission(item.module))
 
   return (

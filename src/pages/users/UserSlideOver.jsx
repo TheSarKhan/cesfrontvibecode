@@ -13,12 +13,31 @@ const TABS = [
   { id: 'history',     label: 'Tarixçə',   icon: History },
 ]
 
-const PERM_LABEL = {
-  canGet:    { label: 'Oxumaq',   cls: 'ces-p-info' },
-  canPost:   { label: 'Yazmaq',   cls: 'ces-p-ok' },
-  canPut:    { label: 'Redaktə',  cls: 'ces-p-gold' },
-  canDelete: { label: 'Silmək',   cls: 'ces-p-danger' },
+const ACTION_LABELS = {
+  GET: 'Oxumaq', POST: 'Yazmaq', PUT: 'Redaktə', DELETE: 'Silmək',
+  SEND_COORDINATOR: 'Koordinatora göndər', SUBMIT_OFFER: 'Təklif göndər',
+  SEND_ACCOUNTING: 'Mühasibatlığa göndər', RETURN_PROJECT: 'Layihəyə qaytar',
+  APPROVE_PM: 'PM təsdiqi', CHECK_DOCUMENTS: 'Sənəd təsdiqi',
+  DISPATCH: 'Texnika göndər', DELIVER: 'Təhvil-təslim',
 }
+const CRUD = new Set(['GET', 'POST', 'PUT', 'DELETE'])
+
+// Kod siyahısını modul üzrə qruplaşdır: ["ACCOUNTING:GET", ...] → [["ACCOUNTING", ["GET", ...]], ...]
+function groupByModule(codes) {
+  const map = new Map()
+  ;(codes || []).forEach((code) => {
+    const i = code.indexOf(':')
+    if (i < 0) return
+    const mod = code.slice(0, i)
+    if (!map.has(mod)) map.set(mod, [])
+    map.get(mod).push(code.slice(i + 1))
+  })
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+}
+
+// İstifadəçinin rol adları (çoxlu) — convenience roleName fallback ilə
+const userRoleNames = (u) =>
+  (u.roleNames && u.roleNames.length ? u.roleNames : (u.roleName ? [u.roleName] : []))
 
 function InfoRow({ icon: Icon, label, children }) {
   return (
@@ -71,12 +90,12 @@ export default function UserSlideOver({ user, onClose, onEdit, onDelete, onToggl
               {user.fullName}
             </h2>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {user.roleName && (
-                <span className="ces-pill ces-p-gold sm">
+              {userRoleNames(user).map((rn) => (
+                <span key={rn} className="ces-pill ces-p-gold sm">
                   <Shield size={11} />
-                  {user.roleName}
+                  {rn}
                 </span>
-              )}
+              ))}
               <span className={clsx('ces-pill sm', user.active ? 'ces-p-ok' : 'ces-p-danger')}>
                 <span className="d"></span>
                 {user.active ? 'Aktiv' : 'Deaktiv'}
@@ -149,7 +168,9 @@ export default function UserSlideOver({ user, onClose, onEdit, onDelete, onToggl
                   {user.departmentName || <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
                 </InfoRow>
                 <InfoRow icon={Shield} label="Rol">
-                  {user.roleName || <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
+                  {userRoleNames(user).length > 0
+                    ? userRoleNames(user).join(', ')
+                    : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
                 </InfoRow>
               </div>
 
@@ -174,27 +195,22 @@ export default function UserSlideOver({ user, onClose, onEdit, onDelete, onToggl
 
           {tab === 'permissions' && (
             <div style={{ padding: 22 }}>
-              {permissions.length > 0 ? (
+              {groupByModule(permissions).length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {permissions.map((perm, i) => (
+                  {groupByModule(permissions).map(([moduleCode, actions]) => (
                     <div
-                      key={i}
-                      style={{
-                        background: 'var(--ces-surface)',
-                        border: '1px solid var(--ces-line)',
-                        borderRadius: 12,
-                        padding: '12px 14px',
-                      }}
+                      key={moduleCode}
+                      style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: 12, padding: '12px 14px' }}
                     >
                       <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--ces-ink)', marginBottom: 8 }}>
-                        {perm.moduleName || perm.moduleCode}
+                        {moduleCode}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {Object.entries(PERM_LABEL).map(([key, { label, cls }]) =>
-                          perm[key] ? (
-                            <span key={key} className={clsx('ces-pill sm', cls)}>{label}</span>
-                          ) : null
-                        )}
+                        {actions.map((a) => (
+                          <span key={a} className={clsx('ces-pill sm', CRUD.has(a) ? 'ces-p-info' : 'ces-p-gold')}>
+                            {ACTION_LABELS[a] || a}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ))}

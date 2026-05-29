@@ -2,12 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { X, Eye, EyeOff, UserPlus, Pencil } from 'lucide-react'
 import { usersApi } from '../../api/users'
 import { rolesApi } from '../../api/roles'
-import { useAuthStore } from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-
-const SUPER_ADMIN_ROLE = 'Super Admin'
 
 function getPasswordStrength(pw) {
   if (!pw) return null
@@ -35,22 +32,21 @@ function Field({ label, required, error, hint, children }) {
 
 export default function UserModal({ editing, departments, onClose, onSaved }) {
   useEscapeKey(onClose)
-  const currentUser  = useAuthStore((s) => s.user)
-  const isSuperAdmin = currentUser?.roleName === SUPER_ADMIN_ROLE
+  const initialRoleIds = editing?.roleIds ?? (editing?.roleId != null ? [editing.roleId] : [])
   const [form, setForm] = useState({
     fullName: editing?.fullName || '',
     email: editing?.email || '',
     password: '',
     phone: editing?.phone || '',
     departmentId: editing?.departmentId ?? '',
-    roleId: editing?.roleId ?? '',
+    roleIds: initialRoleIds,
   })
   const initialForm = editing ? {
     fullName: editing.fullName || '',
     email: editing.email || '',
     phone: editing.phone || '',
     departmentId: editing.departmentId ?? '',
-    roleId: editing.roleId ?? '',
+    roleIds: [...initialRoleIds].sort(),
   } : null
   const [roles, setRoles] = useState([])
   const [rolesLoading, setRolesLoading] = useState(false)
@@ -67,18 +63,23 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
     }
     setRolesLoading(true)
     rolesApi.getByDepartment(form.departmentId)
-      .then((res) => {
-        const all = res.data.data || []
-        setRoles(isSuperAdmin ? all : all.filter((r) => r.name !== SUPER_ADMIN_ROLE))
-      })
+      .then((res) => setRoles(res.data.data || [])) // backend super-admin rollarını onsuz da filtrləyir
       .catch(() => {})
       .finally(() => setRolesLoading(false))
   }, [form.departmentId])
 
   const handleDeptChange = (e) => {
     const val = e.target.value
-    setForm((f) => ({ ...f, departmentId: val, roleId: '' }))
+    setForm((f) => ({ ...f, departmentId: val, roleIds: [] }))
     if (errors.departmentId) setErrors((prev) => ({ ...prev, departmentId: undefined }))
+  }
+
+  const toggleRole = (roleId) => {
+    setForm((f) => {
+      const has = f.roleIds.includes(roleId)
+      return { ...f, roleIds: has ? f.roleIds.filter((r) => r !== roleId) : [...f.roleIds, roleId] }
+    })
+    if (errors.roleIds) setErrors((p) => ({ ...p, roleIds: undefined }))
   }
 
   const validatePassword = (pw) => {
@@ -103,7 +104,7 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
       if (pwErr) errs.password = pwErr
     }
     if (!form.departmentId) errs.departmentId = 'Şöbə seçin'
-    if (!form.roleId) errs.roleId = 'Rol seçin'
+    if (!form.roleIds || form.roleIds.length === 0) errs.roleIds = 'Ən azı bir rol seçin'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -112,7 +113,7 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
     e?.preventDefault?.()
     if (!validate()) return
     if (editing && initialForm) {
-      const currentComparable = { fullName: form.fullName, email: form.email, phone: form.phone, departmentId: form.departmentId, roleId: form.roleId }
+      const currentComparable = { fullName: form.fullName, email: form.email, phone: form.phone, departmentId: form.departmentId, roleIds: [...form.roleIds].sort() }
       if (!form.password.trim() && JSON.stringify(currentComparable) === JSON.stringify(initialForm)) {
         toast('Dəyişiklik edilməyib')
         return
@@ -126,7 +127,7 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
         email: form.email,
         phone: form.phone,
         departmentId: Number(form.departmentId),
-        roleId: Number(form.roleId),
+        roleIds: form.roleIds.map(Number),
       }
       if (form.password.trim()) payload.password = form.password
 
@@ -138,8 +139,7 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
         toast.success('İstifadəçi yaradıldı')
       }
       onSaved()
-    } catch {
-    } finally {
+    } catch { /* xəta interceptor-də göstərilir */ } finally {
       setLoading(false)
     }
   }
@@ -258,28 +258,28 @@ export default function UserModal({ editing, departments, onClose, onSaved }) {
                 </select>
               </Field>
 
-              <Field label="Rol" required error={errors.roleId}>
-                <select
-                  value={form.roleId}
-                  onChange={(e) => { setForm(f => ({ ...f, roleId: e.target.value })); if (errors.roleId) setErrors(p => ({ ...p, roleId: undefined })) }}
-                  disabled={!form.departmentId || rolesLoading}
-                  className={clsx('ces-select', errors.roleId && 'is-error')}
-                  style={{
-                    ...(errors.roleId ? { borderColor: 'var(--ces-danger)' } : null),
-                    ...((!form.departmentId || rolesLoading) ? { opacity: 0.5, cursor: 'not-allowed' } : null),
-                  }}
-                >
-                  <option value="">
-                    {!form.departmentId
-                      ? 'Əvvəlcə şöbə seçin'
-                      : rolesLoading
-                      ? 'Yüklənir...'
-                      : 'Rol seçin'}
-                  </option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
+              <Field label="Rollar" required error={errors.roleIds} hint="Bir və ya bir neçə rol seçin">
+                {!form.departmentId ? (
+                  <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)' }}>Əvvəlcə şöbə seçin</p>
+                ) : rolesLoading ? (
+                  <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)' }}>Yüklənir...</p>
+                ) : roles.length === 0 ? (
+                  <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)' }}>Bu şöbədə rol yoxdur</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
+                    {roles.map((r) => (
+                      <label key={r.id} className="ces-chk" style={{ gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={form.roleIds.includes(r.id)}
+                          onChange={() => toggleRole(r.id)}
+                        />
+                        <span className="ces-cb" />
+                        <span style={{ fontSize: 13 }}>{r.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </Field>
             </div>
           </div>

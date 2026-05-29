@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Pencil, Trash2, Settings, Search, ToggleLeft, ToggleRight, RefreshCw, Save, FileText, Layers, Tags } from 'lucide-react'
+import { Plus, Pencil, Trash2, Settings, Search, ToggleLeft, ToggleRight, RefreshCw, Save, FileText, Layers, Tags, Zap } from 'lucide-react'
 import { configApi } from '../../api/config'
 import { banksApi } from '../../api/banks'
 import { expenseCategoryApi, expenseSourceApi } from '../../api/expenseConfig'
@@ -68,6 +68,22 @@ export default function ConfigPage() {
   const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
   const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n }, { replace: true })
   const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('size', String(s)); n.delete('page'); return n }, { replace: true })
+
+  const [pinging, setPinging] = useState(false)
+  const handlePing = async () => {
+    setPinging(true)
+    try {
+      const res = await configApi.ping()
+      const val = res.data?.data ?? res.data
+      toast.success(`İcazə testi uğurlu — cavab: "${val}" (CONFIG:PING)`)
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.status === 403
+        ? 'CONFIG:PING icazəniz yoxdur'
+        : 'Ping uğursuz oldu')
+    } finally {
+      setPinging(false)
+    }
+  }
 
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canCreate = hasPermission('CONFIG', 'canPost')
@@ -377,27 +393,39 @@ export default function ConfigPage() {
             Sistem parametrləri, sənəd konfiqurasiyası və daimi ödənişlər
           </p>
         </div>
-        {tab === 'categories' && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--ces-muted)] font-medium">
-              {categories.length} kateqoriya · {totalCount} element
-            </span>
-            <button onClick={reload} className="ces-btn ces-btn-outline ces-btn-sm" title="Yenilə">
-              <RefreshCw size={14} />
-              Yenilə
-            </button>
-          </div>
-        )}
-        {tab === 'documents' && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* İcazə kataloqu test düyməsi (CONFIG:PING) */}
           <button
-            onClick={handleDocSave}
-            disabled={docSaving || docLoading}
-            className="ces-btn ces-btn-primary"
+            onClick={handlePing}
+            disabled={pinging}
+            className="ces-btn ces-btn-outline ces-btn-sm"
+            title="İcazə kataloqu test endpoint-i — CONFIG:PING"
           >
-            {docSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-            Yadda saxla
+            <Zap size={14} className={pinging ? 'animate-pulse' : undefined} />
+            {pinging ? 'Yoxlanılır...' : 'Ping (test)'}
           </button>
-        )}
+          {tab === 'categories' && (
+            <>
+              <span className="text-xs text-[var(--ces-muted)] font-medium">
+                {categories.length} kateqoriya · {totalCount} element
+              </span>
+              <button onClick={reload} className="ces-btn ces-btn-outline ces-btn-sm" title="Yenilə">
+                <RefreshCw size={14} />
+                Yenilə
+              </button>
+            </>
+          )}
+          {tab === 'documents' && (
+            <button
+              onClick={handleDocSave}
+              disabled={docSaving || docLoading}
+              className="ces-btn ces-btn-primary"
+            >
+              {docSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+              Yadda saxla
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

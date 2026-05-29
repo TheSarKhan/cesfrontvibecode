@@ -11,4 +11,6 @@ export const configApi = {
   update: (id, data) => api.put(`/config/${id}`, data),
   delete: (id) => api.delete(`/config/${id}`),
   reorder: (category, orderedIds) => api.post(`/config/category/${category}/reorder`, orderedIds),
+  // İcazə kataloqu test endpoint-i (CONFIG:PING) → "pong"
+  ping: () => api.get('/config/ping'),
 }

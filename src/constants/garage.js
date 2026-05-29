@@ -1,21 +1,24 @@
 /* ─── Qaraj modulu sabitləri ───────────────────────────────────────────── */
-/* Status / countdown sinifləri UI kit tokenlərindən istifadə edir */
+/* Status / countdown sinifləri UI kit tokenlərindən istifadə edir.
+   Etiketlər mərkəzi enum mənbəsindən gəlir ([[enumLabel]]) — burada yalnız stil saxlanılır. */
+import { enumLabel } from '../utils/enumLabel'
 
+// Yalnız stil (rəng) — etiket `label` getter-i ilə mərkəzi mənbədən oxunur (EquipmentStatus)
 export const STATUS_CFG = {
-  AVAILABLE:      { label: 'Hazırdır',           cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
-  RENTED:         { label: 'İcarədə',           cls: 'bg-[var(--ces-info-100)] text-[var(--ces-info)]' },
-  IN_TRANSIT:     { label: 'Yolda',             cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
-  IN_INSPECTION:  { label: 'Qəbulda',           cls: 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' },
-  UNDER_CHECK:    { label: 'Baxışda',           cls: 'bg-[#ece4ff] text-[#5e3bbf]' },
-  IN_REPAIR:      { label: 'Təmirdə',           cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
-  DEFECTIVE:      { label: 'Nasaz',             cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' },
-  OUT_OF_SERVICE: { label: 'Xidmətdən kənarda', cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
+  AVAILABLE:      { get label() { return enumLabel('EquipmentStatus', 'AVAILABLE') },      cls: 'bg-[var(--ces-ok-100)] text-[var(--ces-ok)]' },
+  RENTED:         { get label() { return enumLabel('EquipmentStatus', 'RENTED') },         cls: 'bg-[var(--ces-info-100)] text-[var(--ces-info)]' },
+  IN_TRANSIT:     { get label() { return enumLabel('EquipmentStatus', 'IN_TRANSIT') },     cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
+  IN_INSPECTION:  { get label() { return enumLabel('EquipmentStatus', 'IN_INSPECTION') },  cls: 'bg-[var(--ces-gold-100)] text-[var(--ces-gold-700)]' },
+  UNDER_CHECK:    { get label() { return enumLabel('EquipmentStatus', 'UNDER_CHECK') },    cls: 'bg-[#ece4ff] text-[#5e3bbf]' },
+  IN_REPAIR:      { get label() { return enumLabel('EquipmentStatus', 'IN_REPAIR') },      cls: 'bg-[var(--ces-warn-100)] text-[var(--ces-warn)]' },
+  DEFECTIVE:      { get label() { return enumLabel('EquipmentStatus', 'DEFECTIVE') },      cls: 'bg-[var(--ces-danger-100)] text-[var(--ces-danger)]' },
+  OUT_OF_SERVICE: { get label() { return enumLabel('EquipmentStatus', 'OUT_OF_SERVICE') }, cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' },
 }
 
 export const OWN_LABEL = {
-  COMPANY: 'Şirkət',
-  INVESTOR: 'İnvestor',
-  CONTRACTOR: 'Podratçı',
+  get COMPANY()    { return enumLabel('OwnershipType', 'COMPANY') },
+  get INVESTOR()   { return enumLabel('OwnershipType', 'INVESTOR') },
+  get CONTRACTOR() { return enumLabel('OwnershipType', 'CONTRACTOR') },
 }
 
 export const ALLOWED_TRANSITIONS = {

@@ -10,6 +10,7 @@ import { garageApi } from '../../api/garage'
 import { investorsApi } from '../../api/investors'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { fmtDate } from '../../utils/date'
+import { enumLabel } from '../../utils/enumLabel'
 
 /* ─── Helpers ─── */
 const fmt = (d) => fmtDate(d) === '—' ? null : fmtDate(d)
@@ -40,29 +41,36 @@ function Pill({ tone = 'muted', children, dot, sm }) {
   )
 }
 
+// Etiketlər mərkəzi enum mənbəsindən; stil (tone) lokal
 const RISK_CONFIG = {
-  LOW:    { label: 'Aşağı',  tone: 'ok' },
-  MEDIUM: { label: 'Orta',   tone: 'warn' },
-  HIGH:   { label: 'Yüksək', tone: 'danger' },
+  LOW:    { get label() { return enumLabel('RiskLevel', 'LOW') },    tone: 'ok' },
+  MEDIUM: { get label() { return enumLabel('RiskLevel', 'MEDIUM') }, tone: 'warn' },
+  HIGH:   { get label() { return enumLabel('RiskLevel', 'HIGH') },   tone: 'danger' },
 }
+// İnvestor statusu ContractorStatus enum-undan istifadə edir (ayrı InvestorStatus yoxdur)
 const STATUS_CONFIG = {
-  ACTIVE:   { label: 'Aktiv',   tone: 'ok' },
-  INACTIVE: { label: 'Deaktiv', tone: 'muted' },
+  ACTIVE:   { get label() { return enumLabel('ContractorStatus', 'ACTIVE') },   tone: 'ok' },
+  INACTIVE: { get label() { return enumLabel('ContractorStatus', 'INACTIVE') }, tone: 'muted' },
 }
 const PAYMENT_LABEL = { CASH: 'Nağd', TRANSFER: 'Köçürmə' }
 
+// Real EquipmentStatus kodları (köhnə IN_USE/DECOMMISSIONED kodları əvəzləndi)
 const EQUIPMENT_STATUS = {
-  AVAILABLE:      { label: 'Mövcud',      tone: 'ok' },
-  IN_USE:         { label: 'İstifadədə',  tone: 'info' },
-  UNDER_REPAIR:   { label: 'Təmirdə',     tone: 'warn' },
-  DECOMMISSIONED: { label: 'Silinmiş',    tone: 'muted' },
+  AVAILABLE:      { get label() { return enumLabel('EquipmentStatus', 'AVAILABLE') },      tone: 'ok' },
+  RENTED:         { get label() { return enumLabel('EquipmentStatus', 'RENTED') },         tone: 'info' },
+  IN_TRANSIT:     { get label() { return enumLabel('EquipmentStatus', 'IN_TRANSIT') },     tone: 'warn' },
+  IN_INSPECTION:  { get label() { return enumLabel('EquipmentStatus', 'IN_INSPECTION') },  tone: 'gold' },
+  UNDER_CHECK:    { get label() { return enumLabel('EquipmentStatus', 'UNDER_CHECK') },    tone: 'info' },
+  IN_REPAIR:      { get label() { return enumLabel('EquipmentStatus', 'IN_REPAIR') },      tone: 'warn' },
+  DEFECTIVE:      { get label() { return enumLabel('EquipmentStatus', 'DEFECTIVE') },      tone: 'danger' },
+  OUT_OF_SERVICE: { get label() { return enumLabel('EquipmentStatus', 'OUT_OF_SERVICE') }, tone: 'muted' },
 }
 
 const PROJECT_STATUS = {
-  PENDING:   { label: 'Gözləmədə',   tone: 'warn' },
-  ACTIVE:    { label: 'Aktiv',       tone: 'info' },
-  COMPLETED: { label: 'Tamamlandı',  tone: 'ok' },
-  CANCELLED: { label: 'Ləğv edildi', tone: 'muted' },
+  PENDING:   { get label() { return enumLabel('ProjectStatus', 'PENDING') },   tone: 'warn' },
+  ACTIVE:    { get label() { return enumLabel('ProjectStatus', 'ACTIVE') },    tone: 'info' },
+  COMPLETED: { get label() { return enumLabel('ProjectStatus', 'COMPLETED') }, tone: 'ok' },
+  CANCELLED: { get label() { return enumLabel('ProjectStatus', 'CANCELLED') }, tone: 'muted' },
 }
 
 const TABS = [

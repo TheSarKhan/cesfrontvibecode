@@ -1,55 +1,32 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, ChevronLeft, ChevronDown, ChevronRight, Shield, Pencil, ArrowRight } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
-import { modulesApi } from '../../api/modules'
+import { permissionsApi } from '../../api/permissions'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { v } from '../../utils/validation'
 
-const PERM_COLS = [
-  { key: 'canGet', label: 'Oxumaq' },
-  { key: 'canPost', label: 'Yazmaq' },
-  { key: 'canPut', label: 'Redaktə' },
-  { key: 'canDelete', label: 'Silmək' },
-]
-
-const MODULE_LABELS = {
-  DASHBOARD:            'İdarə Paneli',
-  CUSTOMER_MANAGEMENT:  'Müştəri İdarəetməsi',
-  CONTRACTOR_MANAGEMENT:'Podratçı İdarəetməsi',
-  ROLE_PERMISSION:      'Rol və İcazə İdarəetməsi',
-  EMPLOYEE_MANAGEMENT:  'İstifadəçi İdarəetməsi',
-  GARAGE:               'Qaraj Modulu',
-  REQUESTS:             'Sorğular Modulu',
-  PROJECT_MANAGER:      'Layihə Meneceri Modulu',
-  COORDINATOR:          'Koordinator Modulu',
-  PROJECTS:             'Layihələr Modulu',
-  ACCOUNTING:           'Mühasibatlıq Modulu',
-  SERVICE_MANAGEMENT:   'Texniki Servis Modulu',
-  OPERATIONS_APPROVAL:  'Əməliyyat Təsdiqi',
-}
-
-// Hər modul üçün əlavə (custom action) icazələr. Birdən çox extra ola bilər.
-const EXTRA_PERMS = {
-  REQUESTS:        [{ key: 'canSendToCoordinator', label: 'PM-ə göndər' }],
-  PROJECT_MANAGER: [{ key: 'canApproveByPm',       label: 'PM təsdiqi' }],
-  COORDINATOR:     [
-    { key: 'canSubmitOffer', label: 'Təklif göndər' },
-    { key: 'canDispatch',    label: 'Texnika göndər' },
-    { key: 'canDeliver',     label: 'Təhvil-təslim' },
-  ],
-  PROJECTS:        [{ key: 'canSendToAccounting',  label: 'Mühasibatlığa göndər' }],
-  ACCOUNTING:      [
-    { key: 'canCheckDocuments', label: 'Sənəd təsdiqi' },
-    { key: 'canReturnToProject', label: 'Layihəyə geri göndər' },
-  ],
-}
-
-// Bütün ola biləcək extra key-lər siyahısı (state init və validation üçün)
-const ALL_EXTRA_KEYS = Object.values(EXTRA_PERMS).flat().map((e) => e.key)
-
 const APPROVAL_MODULE_CODE = 'OPERATIONS_APPROVAL'
+const CRUD = new Set(['GET', 'POST', 'PUT', 'DELETE'])
+
+// İcazə kataloqunu modul üzrə qruplaşdır
+function groupCatalog(perms) {
+  const map = new Map()
+  perms.forEach((p) => {
+    if (!map.has(p.moduleCode)) {
+      map.set(p.moduleCode, { moduleCode: p.moduleCode, moduleNameAz: p.moduleNameAz || p.moduleCode, perms: [] })
+    }
+    map.get(p.moduleCode).perms.push(p)
+  })
+  return Array.from(map.values())
+}
+
+// labelAz "Modul — Action" formatındadır; checkbox üçün yalnız action hissəsini göstər
+function shortLabel(p) {
+  if (p.labelAz && p.labelAz.includes(' — ')) return p.labelAz.split(' — ').slice(1).join(' — ')
+  return p.labelAz || p.action
+}
 
 export default function RoleModal({ editing, currentDept, departments, onClose, onSaved }) {
   useEscapeKey(onClose)
@@ -59,9 +36,9 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     description: editing?.description || '',
     departmentId: editing?.departmentId ?? currentDept?.id ?? '',
   })
-  const [modules, setModules] = useState([])
-  const [permMap, setPermMap] = useState({})
-  const [initialPermMap, setInitialPermMap] = useState(null)
+  const [catalog, setCatalog] = useState([])
+  const [selectedIds, setSelectedIds] = useState(() => new Set(editing?.grantedPermissionIds || []))
+  const initialSelected = useRef(JSON.stringify([...(editing?.grantedPermissionIds || [])].sort()))
   const [approvalDeptIds, setApprovalDeptIds] = useState(
     () => editing?.approvalDepartments?.map((d) => d.id) || []
   )
@@ -69,34 +46,32 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
   const initialRoleForm = useRef({ name: editing?.name || '', description: editing?.description || '', departmentId: editing?.departmentId ?? currentDept?.id ?? '' })
   const [approvalExpanded, setApprovalExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [modulesLoading, setModulesLoading] = useState(true)
+  const [catalogLoading, setCatalogLoading] = useState(true)
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
-    setModulesLoading(true)
-    modulesApi.getAll()
+    setCatalogLoading(true)
+    permissionsApi.getAll()
       .then((res) => {
-        const mods = res.data.data || []
-        setModules(mods)
-        const map = {}
-        mods.forEach((mod) => {
-          const existing = editing?.permissions?.find((p) => p.moduleId === mod.id)
-          const row = {
-            canGet: existing?.canGet || false,
-            canPost: existing?.canPost || false,
-            canPut: existing?.canPut || false,
-            canDelete: existing?.canDelete || false,
-          }
-          ALL_EXTRA_KEYS.forEach((k) => { row[k] = existing?.[k] || false })
-          map[mod.id] = row
-        })
-        setPermMap(map)
-        setInitialPermMap(map)
+        setCatalog(res.data.data || [])
         if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
       })
       .catch(() => {})
-      .finally(() => setModulesLoading(false))
+      .finally(() => setCatalogLoading(false))
   }, [editing])
+
+  const groups = useMemo(() => groupCatalog(catalog), [catalog])
+  const moduleCodeById = useMemo(() => {
+    const m = {}
+    catalog.forEach((p) => { m[p.id] = p.moduleCode })
+    return m
+  }, [catalog])
+
+  // OPERATIONS_APPROVAL modulundan hər hansı icazə seçilibsə approval şöbələri aktivləşir
+  const hasApprovalPerm = useMemo(
+    () => [...selectedIds].some((id) => moduleCodeById[id] === APPROVAL_MODULE_CODE),
+    [selectedIds, moduleCodeById]
+  )
 
   const validateStep1 = () => {
     const errs = {}
@@ -117,20 +92,20 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     return Object.keys(errs).length === 0
   }
 
-  const togglePerm = (moduleId, key) => {
-    setPermMap((prev) => ({
-      ...prev,
-      [moduleId]: { ...prev[moduleId], [key]: !prev[moduleId]?.[key] },
-    }))
+  const togglePerm = (permId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(permId) ? next.delete(permId) : next.add(permId)
+      return next
+    })
   }
 
-  const toggleAllForModule = (moduleId) => {
-    setPermMap((prev) => {
-      const cur = prev[moduleId] || {}
-      const allChecked = PERM_COLS.every((c) => cur[c.key])
-      const updated = { ...cur }
-      PERM_COLS.forEach((c) => { updated[c.key] = !allChecked })
-      return { ...prev, [moduleId]: updated }
+  const toggleAllForModule = (group) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      const allChecked = group.perms.every((p) => next.has(p.id))
+      group.perms.forEach((p) => { allChecked ? next.delete(p.id) : next.add(p.id) })
+      return next
     })
   }
 
@@ -140,25 +115,15 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     )
   }
 
-  const approvalModuleId = modules.find((m) => m.code === APPROVAL_MODULE_CODE)?.id
-  const hasApprovalPerm = approvalModuleId && PERM_COLS.some((c) => permMap[approvalModuleId]?.[c.key])
-
-  const rowHasAnyPerm = (p) => {
-    if (!p) return false
-    if (p.canGet || p.canPost || p.canPut || p.canDelete) return true
-    return ALL_EXTRA_KEYS.some((k) => p[k])
-  }
-
   const handleSave = async () => {
-    const hasAnyPerm = Object.values(permMap).some(rowHasAnyPerm)
-    if (!hasAnyPerm) {
-      toast.error('Ən azı bir modul üçün icazə seçilməlidir')
+    if (selectedIds.size === 0) {
+      toast.error('Ən azı bir icazə seçilməlidir')
       return
     }
 
-    if (editing && initialPermMap) {
+    if (editing) {
       const formDirty = JSON.stringify(form) !== JSON.stringify(initialRoleForm.current)
-      const permDirty = JSON.stringify(permMap) !== JSON.stringify(initialPermMap)
+      const permDirty = JSON.stringify([...selectedIds].sort()) !== initialSelected.current
       const approvalDirty = JSON.stringify([...approvalDeptIds].sort()) !== JSON.stringify([...initialApprovalDeptIds.current].sort())
       if (!formDirty && !permDirty && !approvalDirty) {
         toast('Dəyişiklik edilməyib', { icon: 'ℹ️' })
@@ -167,15 +132,11 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     }
     setLoading(true)
     try {
-      const permissions = Object.entries(permMap)
-        .filter(([, p]) => rowHasAnyPerm(p))
-        .map(([moduleId, p]) => ({ moduleId: Number(moduleId), ...p }))
-
       const payload = {
         name: form.name,
         description: form.description,
         departmentId: Number(form.departmentId),
-        permissions,
+        permissionIds: [...selectedIds],
         approvalDepartmentIds: hasApprovalPerm ? approvalDeptIds : [],
       }
 
@@ -188,6 +149,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
       }
       onSaved()
     } catch {
+      /* xəta interceptor-də göstərilir */
     } finally {
       setLoading(false)
     }
@@ -294,61 +256,36 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
         {step === 2 && (
           <>
             <div className="ces-m-body" style={{ maxHeight: '60vh' }}>
-              {modulesLoading ? (
+              {catalogLoading ? (
                 <div className="space-y-2">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-10 rounded-lg" style={{ background: 'var(--ces-graphite-50)' }} />
                   ))}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="ces-tbl" style={{ minWidth: 720 }}>
-                    <thead>
-                      <tr>
-                        <th>Modul</th>
-                        {PERM_COLS.map((c) => (
-                          <th key={c.key} style={{ textAlign: 'center', width: 70 }}>{c.label}</th>
-                        ))}
-                        <th style={{ textAlign: 'center', width: 60 }}>Hamısı</th>
-                        <th>Əlavə</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {modules.map((mod) => {
-                        const allChecked = PERM_COLS.every((c) => permMap[mod.id]?.[c.key])
-                        const isApproval = mod.code === APPROVAL_MODULE_CODE
-                        const anyPerm = PERM_COLS.some((c) => permMap[mod.id]?.[c.key])
-
-                        return (
-                          <ModuleRow
-                            key={mod.id}
-                            mod={mod}
-                            permMap={permMap}
-                            allChecked={allChecked}
-                            isApproval={isApproval}
-                            anyPerm={anyPerm}
-                            approvalExpanded={approvalExpanded}
-                            approvalDeptIds={approvalDeptIds}
-                            departments={departments}
-                            onTogglePerm={togglePerm}
-                            onToggleAll={() => toggleAllForModule(mod.id)}
-                            onToggleApprovalExpand={() => setApprovalExpanded((v) => !v)}
-                            onToggleApprovalDept={toggleApprovalDept}
-                          />
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                <div className="flex flex-col gap-2">
+                  {groups.map((group) => (
+                    <ModuleRow
+                      key={group.moduleCode}
+                      group={group}
+                      selectedIds={selectedIds}
+                      isApproval={group.moduleCode === APPROVAL_MODULE_CODE}
+                      hasApprovalPerm={hasApprovalPerm}
+                      approvalExpanded={approvalExpanded}
+                      approvalDeptIds={approvalDeptIds}
+                      departments={departments}
+                      onTogglePerm={togglePerm}
+                      onToggleAll={() => toggleAllForModule(group)}
+                      onToggleApprovalExpand={() => setApprovalExpanded((v2) => !v2)}
+                      onToggleApprovalDept={toggleApprovalDept}
+                    />
+                  ))}
                 </div>
               )}
             </div>
 
             <div className="ces-m-foot">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="ces-btn ces-btn-ghost"
-              >
+              <button type="button" onClick={() => setStep(1)} className="ces-btn ces-btn-ghost">
                 <ChevronLeft size={16} />
                 Geriyə
               </button>
@@ -356,12 +293,7 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
               <button type="button" onClick={onClose} className="ces-btn ces-btn-ghost">
                 Ləğv et
               </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={loading}
-                className="ces-btn ces-btn-primary"
-              >
+              <button type="button" onClick={handleSave} disabled={loading} className="ces-btn ces-btn-primary">
                 {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 {editing ? 'Yadda saxla' : 'Yarat'}
               </button>
@@ -396,11 +328,7 @@ function StepIndicator({ num, label, active, done, onClick }) {
       </span>
       <span
         className="text-xs font-bold"
-        style={{
-          color: active ? 'var(--ces-ink)' : 'var(--ces-muted)',
-          letterSpacing: '.08em',
-          textTransform: 'uppercase',
-        }}
+        style={{ color: active ? 'var(--ces-ink)' : 'var(--ces-muted)', letterSpacing: '.08em', textTransform: 'uppercase' }}
       >
         {label}
       </span>
@@ -408,104 +336,80 @@ function StepIndicator({ num, label, active, done, onClick }) {
   )
 }
 
+// Bir modul və onun dinamik icazə checkbox-ları (kataloqdan)
 function ModuleRow({
-  mod, permMap, allChecked, isApproval, anyPerm,
+  group, selectedIds, isApproval, hasApprovalPerm,
   approvalExpanded, approvalDeptIds, departments,
   onTogglePerm, onToggleAll, onToggleApprovalExpand, onToggleApprovalDept,
 }) {
-  const extras = EXTRA_PERMS[mod.code] || []
-  return (
-    <>
-      <tr style={isApproval && anyPerm ? { background: 'var(--ces-gold-50)' } : undefined}>
-        <td>
-          <div className="flex items-center gap-1.5">
-            {isApproval && anyPerm && (
-              <button
-                type="button"
-                onClick={onToggleApprovalExpand}
-                className="inline-grid place-items-center w-6 h-6 rounded-md transition-colors"
-                style={{ color: 'var(--ces-gold-700)' }}
-              >
-                {approvalExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </button>
-            )}
-            <span className="font-semibold text-[var(--ces-ink)]">
-              {MODULE_LABELS[mod.code] || mod.nameAz}
-            </span>
-          </div>
-        </td>
-        {PERM_COLS.map((c) => (
-          <td key={c.key} style={{ textAlign: 'center' }}>
-            <label className="ces-chk" style={{ justifyContent: 'center' }}>
-              <input
-                type="checkbox"
-                checked={permMap[mod.id]?.[c.key] || false}
-                onChange={() => onTogglePerm(mod.id, c.key)}
-              />
-              <span className="ces-cb" />
-            </label>
-          </td>
-        ))}
-        <td style={{ textAlign: 'center' }}>
-          <label className="ces-chk" style={{ justifyContent: 'center' }} title="Hamısını seç">
-            <input
-              type="checkbox"
-              checked={allChecked}
-              onChange={onToggleAll}
-            />
-            <span className="ces-cb" />
-          </label>
-        </td>
-        <td>
-          {extras.length > 0 ? (
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {extras.map((extra) => (
-                <label key={extra.key} className="ces-chk" style={{ whiteSpace: 'nowrap' }}>
-                  <input
-                    type="checkbox"
-                    checked={permMap[mod.id]?.[extra.key] || false}
-                    onChange={() => onTogglePerm(mod.id, extra.key)}
-                  />
-                  <span className="ces-cb" />
-                  <span className="text-xs font-semibold" style={{ color: 'var(--ces-info)' }}>
-                    {extra.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-          ) : null}
-        </td>
-      </tr>
+  const allChecked = group.perms.every((p) => selectedIds.has(p.id))
+  const showApprovalExpand = isApproval && hasApprovalPerm
 
-      {isApproval && anyPerm && approvalExpanded && (
-        <tr style={{ background: 'var(--ces-gold-50)' }}>
-          <td colSpan={7} style={{ paddingLeft: 36 }}>
-            <p className="text-xs font-bold mb-2" style={{ color: 'var(--ces-gold-700)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-              Təsdiq edə biləcəyi şöbələr
+  return (
+    <div className="rounded-xl border" style={{ borderColor: 'var(--ces-line)', overflow: 'hidden' }}>
+      <div className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: 'var(--ces-graphite-50)' }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {showApprovalExpand && (
+            <button
+              type="button"
+              onClick={onToggleApprovalExpand}
+              className="inline-grid place-items-center w-6 h-6 rounded-md"
+              style={{ color: 'var(--ces-gold-700)' }}
+            >
+              {approvalExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          )}
+          <span className="font-semibold text-[var(--ces-ink)] truncate">{group.moduleNameAz}</span>
+        </div>
+        <label className="ces-chk shrink-0" title="Hamısını seç/ləğv et" style={{ gap: 6 }}>
+          <input type="checkbox" checked={allChecked} onChange={onToggleAll} />
+          <span className="ces-cb" />
+          <span className="text-xs" style={{ color: 'var(--ces-muted)' }}>Hamısı</span>
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 px-3 py-2.5">
+        {group.perms.map((p) => (
+          <label key={p.id} className="ces-chk" style={{ gap: 6, whiteSpace: 'nowrap' }} title={p.code}>
+            <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => onTogglePerm(p.id)} />
+            <span className="ces-cb" />
+            <span
+              className="text-xs font-semibold"
+              style={{ color: CRUD.has(p.action) ? 'var(--ces-ink)' : 'var(--ces-info)' }}
+            >
+              {shortLabel(p)}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {showApprovalExpand && approvalExpanded && (
+        <div className="px-3 py-2.5" style={{ background: 'var(--ces-gold-50)', borderTop: '1px solid var(--ces-line)' }}>
+          <p className="text-xs font-bold mb-2" style={{ color: 'var(--ces-gold-700)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            Təsdiq edə biləcəyi şöbələr
+          </p>
+          <div className="flex flex-wrap gap-2 mb-1">
+            {departments.map((dept) => {
+              const checked = approvalDeptIds.includes(dept.id)
+              return (
+                <button
+                  key={dept.id}
+                  type="button"
+                  onClick={() => onToggleApprovalDept(dept.id)}
+                  className={clsx('ces-btn ces-btn-xs', checked ? 'ces-btn-gold' : 'ces-btn-outline')}
+                >
+                  {dept.name}
+                </button>
+              )
+            })}
+          </div>
+          {approvalDeptIds.length === 0 && (
+            <p className="text-xs italic m-0" style={{ color: 'var(--ces-mute2)' }}>
+              Heç bir şöbə seçilməyib — bütün şöbələrin əməliyyatlarını təsdiq edə biləcək
             </p>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {departments.map((dept) => {
-                const checked = approvalDeptIds.includes(dept.id)
-                return (
-                  <button
-                    key={dept.id}
-                    type="button"
-                    onClick={() => onToggleApprovalDept(dept.id)}
-                    className={clsx('ces-btn ces-btn-xs', checked ? 'ces-btn-gold' : 'ces-btn-outline')}
-                  >
-                    {dept.name}
-                  </button>
-                )
-              })}
-            </div>
-            {approvalDeptIds.length === 0 && (
-              <p className="text-xs italic m-0" style={{ color: 'var(--ces-mute2)' }}>
-                Heç bir şöbə seçilməyib — bütün şöbələrin əməliyyatlarını təsdiq edə biləcək
-              </p>
-            )}
-          </td>
-        </tr>
+          )}
+        </div>
       )}
-    </>
+    </div>
   )
 }
