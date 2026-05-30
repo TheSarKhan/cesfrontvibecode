@@ -6,13 +6,7 @@ export const projectsApi = {
   getById: (id) => api.get(`/projects/${id}`),
 
   contractDownloadUrl: (id) => `/projects/${id}/contract`,
-
-  uploadContract: (id, formData, startDate) => {
-    const url = startDate
-      ? `/projects/${id}/contract?startDate=${startDate}`
-      : `/projects/${id}/contract`
-    return api.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-  },
+  // QEYD: uploadContract silindi — layihə mühasibat OK + Əməliyyatların təsdiqi ilə ACTIVE olur.
 
   getFinances: (id) => api.get(`/projects/${id}/finances`),
   addExpense: (id, data) => api.post(`/projects/${id}/expenses`, data),

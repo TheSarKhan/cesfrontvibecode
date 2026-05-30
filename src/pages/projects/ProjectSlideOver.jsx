@@ -1,8 +1,7 @@
-import DateInput from '../../components/common/DateInput'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   X, Info, DollarSign, CheckCircle,
-  Upload, FileText, Plus, Trash2, Download,
+  FileText, Plus, Trash2, Download,
   TrendingUp, TrendingDown, Calendar,
   AlertCircle, Phone, User, MapPin, Building2,
   Clock, FolderKanban
@@ -16,7 +15,6 @@ import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-import { validateFileUpload } from '../../utils/fileValidation'
 import PrintButton from '../../components/common/PrintButton'
 
 const STATUS_CONFIG = {
@@ -85,48 +83,9 @@ function Section({ children, title, icon: Icon }) {
 
 // ─── Start Date Dialog ────────────────────────────────────────────────────────
 
-function StartDateDialog({ onConfirm, onCancel }) {
-  const [date, setDate] = useState(new Date().toISOString().substring(0, 10))
-
-  return (
-    <div className="ces-modal-backdrop" style={{ zIndex: 60 }} onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
-      <div className="ces-modal" style={{ maxWidth: 360 }}>
-        <div className="ces-m-head">
-          <div className="ces-m-ic gold"><Calendar size={20} /></div>
-          <div className="flex-1 min-w-0">
-            <h3>Başlanğıc tarixi</h3>
-            <p>Layihənin başlanğıc tarixi seçin</p>
-          </div>
-          <button onClick={onCancel} className="ces-modal-x" type="button" aria-label="Bağla">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="ces-m-body">
-          <div className="ces-input">
-            <DateInput
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 14, padding: '11px 0', width: '100%' }}
-            />
-          </div>
-        </div>
-        <div className="ces-m-foot">
-          <button onClick={onCancel} className="ces-btn ces-btn-ghost">Ləğv</button>
-          <button onClick={() => onConfirm(date)} className="ces-btn ces-btn-primary">Davam et</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Məlumat Tab ──────────────────────────────────────────────────────────────
 
-function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
-  const inputRef = useRef()
-  const [uploading, setUploading] = useState(false)
-  const [showStartDateDialog, setShowStartDateDialog] = useState(false)
-  const [pendingFile, setPendingFile] = useState(null)
-
+function InfoTab({ project, onEndDateUpdated }) {
   const [editingDate, setEditingDate] = useState(false)
   const [date, setDate] = useState(project.endDate?.substring(0, 10) || '')
   const [savingDate, setSavingDate] = useState(false)
@@ -155,38 +114,8 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
     }
   }
 
-  const handleFileSelected = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const fileError = validateFileUpload(file)
-    if (fileError) { toast.error(fileError); e.target.value = ''; return }
-    e.target.value = ''
-    // PENDING → başlanğıc tarixini soruş; layihə artıq aktivdirsə (təhvil verilib) birbaşa yüklə
-    if (project.status === 'PENDING') {
-      setPendingFile(file)
-      setShowStartDateDialog(true)
-    } else {
-      uploadContractFile(file, null)
-    }
-  }
-
-  const uploadContractFile = async (file, startDateVal) => {
-    setShowStartDateDialog(false)
-    if (!file) return
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      await projectsApi.uploadContract(project.id, fd, startDateVal)
-      toast.success('Müqavilə yükləndi.')
-      onContractUploaded()
-    } catch (err) {
-      if (!err._toasted) toast.error(err?.response?.data?.message || 'Müqavilə yüklənə bilmədi')
-    } finally {
-      setUploading(false)
-      setPendingFile(null)
-    }
-  }
+  // QEYD: Müqavilə YÜKLƏMƏ silindi — layihə mühasibat OK + Əməliyyatların təsdiqi ilə ACTIVE olur.
+  // Yalnız mövcud müqaviləni endirmək qaldı (handleDownloadContract).
 
   const saveDate = async () => {
     if (!date) return
@@ -223,13 +152,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
 
   return (
     <div>
-      {showStartDateDialog && (
-        <StartDateDialog
-          onConfirm={(date) => uploadContractFile(pendingFile, date)}
-          onCancel={() => { setShowStartDateDialog(false); setPendingFile(null) }}
-        />
-      )}
-
       <Section title="Layihə məlumatları" icon={FolderKanban}>
         <InfoRow label="Şirkət" value={project.companyName} />
         <InfoRow label="Əlaqədar şəxs">
@@ -479,28 +401,6 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         </InfoRow>
         {project.contractFileName && (
           <InfoRow label="Fayl adı" value={project.contractFileName} />
-        )}
-        {!project.hasContract && project.status !== 'COMPLETED' && (
-          <div style={{ paddingTop: 12 }}>
-            <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileSelected} />
-            <button
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '12px 16px',
-                border: '1.5px dashed var(--ces-gold)',
-                borderRadius: 12, background: '#fffdf6',
-                color: 'var(--ces-gold-700)', fontWeight: 600, fontSize: 13,
-                cursor: uploading ? 'not-allowed' : 'pointer',
-                opacity: uploading ? 0.6 : 1,
-                transition: 'background .15s',
-              }}
-            >
-              <Upload size={14} />
-              {uploading ? 'Yüklənir...' : 'Müqavilə sənədini yüklə'}
-            </button>
-          </div>
         )}
       </Section>
 
@@ -1112,7 +1012,6 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
           {activeTab === 'info' && (
             <InfoTab
               project={project}
-              onContractUploaded={onSaved}
               onEndDateUpdated={onSaved}
             />
           )}
