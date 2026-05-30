@@ -210,6 +210,22 @@ function labelFor(key) {
   return FIELD_LABELS[key] || humanizeKey(key)
 }
 
+// ─── Koordinator planı snapshot-u: vahid (günlük/aylıq) göstərimi ───
+// Per-vahid qiymət sahələri — etiketinə "(aylıq/günlük)", dəyərinə "₼/ay|₼/gün" əlavə olunur.
+// (transportationPrice birdəfəlik, totalAmount/companyProfit cəm — vahid suffiksi almır.)
+const COORD_PER_UNIT_FIELDS = new Set(['equipmentPrice', 'customerEquipmentPrice'])
+// İstifadə olunmayan legacy sahələr — koordinator snapshot-unda gizlədilir (yeni flow doldurmur, 0 qalır).
+const COORD_LEGACY_HIDDEN = new Set(['contractorDailyRate', 'contractorPayment'])
+
+function coordUnit(projectType) {
+  if (projectType === 'MONTHLY') return { labelSuffix: ' (aylıq)', valueSuffix: '₼/ay' }
+  if (projectType === 'DAILY') return { labelSuffix: ' (günlük)', valueSuffix: '₼/gün' }
+  return null
+}
+function isNumericVal(v) {
+  return typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v)))
+}
+
 function isBlank(v) {
   return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
 }
@@ -334,8 +350,24 @@ function ChipList({ items, tone }) {
 function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
   if (!oldSnap) return <p className="text-sm py-4 text-center" style={{ color: 'var(--ces-mute2)' }}>Köhnə məlumat yoxdur</p>
 
+  // Yalnız koordinator planı snapshot-una aiddir — digər modulların diff-i toxunulmaz qalır.
+  const isCoordPlan = moduleCode === 'COORDINATOR'
+  const coordU = isCoordPlan ? coordUnit(oldSnap?.projectType ?? newSnap?.projectType) : null
+  const hideLegacy = (keys) => isCoordPlan ? keys.filter(k => !COORD_LEGACY_HIDDEN.has(k)) : keys
+  const fieldLabel = (key) => {
+    const base = labelFor(key)
+    return (coordU && COORD_PER_UNIT_FIELDS.has(key)) ? base + coordU.labelSuffix : base
+  }
+  const fieldValue = (val, key) => {
+    const rendered = formatValue(val, key, moduleCode)
+    if (coordU && COORD_PER_UNIT_FIELDS.has(key) && isNumericVal(val)) {
+      return <>{rendered} <span style={{ color: 'var(--ces-muted)', fontSize: 11.5, fontWeight: 600 }}>{coordU.valueSuffix}</span></>
+    }
+    return rendered
+  }
+
   if (!isDelete && !newSnap) {
-    const keys = Object.keys(oldSnap).filter(k => !FIELD_EXCLUDE.has(k) && oldSnap[k] != null && oldSnap[k] !== '' && !(Array.isArray(oldSnap[k]) && oldSnap[k].length === 0))
+    const keys = hideLegacy(Object.keys(oldSnap).filter(k => !FIELD_EXCLUDE.has(k) && oldSnap[k] != null && oldSnap[k] !== '' && !(Array.isArray(oldSnap[k]) && oldSnap[k].length === 0)))
     return (
       <div>
         <div className="ces-alert gold mb-4">
@@ -350,8 +382,8 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
             <tbody>
               {keys.map(key => (
                 <tr key={key} style={diffStyles.tr}>
-                  <td style={{ ...diffStyles.fieldTd, width: '32%' }}>{labelFor(key)}</td>
-                  <td style={diffStyles.valTd}>{formatValue(oldSnap[key], key, moduleCode)}</td>
+                  <td style={{ ...diffStyles.fieldTd, width: '32%' }}>{fieldLabel(key)}</td>
+                  <td style={diffStyles.valTd}>{fieldValue(oldSnap[key], key)}</td>
                 </tr>
               ))}
             </tbody>
@@ -361,10 +393,10 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
     )
   }
 
-  const allKeys = Array.from(new Set([
+  const allKeys = hideLegacy(Array.from(new Set([
     ...Object.keys(oldSnap || {}),
     ...Object.keys(newSnap || {}),
-  ])).filter(k => !FIELD_EXCLUDE.has(k))
+  ])).filter(k => !FIELD_EXCLUDE.has(k)))
 
   if (isDelete) {
     return (
@@ -379,9 +411,9 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
           <tbody>
             {allKeys.map(key => (
               <tr key={key} style={diffStyles.tr}>
-                <td style={diffStyles.fieldTd}>{labelFor(key)}</td>
+                <td style={diffStyles.fieldTd}>{fieldLabel(key)}</td>
                 <td style={{ ...diffStyles.valTd, ...diffStyles.oldVal }}>
-                  {formatValue(oldSnap[key], key, moduleCode)}
+                  {fieldValue(oldSnap[key], key)}
                 </td>
               </tr>
             ))}
@@ -414,7 +446,7 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
               const added = nv.filter(v => !oldSet.has(String(v)))
               return (
                 <tr key={key} style={{ ...diffStyles.tr, background: 'rgba(255, 244, 220, .35)' }}>
-                  <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{labelFor(key)}</td>
+                  <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{fieldLabel(key)}</td>
                   <td style={diffStyles.valTd}>
                     <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--ces-danger)', marginBottom: 4 }}>Çıxarılan</p>
                     <ChipList items={removed} tone="ces-p-danger" />
@@ -428,22 +460,22 @@ function DiffTable({ oldSnap, newSnap, isDelete, moduleCode }) {
             }
             return (
               <tr key={key} style={{ ...diffStyles.tr, background: 'rgba(255, 244, 220, .35)' }}>
-                <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{labelFor(key)}</td>
+                <td style={{ ...diffStyles.fieldTd, color: 'var(--ces-ink)', fontWeight: 700 }}>{fieldLabel(key)}</td>
                 <td style={{ ...diffStyles.valTd, ...diffStyles.oldVal, textDecoration: 'line-through', textDecorationColor: 'rgba(212,56,90,.45)' }}>
-                  {formatValue(ov, key, moduleCode)}
+                  {fieldValue(ov, key)}
                 </td>
                 <td style={{ ...diffStyles.valTd, ...diffStyles.newVal }}>
-                  {formatValue(nv, key, moduleCode)}
+                  {fieldValue(nv, key)}
                 </td>
               </tr>
             )
           })}
           {unchangedKeys.map(key => (
             <tr key={key} style={diffStyles.tr}>
-              <td style={diffStyles.fieldTd}>{labelFor(key)}</td>
+              <td style={diffStyles.fieldTd}>{fieldLabel(key)}</td>
               {/* Dəyişməyən sahə — dəyər hər iki tərəfdə eyni; yanlış "→ —" göstərilmir */}
               <td style={{ ...diffStyles.valTd, color: 'var(--ces-muted)', fontSize: 12.5 }} colSpan={2}>
-                {formatValue(oldSnap?.[key], key, moduleCode)}
+                {fieldValue(oldSnap?.[key], key)}
                 <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--ces-mute2)', fontStyle: 'italic' }}>(dəyişməyib)</span>
               </td>
             </tr>

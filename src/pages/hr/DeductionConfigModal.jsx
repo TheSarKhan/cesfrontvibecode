@@ -106,7 +106,7 @@ export default function DeductionConfigModal({ onClose, onSaved, canEdit }) {
       setLoading(false)
     }
   }
-  useEffect(() => { init() }, [])
+  useEffect(() => { init() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Canlı önizləmə — base və ya groups dəyişəndə (debounce)
   useEffect(() => {

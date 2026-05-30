@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, ChevronLeft, ChevronDown, ChevronRight, Shield, Pencil, ArrowRight } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
-import { permissionsApi } from '../../api/permissions'
+import { usePermissionCatalogStore } from '../../store/permissionCatalogStore'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -36,7 +36,10 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
     description: editing?.description || '',
     departmentId: editing?.departmentId ?? currentDept?.id ?? '',
   })
-  const [catalog, setCatalog] = useState([])
+  const catalog = usePermissionCatalogStore((s) => s.catalog)
+  const fetchCatalog = usePermissionCatalogStore((s) => s.fetchCatalog)
+  const catalogFetching = usePermissionCatalogStore((s) => s.loading)
+  const catalogLoaded = usePermissionCatalogStore((s) => s.loaded)
   const [selectedIds, setSelectedIds] = useState(() => new Set(editing?.grantedPermissionIds || []))
   const initialSelected = useRef(JSON.stringify([...(editing?.grantedPermissionIds || [])].sort()))
   const [approvalDeptIds, setApprovalDeptIds] = useState(
@@ -46,18 +49,13 @@ export default function RoleModal({ editing, currentDept, departments, onClose, 
   const initialRoleForm = useRef({ name: editing?.name || '', description: editing?.description || '', departmentId: editing?.departmentId ?? currentDept?.id ?? '' })
   const [approvalExpanded, setApprovalExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [catalogLoading, setCatalogLoading] = useState(true)
   const [errors, setErrors] = useState({})
+  const catalogLoading = catalogFetching && !catalogLoaded
 
+  // İcazə kataloqunu ortaq store-dan al (RolesView ilə eyni mənbə); açılışda təzələ
+  useEffect(() => { fetchCatalog(true) }, [fetchCatalog])
   useEffect(() => {
-    setCatalogLoading(true)
-    permissionsApi.getAll()
-      .then((res) => {
-        setCatalog(res.data.data || [])
-        if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
-      })
-      .catch(() => {})
-      .finally(() => setCatalogLoading(false))
+    if (editing?.approvalDepartments?.length > 0) setApprovalExpanded(true)
   }, [editing])
 
   const groups = useMemo(() => groupCatalog(catalog), [catalog])

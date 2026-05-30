@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search, Shield } from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { useAuthStore } from '../../store/authStore'
+import { usePermissionCatalogStore } from '../../store/permissionCatalogStore'
 import RoleModal from './RoleModal'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -19,6 +20,13 @@ const ACTION_LABELS = {
   DISPATCH: 'Texnika göndər', DELIVER: 'Təhvil-təslim',
 }
 const CRUD = new Set(['GET', 'POST', 'PUT', 'DELETE'])
+
+// Action etiketi: əvvəl kataloqun labelAz-ı (yalnız action hissəsi), sonra statik map, sonra xam kod
+function actionLabelFrom(labelByCode, moduleCode, action) {
+  const full = labelByCode[`${moduleCode}:${action}`]
+  if (full) return full.includes(' — ') ? full.split(' — ').slice(1).join(' — ') : full
+  return ACTION_LABELS[action] || action
+}
 
 // Kod siyahısını modul üzrə qruplaşdır: ["ACCOUNTING:GET", ...] → [["ACCOUNTING", ["GET", ...]], ...]
 function groupByModule(codes) {
@@ -116,6 +124,8 @@ function PermPill({ active, children, accent }) {
 
 function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
   const [expanded, setExpanded] = useState(false)
+  const moduleNameMap = usePermissionCatalogStore((s) => s.moduleNameMap)
+  const labelByCode = usePermissionCatalogStore((s) => s.labelByCode)
   const roleUsers = users.filter((u) => (u.roleIds || (u.roleId != null ? [u.roleId] : [])).includes(role.id))
 
   return (
@@ -161,14 +171,14 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
         <tr key={moduleCode} style={{ background: 'var(--ces-gold-50)' }}>
           <td style={{ paddingLeft: 50 }}>
             <span className="text-xs font-semibold" style={{ color: 'var(--ces-gold-700)' }}>
-              {moduleCode}
+              {moduleNameMap[moduleCode] || moduleCode}
             </span>
           </td>
           <td colSpan={3}>
             <div className="flex items-center gap-2 flex-wrap py-1">
               {actions.map((a) => (
                 <PermPill key={a} active accent={CRUD.has(a) ? undefined : 'purple'}>
-                  {ACTION_LABELS[a] || a}
+                  {actionLabelFrom(labelByCode, moduleCode, a)}
                 </PermPill>
               ))}
             </div>
@@ -194,7 +204,11 @@ export default function RolesView({ dept, users, departments, onBack }) {
   const canCreate = hasPermission('ROLE_PERMISSION', 'canPost')
   const canEdit   = hasPermission('ROLE_PERMISSION', 'canPut')
   const canDelete = hasPermission('ROLE_PERMISSION', 'canDelete')
+  const fetchCatalog = usePermissionCatalogStore((s) => s.fetchCatalog)
   const { confirm, ConfirmDialog } = useConfirm()
+
+  // Modul adı / action etiketi xəritəsi üçün icazə kataloqunu bir dəfə çək (cache-lənir)
+  useEffect(() => { fetchCatalog() }, [fetchCatalog])
 
   const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(true)

@@ -194,9 +194,15 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
   const units = data?.dayCount && data.dayCount > 0 ? data.dayCount : 1
 
   const winnerRow = rows.find((r) => r.itemId === winnerItemId)
+  // Xərc mənbəyi sətri: qalib seçilibsə qalib; seçilməyibsə amma yalnız bir namizəd
+  // (qeyri-COMPANY) varsa onu avtomatik götür. Birdən çox namizəd varsa xərc qeyri-müəyyəndir.
+  const nonCompanyRows = rows.filter((r) => r.partyType !== 'COMPANY')
+  const costRow = winnerRow ?? (nonCompanyRows.length === 1 ? nonCompanyRows[0] : null)
+  const costAmbiguous = !winnerRow && !costRow && nonCompanyRows.length > 1
+
   // Şirkət texnikasında ödəniş yoxdur — xərc 0
-  const winnerCostUnit = winnerRow
-    ? (winnerRow.partyType === 'COMPANY' ? 0 : (winnerRow.negotiatedPrice !== '' ? Number(winnerRow.negotiatedPrice) : 0))
+  const winnerCostUnit = costRow
+    ? (costRow.partyType === 'COMPANY' ? 0 : (costRow.negotiatedPrice !== '' ? Number(costRow.negotiatedPrice) : 0))
     : 0
   const customerPriceUnit = customerEquipmentPrice !== '' ? Number(customerEquipmentPrice) : 0
   const transportNum = transportationPrice !== '' ? Number(transportationPrice) : 0
@@ -407,30 +413,36 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
           )}
 
           {/* Profit özeti — per-unit + transport, ayrıca cəm */}
-          {(winnerCostUnit > 0 || customerPriceUnit > 0) && (
+          {(winnerCostUnit > 0 || customerPriceUnit > 0 || costAmbiguous) && (
             <div className="mt-3 pt-3 border-t border-emerald-200 dark:border-emerald-800 space-y-2">
               {/* Per-unit + transport detallı sətr */}
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-600 dark:text-gray-400 font-semibold">Şirkət xeyri</span>
-                <span className="mono font-bold">
-                  <span className={clsx(profitPerUnit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
-                    {fmt(profitPerUnit)} ₼/{unitLabel}
+                {costAmbiguous ? (
+                  <span className="inline-flex items-center gap-1 mono font-bold text-amber-600">
+                    <Info size={11} /> Qalib seçin
                   </span>
-                  {transportNum > 0 && (
-                    <>
-                      <span className="text-gray-500"> + </span>
-                      <span className="text-emerald-700">{fmt(transportNum)} ₼ daşınma</span>
-                    </>
-                  )}
-                </span>
+                ) : (
+                  <span className="mono font-bold">
+                    <span className={clsx(profitPerUnit >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                      {fmt(profitPerUnit)} ₼/{unitLabel}
+                    </span>
+                    {transportNum > 0 && (
+                      <>
+                        <span className="text-gray-500"> + </span>
+                        <span className="text-emerald-700">{fmt(transportNum)} ₼ daşınma</span>
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
 
               {/* 3 sütun cəm */}
               <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-emerald-100 dark:border-emerald-900">
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-gray-500">Ödəyəcəyimiz</p>
-                  <p className="text-sm font-bold mono text-red-600">{fmt(costTotal)} ₼</p>
-                  <p className="text-[10px] text-gray-400">{units} {unitLabel} × {fmt(winnerCostUnit)}</p>
+                  <p className="text-sm font-bold mono text-red-600">{costAmbiguous ? '—' : `${fmt(costTotal)} ₼`}</p>
+                  {!costAmbiguous && <p className="text-[10px] text-gray-400">{units} {unitLabel} × {fmt(winnerCostUnit)}</p>}
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-gray-500">Sifarişçidən</p>
@@ -439,9 +451,13 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wide text-gray-500">Cəm xeyir</p>
-                  <p className={clsx('text-sm font-bold mono', profitTotal >= 0 ? 'text-emerald-700' : 'text-red-600')}>
-                    {fmt(profitPerUnit)}/{unitLabel}{transportNum > 0 ? ` + ${fmt(transportNum)} ₼` : ''}
-                  </p>
+                  {costAmbiguous ? (
+                    <p className="text-sm font-bold mono text-gray-400">—</p>
+                  ) : (
+                    <p className={clsx('text-sm font-bold mono', profitTotal >= 0 ? 'text-emerald-700' : 'text-red-600')}>
+                      {fmt(profitPerUnit)}/{unitLabel}{transportNum > 0 ? ` + ${fmt(transportNum)} ₼` : ''}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

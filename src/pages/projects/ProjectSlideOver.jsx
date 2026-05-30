@@ -160,20 +160,25 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
     if (!file) return
     const fileError = validateFileUpload(file)
     if (fileError) { toast.error(fileError); e.target.value = ''; return }
-    setPendingFile(file)
-    setShowStartDateDialog(true)
     e.target.value = ''
+    // PENDING → başlanğıc tarixini soruş; layihə artıq aktivdirsə (təhvil verilib) birbaşa yüklə
+    if (project.status === 'PENDING') {
+      setPendingFile(file)
+      setShowStartDateDialog(true)
+    } else {
+      uploadContractFile(file, null)
+    }
   }
 
-  const handleContractUpload = async (startDateVal) => {
+  const uploadContractFile = async (file, startDateVal) => {
     setShowStartDateDialog(false)
-    if (!pendingFile) return
+    if (!file) return
     setUploading(true)
     try {
       const fd = new FormData()
-      fd.append('file', pendingFile)
+      fd.append('file', file)
       await projectsApi.uploadContract(project.id, fd, startDateVal)
-      toast.success('Müqavilə yükləndi. Layihə aktiv oldu.')
+      toast.success('Müqavilə yükləndi.')
       onContractUploaded()
     } catch (err) {
       if (!err._toasted) toast.error(err?.response?.data?.message || 'Müqavilə yüklənə bilmədi')
@@ -220,7 +225,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
     <div>
       {showStartDateDialog && (
         <StartDateDialog
-          onConfirm={handleContractUpload}
+          onConfirm={(date) => uploadContractFile(pendingFile, date)}
           onCancel={() => { setShowStartDateDialog(false); setPendingFile(null) }}
         />
       )}
@@ -475,7 +480,7 @@ function InfoTab({ project, onContractUploaded, onEndDateUpdated }) {
         {project.contractFileName && (
           <InfoRow label="Fayl adı" value={project.contractFileName} />
         )}
-        {project.status === 'PENDING' && (
+        {!project.hasContract && project.status !== 'COMPLETED' && (
           <div style={{ paddingTop: 12 }}>
             <input ref={inputRef} type="file" style={{ display: 'none' }} accept=".pdf,.doc,.docx,.jpg,.png" onChange={handleFileSelected} />
             <button

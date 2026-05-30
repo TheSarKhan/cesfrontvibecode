@@ -3,8 +3,9 @@
  */
 
 export const FILE_LIMITS = {
-  MAX_SIZE_MB: 1,
-  MAX_SIZE_BYTES: 1 * 1024 * 1024,
+  // Backend (application.yml: max-file-size 50MB) və CLAUDE.md ilə uyğun.
+  MAX_SIZE_MB: 50,
+  MAX_SIZE_BYTES: 50 * 1024 * 1024,
   ALLOWED_DOC_TYPES: [
     'application/pdf',
     'image/jpeg',
