@@ -19,7 +19,7 @@ export default function DepartmentModal({ editing, onClose, onSaved }) {
   const validate = () => {
     const errs = {}
     const e = (field, ...rules) => { const err = v.chain(form[field] || '', ...rules); if (err) errs[field] = err }
-    e('name', v.required, v.minLen(2), v.realContent, v.maxLen(100))
+    e('name', v.required, (val) => v.minLen(val, 2), v.realContent, (val) => v.maxLen(val, 100))
     if (form.description?.trim()) {
       const descErr = v.maxLen(form.description, 500)
       if (descErr) errs.description = descErr
