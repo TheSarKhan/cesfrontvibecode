@@ -174,7 +174,18 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
       else if (type.length < 2) errs.type = 'Növ minimum 2 simvol olmalıdır'
       else if (!hasLetter(type)) errs.type = 'Növ ən azı bir hərf içərməlidir'
 
-      if (form.manufactureYear !== '' && form.manufactureYear != null) {
+      const brand = form.brand?.trim() ?? ''
+      if (!brand) errs.brand = 'Brend tələb olunur'
+
+      const model = form.model?.trim() ?? ''
+      if (!model) errs.model = 'Model tələb olunur'
+
+      const serialNumber = form.serialNumber?.trim() ?? ''
+      if (!serialNumber) errs.serialNumber = 'Seriya nömrəsi tələb olunur'
+
+      if (form.manufactureYear === '' || form.manufactureYear == null) {
+        errs.manufactureYear = 'İstehsal ili tələb olunur'
+      } else {
         const y = parseInt(form.manufactureYear)
         if (isNaN(y) || y < 1900 || y > currentYear + 1)
           errs.manufactureYear = `İstehsal ili 1900 - ${currentYear + 1} arasında olmalıdır`
@@ -195,31 +206,46 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
         errs.purchaseDate = 'Alınma tarixi tələb olunur'
       }
 
-      if (form.currentMarketValue !== '' && form.currentMarketValue != null) {
+      if (form.currentMarketValue === '' || form.currentMarketValue == null) {
+        errs.currentMarketValue = 'Cari bazar dəyəri tələb olunur'
+      } else {
         const v = parseFloat(form.currentMarketValue)
         if (isNaN(v)) errs.currentMarketValue = 'Düzgün rəqəm daxil edin'
         else if (v < 0) errs.currentMarketValue = 'Bazar dəyəri mənfi ola bilməz'
         else if (v > 99999999) errs.currentMarketValue = 'Bazar dəyəri çox böyükdür'
       }
 
-      if (form.depreciationRate !== '' && form.depreciationRate != null) {
+      if (form.depreciationRate === '' || form.depreciationRate == null) {
+        errs.depreciationRate = 'Amortizasiya faizi tələb olunur'
+      } else {
         const d = parseFloat(form.depreciationRate)
         if (isNaN(d)) errs.depreciationRate = 'Düzgün rəqəm daxil edin'
         else if (d < 0 || d > 100) errs.depreciationRate = 'Amortizasiya 0-100% arasında olmalıdır'
       }
 
-      if (form.motoHours !== '' && form.motoHours != null) {
+      if (form.motoHours === '' || form.motoHours == null) {
+        errs.motoHours = 'Moto saatlar tələb olunur'
+      } else {
         const m = parseFloat(form.motoHours)
         if (isNaN(m)) errs.motoHours = 'Düzgün rəqəm daxil edin'
         else if (m < 0) errs.motoHours = 'Moto saatlar mənfi ola bilməz'
         else if (m > 999999) errs.motoHours = 'Moto saatlar çox böyükdür'
       }
 
-      if (form.hourKmCounter !== '' && form.hourKmCounter != null) {
+      if (form.hourKmCounter === '' || form.hourKmCounter == null) {
+        errs.hourKmCounter = 'Saat/KM göstəricisi tələb olunur'
+      } else {
         const h = parseFloat(form.hourKmCounter)
         if (isNaN(h)) errs.hourKmCounter = 'Düzgün rəqəm daxil edin'
         else if (h < 0) errs.hourKmCounter = 'Saat/KM göstəricisi mənfi ola bilməz'
         else if (h > 999999) errs.hourKmCounter = 'Saat/KM göstəricisi çox böyükdür'
+      }
+
+      const storage = form.storageLocation?.trim() ?? ''
+      if (!storage) errs.storageLocation = 'Saxlanma yeri tələb olunur'
+
+      if (safetyTypes.length > 0 && (form.safetyEquipmentIds?.length ?? 0) === 0) {
+        errs.safetyEquipmentIds = 'Ən azı bir təhlükəsizlik avadanlığı seçilməlidir'
       }
     }
 
@@ -345,22 +371,23 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Brend">
+                <Field label="Brend" required error={errors.brand}>
                   <ComboInput category="EQUIPMENT_BRAND" value={form.brand} onChange={(v) => set('brand', v)}
-                    placeholder="Caterpillar" />
+                    placeholder="Caterpillar"
+                    className={errors.brand ? 'border-[var(--ces-danger)] focus:ring-[var(--ces-danger)]' : ''} />
                 </Field>
-                <Field label="Model">
+                <Field label="Model" required error={errors.model}>
                   <input type="text" value={form.model} onChange={(e) => set('model', e.target.value)}
-                    placeholder="320D" className={inputCls('')} />
+                    placeholder="320D" className={inputCls('model')} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Seriya nömrəsi">
+                <Field label="Seriya nömrəsi" required error={errors.serialNumber}>
                   <input type="text" value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)}
-                    placeholder="SN-12345" className={inputCls('')} />
+                    placeholder="SN-12345" className={inputCls('serialNumber')} />
                 </Field>
-                <Field label="İstehsal ili" error={errors.manufactureYear}>
+                <Field label="İstehsal ili" required error={errors.manufactureYear}>
                   <input type="number" min="1900" max={new Date().getFullYear() + 1} value={form.manufactureYear}
                     onChange={(e) => set('manufactureYear', e.target.value)} placeholder="2020" className={inputCls('manufactureYear')} />
                 </Field>
@@ -383,34 +410,37 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Cari bazar dəyəri (AZN)" error={errors.currentMarketValue}>
+                <Field label="Cari bazar dəyəri (AZN)" required error={errors.currentMarketValue}>
                   <input type="number" min="0" step="0.01" value={form.currentMarketValue}
                     onChange={(e) => set('currentMarketValue', e.target.value)} placeholder="0.00" className={inputCls('currentMarketValue')} />
                 </Field>
-                <Field label="Amortizasiya faizi (%)" error={errors.depreciationRate}>
+                <Field label="Amortizasiya faizi (%)" required error={errors.depreciationRate}>
                   <input type="number" min="0" max="100" step="0.01" value={form.depreciationRate}
                     onChange={(e) => set('depreciationRate', e.target.value)} placeholder="0.00" className={inputCls('depreciationRate')} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <Field label="Saat / KM göstəricisi" error={errors.hourKmCounter}>
+                <Field label="Saat / KM göstəricisi" required error={errors.hourKmCounter}>
                   <input type="number" min="0" step="0.01" value={form.hourKmCounter}
                     onChange={(e) => set('hourKmCounter', e.target.value)} placeholder="0.00" className={inputCls('hourKmCounter')} />
                 </Field>
-                <Field label="Moto saatlar" error={errors.motoHours}>
+                <Field label="Moto saatlar" required error={errors.motoHours}>
                   <input type="number" min="0" step="0.01" value={form.motoHours}
                     onChange={(e) => set('motoHours', e.target.value)} placeholder="0.00" className={inputCls('motoHours')} />
                 </Field>
-                <Field label="Saxlanma yeri">
+                <Field label="Saxlanma yeri" required error={errors.storageLocation}>
                   <ComboInput category="STORAGE_LOCATION" value={form.storageLocation} onChange={(v) => set('storageLocation', v)}
-                    placeholder="Anbar, Sahə..." />
+                    placeholder="Anbar, Sahə..."
+                    className={errors.storageLocation ? 'border-[var(--ces-danger)] focus:ring-[var(--ces-danger)]' : ''} />
                 </Field>
               </div>
 
               {safetyTypes.length > 0 && (
                 <div>
-                  <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-2">Təhlükəsizlik avadanlıqları</label>
+                  <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-2">
+                    Təhlükəsizlik avadanlıqları <span className="text-[var(--ces-danger)]">*</span>
+                  </label>
                   <div className="grid grid-cols-3 gap-2">
                     {safetyTypes.map((st) => {
                       const checked = (form.safetyEquipmentIds || []).includes(st.id)
@@ -425,6 +455,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                             onChange={() => {
                               const ids = form.safetyEquipmentIds || []
                               set('safetyEquipmentIds', checked ? ids.filter(id => id !== st.id) : [...ids, st.id])
+                              if (errors.safetyEquipmentIds) setErrors(p => ({ ...p, safetyEquipmentIds: undefined }))
                             }}
                             className="accent-[var(--ces-ok)] w-4 h-4" />
                           {st.key}
@@ -432,6 +463,9 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                       )
                     })}
                   </div>
+                  {errors.safetyEquipmentIds && (
+                    <p className="mt-1.5 text-xs font-semibold text-[var(--ces-danger)]">{errors.safetyEquipmentIds}</p>
+                  )}
                 </div>
               )}
             </>

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Pencil, Trash2, Search, Users, Eye, FileDown, ArrowLeft } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Users, Eye, FileDown } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
@@ -10,34 +10,40 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import EmployeeModal from './EmployeeModal'
 import EmployeeSlideOver from './EmployeeSlideOver'
 import Pagination from '../../components/common/Pagination'
-import { PageHeader, Pill, Avatar, TableWrap, LoadingRow, EmptyRow } from './_shared'
-import { fmt, EMPLOYEE_STATUS } from './_constants'
+
+const STATUS_CONFIG = {
+  ACTIVE:     { label: 'Aktiv',         cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400' },
+  ON_LEAVE:   { label: 'Məzuniyyətdə',  cls: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400' },
+  TERMINATED: { label: 'İşdən çıxıb',   cls: 'bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-700 dark:text-gray-400' },
+}
+
+const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function EmployeesPage() {
   const navigate = useNavigate()
   const hasPermission = useAuthStore((s) => s.hasPermission)
   const canCreate = hasPermission('HR_MANAGEMENT', 'canPost')
-  const canEdit   = hasPermission('HR_MANAGEMENT', 'canPut')
+  const canEdit = hasPermission('HR_MANAGEMENT', 'canPut')
   const canDelete = hasPermission('HR_MANAGEMENT', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
-  const searchRef = useRef(null)
 
-  const [data, setData]           = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
-  const [loading, setLoading]     = useState(true)
-  const [modal, setModal]         = useState({ open: false, editing: null })
+
+  const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState({ open: false, editing: null })
   const [slideOver, setSlideOver] = useState(null)
   const [positions, setPositions] = useState([])
   const [departments, setDepartments] = useState([])
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const search       = searchParams.get('q')      || ''
+  const search = searchParams.get('q') || ''
   const statusFilter = searchParams.get('status') || ''
   const page = Number(searchParams.get('page') || '0')
   const size = Number(searchParams.get('size') || '15')
 
   const setSearch = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('q', v) : n.delete('q'); n.delete('page'); return n }, { replace: true })
   const setStatus = (v) => setSearchParams(p => { const n = new URLSearchParams(p); v ? n.set('status', v) : n.delete('status'); n.delete('page'); return n }, { replace: true })
-  const setPage   = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); p > 0 ? n.set('page', String(p)) : n.delete('page'); return n }, { replace: true })
+  const setPage = (p) => setSearchParams(prev => { const n = new URLSearchParams(prev); p > 0 ? n.set('page', String(p)) : n.delete('page'); return n }, { replace: true })
   const setPageSize = (s) => setSearchParams(prev => { const n = new URLSearchParams(prev); s !== 15 ? n.set('size', String(s)) : n.delete('size'); n.delete('page'); return n }, { replace: true })
 
   const load = useCallback(async () => {
@@ -79,16 +85,16 @@ export default function EmployeesPage() {
 
   const exportExcel = () => {
     const rows = data.content.map(e => ({
-      'Kod':              e.employeeCode || '',
-      'Ad Soyad':         e.fullName || '',
-      'FİN':              e.fin || '',
-      'Vəzifə':           e.positionName || '',
-      'Şöbə':             e.departmentName || '',
+      'Kod': e.employeeCode || '',
+      'Ad Soyad': e.fullName || '',
+      'FİN': e.fin || '',
+      'Vəzifə': e.positionName || '',
+      'Şöbə': e.departmentName || '',
       'Əməkhaqqı (Gross)': e.grossSalary || 0,
-      'Telefon':          e.phone || '',
-      'Email':            e.email || '',
-      'İşə qəbul':        e.hireDate || '',
-      'Status':           EMPLOYEE_STATUS[e.status]?.label || e.status,
+      'Telefon': e.phone || '',
+      'Email': e.email || '',
+      'İşə qəbul': e.hireDate || '',
+      'Status': STATUS_CONFIG[e.status]?.label || e.status,
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     ws['!cols'] = [12, 25, 14, 18, 18, 14, 14, 22, 12, 14].map(w => ({ wch: w }))
@@ -98,119 +104,116 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div style={{ color: 'var(--ces-ink)' }}>
+    <div>
       <ConfirmDialog />
 
-      <PageHeader
-        eyebrow="HR · İşçilər"
-        title="İşçilər"
-        subtitle={<><span className="num font-semibold" style={{ color: 'var(--ces-graphite)' }}>{data.totalElements}</span> işçi qeyd olunub</>}
-        right={
-          <>
-            <button onClick={() => navigate('/hr')} className="ces-btn ces-btn-outline ces-btn-sm">
-              <ArrowLeft size={14} /> HR
-            </button>
-            <button onClick={exportExcel} className="ces-btn ces-btn-outline ces-btn-sm">
-              <FileDown size={14} /> Excel
-            </button>
-            {canCreate && (
-              <button onClick={() => setModal({ open: true, editing: null })} className="ces-btn ces-btn-primary">
-                <Plus size={16} /> Yeni işçi
-              </button>
-            )}
-          </>
-        }
-      />
-
-      <TableWrap>
-        {/* Toolbar */}
-        <div
-          className="flex items-center justify-between gap-3 flex-wrap"
-          style={{ padding: '18px 22px', borderBottom: '1px solid var(--ces-line)' }}
-        >
-          <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-            <div
-              className="flex items-center gap-2 flex-1 max-w-[340px]"
-              style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '10px', padding: '0 12px', minHeight: '38px' }}
-            >
-              <Search size={14} style={{ color: 'var(--ces-mute2)' }} />
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Ad, soyad, FİN, kod..."
-                className="flex-1 outline-none bg-transparent text-[13px]"
-                style={{ color: 'var(--ces-ink)' }}
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatus(e.target.value)}
-              className="text-[13px] font-medium cursor-pointer"
-              style={{
-                padding: '8px 12px',
-                background: 'var(--ces-surface)',
-                border: '1px solid var(--ces-line)',
-                borderRadius: '10px',
-                color: 'var(--ces-graphite)',
-                outline: 'none',
-                minHeight: '38px',
-              }}
-            >
-              <option value="">Bütün statuslar</option>
-              {Object.entries(EMPLOYEE_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <Users size={22} className="text-amber-600" />
+            İşçilər
+          </h1>
+          <p className="text-xs text-gray-400 mt-0.5">{data.totalElements} işçi</p>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/hr')}
+            className="px-3 py-2 text-xs font-medium text-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            ← HR
+          </button>
+          <button
+            onClick={exportExcel}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            <FileDown size={13} /> Excel
+          </button>
+          {canCreate && (
+            <button
+              onClick={() => setModal({ open: true, editing: null })}
+              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+            >
+              <Plus size={16} /> Yeni işçi
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Table */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1 max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Ad, soyad, FİN, kod..."
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatus(e.target.value)}
+          className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+        >
+          <option value="">Bütün statuslar</option>
+          {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="ces-tbl w-full min-w-[900px]">
-            <thead>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-900 text-xs uppercase text-gray-500 dark:text-gray-400">
               <tr>
-                <th>Kod</th>
-                <th>Ad Soyad</th>
-                <th>FİN</th>
-                <th>Vəzifə</th>
-                <th>Şöbə</th>
-                <th className="r">Əməkhaqqı</th>
-                <th>Status</th>
-                <th className="r w-act">Əməliyyat</th>
+                <th className="px-3 py-2.5 text-left font-medium">Kod</th>
+                <th className="px-3 py-2.5 text-left font-medium">Ad Soyad</th>
+                <th className="px-3 py-2.5 text-left font-medium">FİN</th>
+                <th className="px-3 py-2.5 text-left font-medium">Vəzifə</th>
+                <th className="px-3 py-2.5 text-left font-medium">Şöbə</th>
+                <th className="px-3 py-2.5 text-right font-medium">Əməkhaqqı (₼)</th>
+                <th className="px-3 py-2.5 text-left font-medium">Status</th>
+                <th className="px-3 py-2.5 text-right font-medium w-[120px]">Əməliyyat</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {loading ? (
-                <LoadingRow colSpan={8} />
+                <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">Yüklənir...</td></tr>
               ) : data.content.length === 0 ? (
-                <EmptyRow colSpan={8} icon={Users} message="İşçi tapılmadı" />
-              ) : data.content.map((e) => {
-                const s = EMPLOYEE_STATUS[e.status] || { label: e.status, tone: 'muted' }
+                <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">İşçi tapılmadı</td></tr>
+              ) : data.content.map(e => {
+                const s = STATUS_CONFIG[e.status] || { label: e.status, cls: 'bg-gray-100 text-gray-500 border-gray-200' }
                 return (
-                  <tr
-                    key={e.id}
-                    onClick={() => setSlideOver(e)}
-                    className="cursor-pointer"
-                  >
-                    <td className="mono" style={{ color: 'var(--ces-muted)', fontSize: '12.5px' }}>{e.employeeCode || '—'}</td>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={e.fullName} size="sm" />
-                        <span className="text-[13.5px] font-bold" style={{ color: 'var(--ces-ink)' }}>{e.fullName}</span>
-                      </div>
+                  <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setSlideOver(e)}>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{e.employeeCode || '—'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-100">{e.fullName}</td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{e.fin || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">{e.positionName || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{e.departmentName || '—'}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-100">{fmt(e.grossSalary)}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${s.cls}`}>
+                        {s.label}
+                      </span>
                     </td>
-                    <td className="mono" style={{ color: 'var(--ces-muted)', fontSize: '12.5px' }}>{e.fin || '—'}</td>
-                    <td style={{ color: 'var(--ces-ink)' }}>{e.positionName || '—'}</td>
-                    <td style={{ color: 'var(--ces-muted)', fontSize: '12.5px' }}>{e.departmentName || '—'}</td>
-                    <td className="r num" style={{ color: 'var(--ces-graphite-900)', fontWeight: 700 }}>{fmt(e.grossSalary)} ₼</td>
-                    <td><Pill tone={s.tone} sm dot>{s.label}</Pill></td>
-                    <td className="r" onClick={(ev) => ev.stopPropagation()}>
+                    <td className="px-3 py-2.5 text-right" onClick={(ev) => ev.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setSlideOver(e)} className="ces-row-act info" title="Bax"><Eye size={14} /></button>
+                        <button
+                          onClick={() => setSlideOver(e)}
+                          className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700"
+                          title="Bax"
+                        ><Eye size={14} /></button>
                         {canEdit && (
-                          <button onClick={() => setModal({ open: true, editing: e })} className="ces-row-act gold" title="Redaktə et"><Pencil size={14} /></button>
+                          <button
+                            onClick={() => setModal({ open: true, editing: e })}
+                            className="p-1.5 rounded hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-600"
+                            title="Redaktə et"
+                          ><Pencil size={14} /></button>
                         )}
                         {canDelete && (
-                          <button onClick={() => handleDelete(e)} className="ces-row-act danger" title="Sil"><Trash2 size={14} /></button>
+                          <button
+                            onClick={() => handleDelete(e)}
+                            className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
+                            title="Sil"
+                          ><Trash2 size={14} /></button>
                         )}
                       </div>
                     </td>
@@ -220,7 +223,6 @@ export default function EmployeesPage() {
             </tbody>
           </table>
         </div>
-
         {data.totalPages > 0 && (
           <Pagination
             page={data.page + 1}
@@ -231,7 +233,7 @@ export default function EmployeesPage() {
             onPageSize={(s) => setPageSize(s)}
           />
         )}
-      </TableWrap>
+      </div>
 
       {modal.open && (
         <EmployeeModal

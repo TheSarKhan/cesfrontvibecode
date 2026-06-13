@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search, Shield } from 'lucide-react'
+import {
+  ChevronLeft, ChevronDown, ChevronRight, Plus, Trash2, Pencil, Search, Shield,
+  Eye, Send, FileCheck2, Calculator, Undo2, Layers,
+} from 'lucide-react'
 import { rolesApi } from '../../api/roles'
 import { useAuthStore } from '../../store/authStore'
 import { usePermissionCatalogStore } from '../../store/permissionCatalogStore'
@@ -11,35 +14,35 @@ import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
 
-// Action suffiksi → AZ etiket (rol icazə pill-ləri üçün)
-const ACTION_LABELS = {
-  GET: 'Oxumaq', POST: 'Yazmaq', PUT: 'Redaktə', DELETE: 'Silmək',
-  SEND_COORDINATOR: 'Koordinatora göndər', SUBMIT_OFFER: 'Təklif göndər',
-  SEND_ACCOUNTING: 'Mühasibatlığa göndər', RETURN_PROJECT: 'Layihəyə qaytar',
-  APPROVE_PM: 'PM təsdiqi', CHECK_DOCUMENTS: 'Sənəd təsdiqi',
-  DISPATCH: 'Texnika göndər', DELIVER: 'Təhvil-təslim',
-}
-const CRUD = new Set(['GET', 'POST', 'PUT', 'DELETE'])
-
-// Action etiketi: əvvəl kataloqun labelAz-ı (yalnız action hissəsi), sonra statik map, sonra xam kod
-function actionLabelFrom(labelByCode, moduleCode, action) {
-  const full = labelByCode[`${moduleCode}:${action}`]
-  if (full) return full.includes(' — ') ? full.split(' — ').slice(1).join(' — ') : full
-  return ACTION_LABELS[action] || action
+// İcazə bayraqları → Azərbaycan etiketi, ikon və rəng kateqoriyası
+const PERMISSION_META = {
+  canGet:               { label: 'Görüntüləmə',           Icon: Eye,         tone: 'info'   },
+  canPost:              { label: 'Əlavə etmə',            Icon: Plus,        tone: 'ok'     },
+  canPut:               { label: 'Redaktə',               Icon: Pencil,      tone: 'warn'   },
+  canDelete:            { label: 'Silmə',                 Icon: Trash2,      tone: 'danger' },
+  canSendToCoordinator: { label: 'Koordinatora göndərmə', Icon: Send,        tone: 'gold'   },
+  canSubmitOffer:       { label: 'Təklif göndərmə',       Icon: FileCheck2,  tone: 'gold'   },
+  canSendToAccounting:  { label: 'Mühasibatlığa göndərmə',Icon: Calculator,  tone: 'gold'   },
+  canReturnToProject:   { label: 'Layihəyə qaytarma',     Icon: Undo2,       tone: 'gold'   },
 }
 
-// Kod siyahısını modul üzrə qruplaşdır: ["ACCOUNTING:GET", ...] → [["ACCOUNTING", ["GET", ...]], ...]
-function groupByModule(codes) {
-  const map = new Map()
-  ;(codes || []).forEach((code) => {
-    const i = code.indexOf(':')
-    if (i < 0) return
-    const mod = code.slice(0, i)
-    const act = code.slice(i + 1)
-    if (!map.has(mod)) map.set(mod, [])
-    map.get(mod).push(act)
-  })
-  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+const PERMISSION_ORDER = [
+  'canGet', 'canPost', 'canPut', 'canDelete',
+  'canSendToCoordinator', 'canSubmitOffer', 'canSendToAccounting', 'canReturnToProject',
+]
+
+// Bir icazə yazısı üçün aktiv olan bayraqları çıxarır
+function activeActions(permission) {
+  return PERMISSION_ORDER
+    .filter((key) => permission?.[key])
+    .map((key) => ({ key, ...PERMISSION_META[key] }))
+}
+
+// Modul üzrə nizamlı sıralama (ad ilə)
+function sortByModuleName(permissions) {
+  return [...(permissions || [])].sort((a, b) =>
+    (a.moduleNameAz || a.moduleCode || '').localeCompare(b.moduleNameAz || b.moduleCode || '', 'az')
+  )
 }
 
 function initials(name) {
@@ -108,25 +111,26 @@ function AvatarStack({ users }) {
   )
 }
 
-function PermPill({ active, children, accent }) {
+function PermPill({ Icon, label, tone }) {
   return (
     <span
-      className={clsx('ces-pill sm', accent === 'purple'
-        ? (active ? 'ces-p-info' : 'ces-p-mute')
-        : (active ? 'ces-p-gold' : 'ces-p-mute'))}
-      style={!active ? { opacity: 0.55 } : undefined}
+      className={clsx('ces-pill sm', `ces-p-${tone}`)}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
     >
-      <span className="d" />
-      {children}
+      {Icon && <Icon size={11} strokeWidth={2.5} />}
+      <span>{label}</span>
     </span>
   )
 }
 
 function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
   const [expanded, setExpanded] = useState(false)
-  const moduleNameMap = usePermissionCatalogStore((s) => s.moduleNameMap)
-  const labelByCode = usePermissionCatalogStore((s) => s.labelByCode)
   const roleUsers = users.filter((u) => (u.roleIds || (u.roleId != null ? [u.roleId] : [])).includes(role.id))
+
+  // Yalnız ən az bir aktiv bayrağı olan icazələri göstər
+  const visiblePerms = sortByModuleName(role.permissions || [])
+    .map((p) => ({ ...p, actions: activeActions(p) }))
+    .filter((p) => p.actions.length > 0)
 
   return (
     <>
@@ -145,6 +149,16 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
               {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </button>
             <span className="font-semibold text-[var(--ces-ink)]">{role.name}</span>
+            {visiblePerms.length > 0 && (
+              <span
+                className="ces-pill sm ces-p-mute"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                title="Modul sayı"
+              >
+                <Layers size={11} strokeWidth={2.5} />
+                {visiblePerms.length}
+              </span>
+            )}
           </div>
         </td>
         <td style={{ color: 'var(--ces-muted)' }}>{role.description || '—'}</td>
@@ -167,31 +181,51 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
         </td>
       </tr>
 
-      {expanded && groupByModule(role.permissions).map(([moduleCode, actions]) => (
-        <tr key={moduleCode} style={{ background: 'var(--ces-gold-50)' }}>
-          <td style={{ paddingLeft: 50 }}>
-            <span className="text-xs font-semibold" style={{ color: 'var(--ces-gold-700)' }}>
-              {moduleNameMap[moduleCode] || moduleCode}
-            </span>
-          </td>
-          <td colSpan={3}>
-            <div className="flex items-center gap-2 flex-wrap py-1">
-              {actions.map((a) => (
-                <PermPill key={a} active accent={CRUD.has(a) ? undefined : 'purple'}>
-                  {actionLabelFrom(labelByCode, moduleCode, a)}
-                </PermPill>
-              ))}
-            </div>
-          </td>
-        </tr>
-      ))}
-
-      {expanded && (!role.permissions || role.permissions.length === 0) && (
+      {expanded && (
         <tr style={{ background: 'var(--ces-gold-50)' }}>
-          <td colSpan={4} style={{ paddingLeft: 50 }}>
-            <span className="text-xs italic" style={{ color: 'var(--ces-mute2)' }}>
-              Bu rola heç bir icazə verilməyib
-            </span>
+          <td colSpan={4} style={{ padding: '12px 16px 14px 50px' }}>
+            {visiblePerms.length === 0 ? (
+              <span className="text-xs italic" style={{ color: 'var(--ces-mute2)' }}>
+                Bu rola heç bir icazə verilməyib
+              </span>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: 10,
+                }}
+              >
+                {visiblePerms.map((perm) => (
+                  <div
+                    key={perm.moduleCode}
+                    style={{
+                      background: 'var(--ces-surface)',
+                      border: '1px solid var(--ces-line)',
+                      borderRadius: 10,
+                      padding: '10px 12px',
+                    }}
+                  >
+                    <div
+                      className="text-xs font-bold"
+                      style={{
+                        color: 'var(--ces-gold-700)',
+                        letterSpacing: '.04em',
+                        textTransform: 'uppercase',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {perm.moduleNameAz || perm.moduleCode}
+                    </div>
+                    <div className="flex flex-wrap" style={{ gap: 6 }}>
+                      {perm.actions.map((a) => (
+                        <PermPill key={a.key} Icon={a.Icon} label={a.label} tone={a.tone} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </td>
         </tr>
       )}

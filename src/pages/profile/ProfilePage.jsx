@@ -8,6 +8,18 @@ import { clsx } from 'clsx'
 
 const PHONE_REGEX = /^(\+994|0)(10|12|50|51|55|60|70|77|99)\d{7}$/
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+const PHONE_MAX_LEN = 13 // "+994" + 9 rəqəm
+
+// Telefon sahəsi üçün yalnız "+" və rəqəmlərə icazə ver; "+" yalnız başda;
+// uzunluğu maksimuma kəs.
+function sanitizePhone(raw) {
+  let s = String(raw ?? '').replace(/[^\d+]/g, '')
+  if (s.includes('+')) {
+    const startsWithPlus = s[0] === '+'
+    s = (startsWithPlus ? '+' : '') + s.replace(/\+/g, '')
+  }
+  return s.slice(0, PHONE_MAX_LEN)
+}
 
 function initials(name) {
   const parts = (name || '').trim().split(/\s+/)
@@ -247,8 +259,14 @@ function ContactForm({ user, onSaved }) {
     const errs = {}
     if (!form.email?.trim()) errs.email = 'Email boş ola bilməz'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Email formatı düzgün deyil'
-    if (form.phone?.trim() && !PHONE_REGEX.test(form.phone)) {
-      errs.phone = 'Telefon formatı düzgün deyil (məs: +994501234567)'
+
+    const phone = form.phone?.trim() || ''
+    if (phone) {
+      if (/^0+$/.test(phone) || /^\+?9940+$/.test(phone)) {
+        errs.phone = 'Telefon nömrəsi yalnız sıfırlardan ibarət ola bilməz'
+      } else if (!PHONE_REGEX.test(phone)) {
+        errs.phone = 'Düzgün Azərbaycan nömrəsi daxil edin (məs: +994501234567)'
+      }
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -302,14 +320,39 @@ function ContactForm({ user, onSaved }) {
             <Phone size={14} />
             <input
               type="tel"
+              inputMode="tel"
               value={form.phone}
-              onChange={(e) => { setForm((f) => ({ ...f, phone: e.target.value })); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })) }}
+              onChange={(e) => {
+                const next = sanitizePhone(e.target.value)
+                setForm((f) => ({ ...f, phone: next }))
+                if (errors.phone) setErrors((p) => ({ ...p, phone: undefined }))
+              }}
+              onKeyDown={(e) => {
+                // Naviqasiya/silmə düymələrinə icazə ver
+                if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return
+                // Yalnız rəqəm və "+" qəbul et; "+" yalnız sahə boş ikən
+                if (e.key === '+') {
+                  if (form.phone.length !== 0) e.preventDefault()
+                } else if (!/\d/.test(e.key)) {
+                  e.preventDefault()
+                } else if (form.phone.length >= PHONE_MAX_LEN) {
+                  e.preventDefault()
+                }
+              }}
+              onPaste={(e) => {
+                e.preventDefault()
+                const pasted = e.clipboardData.getData('text')
+                const next = sanitizePhone((form.phone || '') + pasted)
+                setForm((f) => ({ ...f, phone: next }))
+                if (errors.phone) setErrors((p) => ({ ...p, phone: undefined }))
+              }}
+              maxLength={PHONE_MAX_LEN}
               placeholder="+994501234567"
               className="mono"
             />
           </div>
           {errors.phone && <span className="ces-err">{errors.phone}</span>}
-          {!errors.phone && <span className="ces-hint">Format: +994XXXXXXXXX</span>}
+          {!errors.phone && <span className="ces-hint">Format: +994XXXXXXXXX və ya 0XXXXXXXXX</span>}
         </div>
       </div>
 
@@ -385,32 +428,6 @@ function PasswordForm() {
     }
   }
 
-  const PwdField = ({ name, label, value, error, visible, onToggleVisible }) => (
-    <div className="ces-field">
-      <label>{label} <span className="req">*</span></label>
-      <div className={clsx('ces-input has-icon', error && 'is-error')}>
-        <Lock size={14} />
-        <input
-          type={visible ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => { setForm((f) => ({ ...f, [name]: e.target.value })); if (errors[name]) setErrors((p) => ({ ...p, [name]: undefined })) }}
-          placeholder="••••••••"
-          autoComplete="new-password"
-        />
-        <button
-          type="button"
-          onClick={onToggleVisible}
-          className="inline-grid place-items-center"
-          style={{ width: 24, height: 24, color: 'var(--ces-mute2)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          tabIndex={-1}
-        >
-          {visible ? <EyeOff size={14} /> : <Eye size={14} />}
-        </button>
-      </div>
-      {error && <span className="ces-err">{error}</span>}
-    </div>
-  )
-
   return (
     <form onSubmit={handleSubmit} className="ces-card" style={{ padding: 26 }}>
       <div className="flex items-center gap-2 mb-5 pb-4" style={{ borderBottom: '1px solid var(--ces-line)' }}>
@@ -423,14 +440,29 @@ function PasswordForm() {
         </div>
       </div>
 
-      <PwdField
-        name="currentPassword"
-        label="Cari şifrə"
-        value={form.currentPassword}
-        error={errors.currentPassword}
-        visible={show.cur}
-        onToggleVisible={() => setShow((s) => ({ ...s, cur: !s.cur }))}
-      />
+      <div className="ces-field">
+        <label>Cari şifrə <span className="req">*</span></label>
+        <div className={clsx('ces-input has-icon', errors.currentPassword && 'is-error')}>
+          <Lock size={14} />
+          <input
+            type={show.cur ? 'text' : 'password'}
+            value={form.currentPassword}
+            onChange={(e) => { setForm((f) => ({ ...f, currentPassword: e.target.value })); if (errors.currentPassword) setErrors((p) => ({ ...p, currentPassword: undefined })) }}
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShow((s) => ({ ...s, cur: !s.cur }))}
+            className="inline-grid place-items-center"
+            style={{ width: 24, height: 24, color: 'var(--ces-mute2)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            tabIndex={-1}
+          >
+            {show.cur ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+        {errors.currentPassword && <span className="ces-err">{errors.currentPassword}</span>}
+      </div>
 
       <div className="ces-field">
         <label>Yeni şifrə <span className="req">*</span></label>
