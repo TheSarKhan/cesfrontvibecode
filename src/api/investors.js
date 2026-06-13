@@ -11,4 +11,7 @@ export const investorsApi = {
   getProjectHistory: (id) => api.get(`/investors/${id}/projects`),
   getInvoices: (id) => api.get(`/investors/${id}/invoices`),
   getPayables: (id) => api.get(`/investors/${id}/payables`),
+  // Portal hesabı (admin)
+  updatePortalAccount: (id, data) => api.put(`/investors/${id}/portal-account`, data),
+  setPassword: (id, data) => api.post(`/investors/${id}/set-password`, data),
 }

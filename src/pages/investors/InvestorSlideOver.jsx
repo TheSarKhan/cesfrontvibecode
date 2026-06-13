@@ -3,8 +3,10 @@ import {
   X, Pencil, Trash2, Building2, History, FileText, Truck,
   ChevronDown, ChevronUp, FolderKanban, Calendar, Banknote,
   TrendingDown, CheckCircle2, Clock, AlertCircle, Star,
+  KeyRound, Mail, ShieldCheck, ShieldOff, Eye, EyeOff, Save,
 } from 'lucide-react'
 import { clsx } from 'clsx'
+import toast from 'react-hot-toast'
 import ActivityFeed from '../../components/common/ActivityFeed'
 import { garageApi } from '../../api/garage'
 import { investorsApi } from '../../api/investors'
@@ -75,6 +77,7 @@ const PROJECT_STATUS = {
 
 const TABS = [
   { id: 'info',      label: 'Məlumat',         icon: Building2 },
+  { id: 'portal',    label: 'Portal hesabı',    icon: KeyRound },
   { id: 'equipment', label: 'Texnikalar',      icon: Truck },
   { id: 'invoices',  label: 'Qaimələr',        icon: TrendingDown },
   { id: 'payments',  label: 'Ödənişlər',       icon: Banknote },
@@ -143,8 +146,205 @@ function LoadingSkeleton({ rows = 3, h = 56 }) {
   )
 }
 
+/* ─── Portal hesabı tab-ı ─── */
+function PortalTab({ investor, canManage, onUpdated }) {
+  const [email, setEmail]       = useState(investor.accountEmail || '')
+  const [enabled, setEnabled]   = useState(!!investor.portalEnabled)
+  const [savingAcc, setSavingAcc] = useState(false)
+  const [pwd, setPwd]           = useState('')
+  const [showPwd, setShowPwd]   = useState(false)
+  const [savingPwd, setSavingPwd] = useState(false)
+
+  // İnvestor dəyişəndə formu sinxronla
+  useEffect(() => {
+    setEmail(investor.accountEmail || '')
+    setEnabled(!!investor.portalEnabled)
+    setPwd('')
+  }, [investor.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = email.trim() !== (investor.accountEmail || '') || enabled !== !!investor.portalEnabled
+
+  const saveAccount = async () => {
+    const trimmed = email.trim()
+    if (enabled && !trimmed) {
+      toast.error('Portalı aktiv etmək üçün hesab maili tələb olunur')
+      return
+    }
+    setSavingAcc(true)
+    try {
+      const res = await investorsApi.updatePortalAccount(investor.id, {
+        accountEmail: trimmed || null,
+        portalEnabled: enabled,
+      })
+      toast.success('Portal hesabı yeniləndi')
+      onUpdated?.(res.data.data || res.data)
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Yeniləmə uğursuz oldu')
+    } finally {
+      setSavingAcc(false)
+    }
+  }
+
+  const setPassword = async () => {
+    if (pwd.length < 8) {
+      toast.error('Şifrə ən azı 8 simvol olmalıdır')
+      return
+    }
+    setSavingPwd(true)
+    try {
+      await investorsApi.setPassword(investor.id, { password: pwd })
+      toast.success('Şifrə təyin edildi')
+      setPwd('')
+    } catch (err) {
+      if (!err._toasted) toast.error(err?.response?.data?.message || 'Şifrə təyini uğursuz oldu')
+    } finally {
+      setSavingPwd(false)
+    }
+  }
+
+  const inputStyle = {
+    background: 'var(--ces-surface)',
+    border: '1px solid var(--ces-line)',
+    borderRadius: '10px',
+    padding: '0 12px',
+    minHeight: '40px',
+    color: 'var(--ces-ink)',
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Status xülasəsi */}
+      <div
+        className="flex items-center gap-3 p-4"
+        style={{ borderRadius: '12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)' }}
+      >
+        <div
+          className="w-10 h-10 rounded-[10px] grid place-items-center flex-none"
+          style={{
+            background: enabled ? 'var(--ces-ok-100)' : 'var(--ces-graphite-100)',
+            color: enabled ? 'var(--ces-ok)' : 'var(--ces-muted)',
+          }}
+        >
+          {enabled ? <ShieldCheck size={18} /> : <ShieldOff size={18} />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-bold" style={{ color: 'var(--ces-ink)' }}>
+            {enabled ? 'Portal girişi aktivdir' : 'Portal girişi bağlıdır'}
+          </p>
+          <p className="text-[11.5px] mt-0.5" style={{ color: 'var(--ces-muted)' }}>
+            {investor.lastLoginAt
+              ? `Son giriş: ${fmtDate(investor.lastLoginAt)}`
+              : 'Hələ heç vaxt daxil olmayıb'}
+          </p>
+        </div>
+      </div>
+
+      {/* Hesab maili + aktiv/passiv */}
+      <div className="space-y-4">
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-[.14em] mb-1.5 block" style={{ color: 'var(--ces-muted)' }}>
+            Hesab maili (giriş üçün)
+          </label>
+          <div className="flex items-center gap-2" style={inputStyle}>
+            <Mail size={15} style={{ color: 'var(--ces-mute2)' }} />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={!canManage}
+              placeholder="investor@ces.az"
+              className="flex-1 outline-none bg-transparent text-[13.5px]"
+              style={{ color: 'var(--ces-ink)' }}
+            />
+          </div>
+        </div>
+
+        <label className={clsx('flex items-center gap-3', canManage ? 'cursor-pointer' : 'opacity-60')}>
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={!canManage}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="w-4 h-4 cursor-pointer"
+            style={{ accentColor: 'var(--ces-gold)' }}
+          />
+          <span className="text-[13px] font-semibold" style={{ color: 'var(--ces-ink)' }}>
+            Portal girişinə icazə ver
+          </span>
+        </label>
+
+        {canManage && (
+          <button
+            onClick={saveAccount}
+            disabled={savingAcc || !dirty}
+            className="ces-btn ces-btn-primary ces-btn-sm"
+          >
+            {savingAcc
+              ? <span className="w-3 h-3 rounded-full animate-spin" style={{ border: '2px solid rgba(255,255,255,.3)', borderTopColor: 'var(--ces-on-primary)' }} />
+              : <Save size={14} />}
+            Yadda saxla
+          </button>
+        )}
+      </div>
+
+      {/* Şifrə təyini */}
+      {canManage && (
+        <div style={{ borderTop: '1px solid var(--ces-line)', paddingTop: '20px' }} className="space-y-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[.14em] mb-1" style={{ color: 'var(--ces-muted)' }}>
+              Şifrə təyin et / sıfırla
+            </p>
+            <p className="text-[11.5px] mb-2.5" style={{ color: 'var(--ces-mute2)' }}>
+              İnvestora yeni giriş şifrəsi təyin edin (ən azı 8 simvol). Köhnə şifrə əvəzlənəcək.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1" style={inputStyle}>
+              <KeyRound size={15} style={{ color: 'var(--ces-mute2)' }} />
+              <input
+                type={showPwd ? 'text' : 'password'}
+                value={pwd}
+                onChange={(e) => setPwd(e.target.value)}
+                placeholder="Yeni şifrə"
+                autoComplete="new-password"
+                className="flex-1 outline-none bg-transparent text-[13.5px]"
+                style={{ color: 'var(--ces-ink)' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(s => !s)}
+                className="grid place-items-center"
+                style={{ color: 'var(--ces-mute2)' }}
+                title={showPwd ? 'Gizlət' : 'Göstər'}
+              >
+                {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <button
+              onClick={setPassword}
+              disabled={savingPwd || pwd.length < 8}
+              className="ces-btn ces-btn-outline ces-btn-sm"
+            >
+              {savingPwd
+                ? <span className="w-3 h-3 rounded-full animate-spin" style={{ border: '2px solid var(--ces-line)', borderTopColor: 'var(--ces-graphite)' }} />
+                : <KeyRound size={14} />}
+              Təyin et
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!canManage && (
+        <p className="text-[12px]" style={{ color: 'var(--ces-mute2)' }}>
+          Portal hesabını dəyişmək üçün icazəniz yoxdur.
+        </p>
+      )}
+    </div>
+  )
+}
+
 /* ═══════════════════════════════════════════════════ */
-export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete }) {
+export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete, canManageAccount, onUpdated }) {
   const [tab, setTab] = useState('info')
   const [equipment, setEquipment] = useState([])
   const [eqLoading, setEqLoading] = useState(false)
@@ -365,6 +565,11 @@ export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete 
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── PORTAL ── */}
+          {tab === 'portal' && (
+            <PortalTab investor={investor} canManage={!!canManageAccount} onUpdated={onUpdated} />
           )}
 
           {/* ── EQUIPMENT ── */}

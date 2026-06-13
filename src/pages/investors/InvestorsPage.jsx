@@ -650,6 +650,8 @@ export default function InvestorsPage() {
       {selected && (
         <InvestorSlideOver
           investor={selected}
+          canManageAccount={canEdit}
+          onUpdated={(updated) => { setSelected(updated); load() }}
           onClose={() => setSelected(null)}
           onEdit={canEdit ? () => { setModal({ open: true, editing: selected }); setSelected(null) } : undefined}
           onDelete={canDelete ? () => { handleDelete(selected); setSelected(null) } : undefined}
