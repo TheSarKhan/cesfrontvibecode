@@ -5,6 +5,7 @@ import { fmtDate } from '../../utils/date'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import NumberInput from '../../components/common/NumberInput'
 
 function EntryRow({ entry, onDelete, readOnly }) {
   return (
@@ -58,13 +59,12 @@ function AddEntryForm({ onAdd }) {
         placeholder="Növ (məs: Benzin)"
         className="flex-1 min-w-0 px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
       />
-      <input
-        type="number"
+      <NumberInput
+        decimal
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="AZN"
         min="0"
-        step="0.01"
         className="w-28 px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
       />
       <button

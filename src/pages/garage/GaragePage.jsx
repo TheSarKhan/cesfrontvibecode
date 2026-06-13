@@ -23,6 +23,7 @@ import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
+import NumberInput from '../../components/common/NumberInput'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, INSPECTION_THRESHOLDS } from '../../constants/garage'
 import { useGarageWebSocket } from '../../hooks/useGarageWebSocket'
@@ -875,10 +876,10 @@ export default function GaragePage() {
               <div>
                 <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Alış qiyməti (₼)</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="number" value={priceMin} onChange={(e) => setPriceMin(e.target.value)}
+                  <NumberInput decimal value={priceMin} onChange={(e) => setPriceMin(e.target.value)}
                     placeholder="Min" min="0"
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                  <input type="number" value={priceMax} onChange={(e) => setPriceMax(e.target.value)}
+                  <NumberInput decimal value={priceMax} onChange={(e) => setPriceMax(e.target.value)}
                     placeholder="Max" min="0"
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
@@ -917,10 +918,10 @@ export default function GaragePage() {
               <div>
                 <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Moto saatlar</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="number" value={motoMin} onChange={(e) => setMotoMin(e.target.value)}
+                  <NumberInput decimal value={motoMin} onChange={(e) => setMotoMin(e.target.value)}
                     placeholder="Min" min="0"
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                  <input type="number" value={motoMax} onChange={(e) => setMotoMax(e.target.value)}
+                  <NumberInput decimal value={motoMax} onChange={(e) => setMotoMax(e.target.value)}
                     placeholder="Max" min="0"
                     className="w-full px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>

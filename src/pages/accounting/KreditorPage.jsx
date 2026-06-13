@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import DateInput from '../../components/common/DateInput'
+import NumberInput from '../../components/common/NumberInput'
 import { clsx } from 'clsx'
 
 import { fmtDate } from '../../utils/date'
@@ -436,11 +437,10 @@ export default function KreditorPage() {
 
                                       <div>
                                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Ödəniş Məbləği</label>
-                                        <input
+                                        <NumberInput
                                           required
-                                          type="number"
+                                          decimal
                                           placeholder="Məbləğ (₼)"
-                                          step="0.01"
                                           disabled={!payForm.invoiceId}
                                           value={payForm.amount}
                                           onChange={e => setPayForm({ ...payForm, amount: e.target.value })}

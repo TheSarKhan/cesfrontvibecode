@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { X, User, Briefcase, Phone, MapPin, CreditCard, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
+import NumberInput from '../../components/common/NumberInput'
 
 const STATUSES = [
   { v: 'ACTIVE', label: 'Aktiv' },
@@ -148,7 +149,7 @@ export default function EmployeeModal({ editing, positions = [], departments = [
             </Field>
             <Field label="Aylıq əməkhaqqı (Gross) *">
               <div className="relative">
-                <input type="number" step="0.01" min="0" value={form.grossSalary} onChange={e => set('grossSalary', e.target.value)} className={ipt + ' pr-8'} />
+                <NumberInput decimal min="0" value={form.grossSalary} onChange={e => set('grossSalary', e.target.value)} className={ipt + ' pr-8'} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">₼</span>
               </div>
             </Field>
@@ -161,7 +162,7 @@ export default function EmployeeModal({ editing, positions = [], departments = [
               </select>
             </Field>
             <Field label="İllik məzuniyyət (gün)">
-              <input type="number" min="0" max="60" value={form.annualLeaveDays} onChange={e => set('annualLeaveDays', e.target.value)} className={ipt} />
+              <NumberInput min="0" max="60" value={form.annualLeaveDays} onChange={e => set('annualLeaveDays', e.target.value)} className={ipt} />
             </Field>
           </Section>
 

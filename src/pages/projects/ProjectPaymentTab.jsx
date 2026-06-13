@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { fmtDate } from '../../utils/date'
+import NumberInput from '../../components/common/NumberInput'
 
 const fmtMoney = (v) =>
   v != null ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼' : '—'
@@ -229,14 +230,13 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
                 onChange={(e) => setPaymentDate(e.target.value)}
                 className="w-32 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-orange-400"
               />
-              <input
-                type="number"
+              <NumberInput
+                decimal
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                 placeholder="Məbləğ (₼)"
                 min="0"
-                step="0.01"
                 className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
               />
               <button

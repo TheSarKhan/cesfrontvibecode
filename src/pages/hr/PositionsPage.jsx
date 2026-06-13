@@ -6,6 +6,7 @@ import { hrApi } from '../../api/hr'
 import { departmentsApi } from '../../api/departments'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import NumberInput from '../../components/common/NumberInput'
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -134,7 +135,7 @@ export default function PositionsPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Default əməkhaqqı (₼)</label>
-                <input type="number" step="0.01" value={form.defaultSalary} onChange={e => setForm({ ...form, defaultSalary: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
+                <NumberInput decimal value={form.defaultSalary} onChange={e => setForm({ ...form, defaultSalary: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Təsvir</label>

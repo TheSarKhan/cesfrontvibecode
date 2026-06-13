@@ -10,6 +10,7 @@ import {
 import { projectsApi } from '../../api/projects'
 import { accountingApi } from '../../api/accounting'
 import ProjectQaimeTab from './ProjectQaimeTab'
+import NumberInput from '../../components/common/NumberInput'
 import axiosInstance from '../../api/axios'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
@@ -625,8 +626,8 @@ function FinanceTab({ project }) {
             <input value={expKey} onChange={(e) => setExpKey(e.target.value)}
               placeholder="Növ (Benzin...)" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
               className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            <input type="number" value={expVal} onChange={(e) => setExpVal(e.target.value)}
-              placeholder="AZN" min="0" step="0.01" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
+            <NumberInput decimal value={expVal} onChange={(e) => setExpVal(e.target.value)}
+              placeholder="AZN" min="0" onKeyDown={(e) => e.key === 'Enter' && addExpense()}
               className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
             <button onClick={addExpense} disabled={addingExp}
               className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-lg transition-colors">
@@ -672,8 +673,8 @@ function FinanceTab({ project }) {
             <input value={revKey} onChange={(e) => setRevKey(e.target.value)}
               placeholder="Növ (Texnika icarəsi...)" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
               className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            <input type="number" value={revVal} onChange={(e) => setRevVal(e.target.value)}
-              placeholder="AZN" min="0" step="0.01" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
+            <NumberInput decimal value={revVal} onChange={(e) => setRevVal(e.target.value)}
+              placeholder="AZN" min="0" onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
               className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-amber-500" />
             <button onClick={addRevenue} disabled={addingRev}
               className="px-2.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors">
@@ -921,8 +922,8 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
             <span className="text-[10px] text-red-400 ml-auto">Bağlanış xərci</span>
           </div>
         ) : (
-          <input type="number" value={form.evacuationCost} onChange={(e) => set('evacuationCost', e.target.value)}
-            placeholder="0.00" min="0" step="0.01"
+          <NumberInput decimal value={form.evacuationCost} onChange={(e) => set('evacuationCost', e.target.value)}
+            placeholder="0.00" min="0"
             className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500" />
         )}
       </div>

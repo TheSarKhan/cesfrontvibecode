@@ -5,6 +5,7 @@ import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const RISK_OPTIONS = [
   { value: 'LOW', label: 'Aşağı', color: 'text-green-600' },
@@ -288,11 +289,10 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                 Reytinq (0–5)
               </label>
-              <input
-                type="number"
+              <NumberInput
+                decimal
                 min="0"
                 max="5"
-                step="0.1"
                 value={form.rating}
                 onChange={(e) => set('rating', e.target.value)}
                 placeholder="4.5"

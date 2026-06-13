@@ -11,6 +11,7 @@ import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { validateFileUpload } from '../../utils/fileValidation'
+import NumberInput from '../../components/common/NumberInput'
 
 const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent'
 const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
@@ -797,7 +798,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                       <label className={labelCls}>
                         {projectType === 'MONTHLY' ? 'Aylıq qiymət (AZN)' : 'Günlük qiymət (AZN)'}
                       </label>
-                      <input type="number" min="0" step="0.01" value={form.equipmentPrice}
+                      <NumberInput decimal min="0" value={form.equipmentPrice}
                         onChange={(e) => set('equipmentPrice', e.target.value)}
                         placeholder="0.00" className={inputCls} disabled={isReadonly} />
                     </div>
@@ -840,7 +841,7 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                           {plan?.ownershipType === 'INVESTOR' ? 'İnvestor' : 'Podratçı'}{' '}
                           {projectType === 'MONTHLY' ? 'aylıq' : 'günlük'} ödənişi
                         </label>
-                        <input type="number" min="0" step="0.01" value={form.contractorDailyRate}
+                        <NumberInput decimal min="0" value={form.contractorDailyRate}
                           onChange={(e) => set('contractorDailyRate', e.target.value)}
                           placeholder="0.00" className={inputCls} disabled={isReadonly} />
                         {contrDailyRate > 0 && autoDayCount > 0 && projectType === 'DAILY' && (
@@ -857,14 +858,14 @@ export default function CoordinatorPlanModal({ request, onClose, onSaved }) {
                     )}
                     <div>
                       <label className={labelCls}>Operator ödənişi</label>
-                      <input type="number" min="0" step="0.01" value={form.operatorPayment}
+                      <NumberInput decimal min="0" value={form.operatorPayment}
                         onChange={(e) => set('operatorPayment', e.target.value)}
                         placeholder="0.00" className={inputCls} disabled={isReadonly} />
                     </div>
                     {request.transportationRequired && (
                       <div>
                         <label className={labelCls}>Daşınma</label>
-                        <input type="number" min="0" step="0.01" value={form.transportationPrice}
+                        <NumberInput decimal min="0" value={form.transportationPrice}
                           onChange={(e) => set('transportationPrice', e.target.value)}
                           placeholder="0.00" className={inputCls} disabled={isReadonly} />
                       </div>

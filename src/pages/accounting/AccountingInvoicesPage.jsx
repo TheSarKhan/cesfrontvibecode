@@ -1,4 +1,5 @@
 import DateInput from '../../components/common/DateInput'
+import NumberInput from '../../components/common/NumberInput'
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react'
 import {
   Plus, Search, Pencil, Trash2,
@@ -1710,10 +1711,9 @@ const filteredTransactions = useMemo(() => {
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                   Məbləğ {generateModal.rec.variableAmount ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal">(dəyişə bilər)</span>}
                 </label>
-                <input
-                  type="number"
+                <NumberInput
+                  decimal
                   min="0.01"
-                  step="0.01"
                   value={generateForm.amountOverride}
                   onChange={e => setGenerateForm(f => ({ ...f, amountOverride: e.target.value }))}
                   placeholder="0.00"

@@ -7,6 +7,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useAuthStore } from '../../store/authStore'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
+import NumberInput from '../../components/common/NumberInput'
 
 const MONTHS = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
@@ -602,12 +603,12 @@ export default function ProjectQaimeTab({ project }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className={labelCls}>Standart gün</label>
-              <input type="number" value={form.standardDays} onChange={e => set('standardDays', e.target.value)}
+              <NumberInput value={form.standardDays} onChange={e => set('standardDays', e.target.value)}
                 min="0" max="31" placeholder="0" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Əlavə gün</label>
-              <input type="number" value={form.extraDays} onChange={e => set('extraDays', e.target.value)}
+              <NumberInput value={form.extraDays} onChange={e => set('extraDays', e.target.value)}
                 min="0" max="31" placeholder="0" className={inputCls} />
             </div>
           </div>
@@ -615,8 +616,8 @@ export default function ProjectQaimeTab({ project }) {
           {/* Row 3: Extra hours */}
           <div>
             <label className={labelCls}>Əlavə saat</label>
-            <input type="number" value={form.extraHours} onChange={e => set('extraHours', e.target.value)}
-              min="0" step="0.5" placeholder="0" className={inputCls} />
+            <NumberInput decimal value={form.extraHours} onChange={e => set('extraHours', e.target.value)}
+              min="0" placeholder="0" className={inputCls} />
           </div>
 
           {/* Row 3b: Overtime rate */}
@@ -640,19 +641,19 @@ export default function ProjectQaimeTab({ project }) {
           {isDaily ? (
             <div>
               <label className={labelCls}>Günlük tarif (₼)</label>
-              <input type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
-                min="0.01" step="0.01" className={inputCls} required />
+              <NumberInput decimal value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
+                min="0.01" className={inputCls} required />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelCls}>Aylıq tarif (₼)</label>
-                <input type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
-                  min="1" step="0.01" className={inputCls} required />
+                <NumberInput decimal value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
+                  min="1" className={inputCls} required />
               </div>
               <div>
                 <label className={labelCls}>Norma gün/ay</label>
-                <input type="number" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)}
+                <NumberInput value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)}
                   min="1" max="31" className={inputCls} required />
               </div>
             </div>
@@ -661,7 +662,7 @@ export default function ProjectQaimeTab({ project }) {
           {/* Norma saat/gün — hər iki növ üçün (əlavə saat hesabı) */}
           <div>
             <label className={labelCls}>Norma saat/gün</label>
-            <input type="number" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)}
+            <NumberInput value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)}
               min="1" max="24" className={inputCls} required />
           </div>
 
@@ -762,8 +763,8 @@ export default function ProjectQaimeTab({ project }) {
                     </div>
                     <div className="w-24 shrink-0">
                       <label className={labelCls}>Məbləğ (₼)</label>
-                      <input type="number" value={tr.amount} onChange={e => updateTransport(idx, 'amount', e.target.value)}
-                        min="0" step="0.01" placeholder="0.00" className={inputCls} />
+                      <NumberInput decimal value={tr.amount} onChange={e => updateTransport(idx, 'amount', e.target.value)}
+                        min="0" placeholder="0.00" className={inputCls} />
                     </div>
                     <button type="button" onClick={() => removeTransport(idx)}
                       className="mb-0.5 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">

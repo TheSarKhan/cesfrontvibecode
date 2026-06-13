@@ -8,6 +8,7 @@ import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const CATEGORIES = {
   INCOME: [
@@ -175,8 +176,8 @@ export default function TransactionModal({ editing, defaultType, onClose, onSave
           {/* Amount + Date */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Məbləğ (AZN)" required>
-              <input type="number" value={form.amount} onChange={e => set('amount', e.target.value)}
-                placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
+              <NumberInput decimal value={form.amount} onChange={e => set('amount', e.target.value)}
+                placeholder="0.00" min="0.01" className={inputCls} />
             </Field>
             <Field label="Tarix" required>
               <DateInput value={form.transactionDate} onChange={e => set('transactionDate', e.target.value)} className={inputCls} />

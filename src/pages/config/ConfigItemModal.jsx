@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { v } from '../../utils/validation'
 import { CATEGORY_LABELS } from './ConfigPage'
+import NumberInput from '../../components/common/NumberInput'
 
 const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent'
 const labelCls = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1'
@@ -199,8 +200,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
               {/* Sort order */}
               <div>
                 <label className={labelCls}>Sıra</label>
-                <input
-                  type="number"
+                <NumberInput
                   min="0"
                   value={form.sortOrder}
                   onChange={(e) => set('sortOrder', parseInt(e.target.value) || 0)}

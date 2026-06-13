@@ -4,6 +4,7 @@ import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const BUDGET_CATEGORIES = [
   { value: 'FUEL', label: 'Yanacaq' },
@@ -121,8 +122,8 @@ export default function BudgetModal({ editing, onClose, onSaved }) {
 
           {/* Amount */}
           <Field label="Planlaşdırılmış məbləğ (AZN)" required>
-            <input type="number" value={form.plannedAmount} onChange={e => set('plannedAmount', e.target.value)}
-              placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
+            <NumberInput decimal value={form.plannedAmount} onChange={e => set('plannedAmount', e.target.value)}
+              placeholder="0.00" min="0.01" className={inputCls} />
           </Field>
 
           {/* Period */}

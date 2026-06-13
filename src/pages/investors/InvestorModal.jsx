@@ -5,6 +5,7 @@ import { v } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const RISK_OPTIONS = [
   { value: 'LOW', label: 'Aşağı' },
@@ -239,7 +240,7 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
 
             <div>
               <label className={labelCls}>Reytinq (0–5)</label>
-              <input type="number" min="0" max="5" step="0.1" value={form.rating} onChange={(e) => set('rating', e.target.value)} placeholder="4.5" className={inputCls('')} />
+              <NumberInput decimal min="0" max="5" value={form.rating} onChange={(e) => set('rating', e.target.value)} placeholder="4.5" className={inputCls('')} />
             </div>
 
             <div>

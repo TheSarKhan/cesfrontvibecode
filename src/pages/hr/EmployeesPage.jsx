@@ -27,6 +27,7 @@ export default function EmployeesPage() {
   const canDelete = hasPermission('HR_MANAGEMENT', 'canDelete')
   const { confirm, ConfirmDialog } = useConfirm()
 
+
   const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 15 })
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState({ open: false, editing: null })

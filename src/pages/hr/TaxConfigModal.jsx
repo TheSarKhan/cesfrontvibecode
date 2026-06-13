@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Settings } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
+import NumberInput from '../../components/common/NumberInput'
 
 const empty = {
   year: new Date().getFullYear(),
@@ -58,7 +59,7 @@ export default function TaxConfigModal({ editing, onClose, onSaved }) {
         <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <Field label="İl">
-              <input type="number" value={form.year} onChange={(e) => set('year', Number(e.target.value))} className={ipt} />
+              <NumberInput value={form.year} onChange={(e) => set('year', Number(e.target.value))} className={ipt} />
             </Field>
             <Field label="Status">
               <label className="flex items-center gap-2 px-3 py-2">
@@ -93,7 +94,7 @@ export default function TaxConfigModal({ editing, onClose, onSaved }) {
             <Bracket form={form} set={set} thrKey="incomeTaxThreshold" belowKey="incomeTaxRateBelow" aboveKey="incomeTaxRateAbove" />
             <div className="grid grid-cols-2 gap-3 mt-3">
               <Field label="Qeyri-vergi minimumu (AZN)">
-                <input type="number" step="0.01" value={form.nonTaxableMinimum} onChange={(e) => set('nonTaxableMinimum', Number(e.target.value))} className={ipt} />
+                <NumberInput decimal value={form.nonTaxableMinimum} onChange={(e) => set('nonTaxableMinimum', Number(e.target.value))} className={ipt} />
               </Field>
               <label className="flex items-center gap-2 mt-6">
                 <input type="checkbox" checked={!!form.deductSocialFromTaxBase} onChange={(e) => set('deductSocialFromTaxBase', e.target.checked)} className="accent-violet-600" />
@@ -137,7 +138,7 @@ function Bracket({ form, set, thrKey, belowKey, aboveKey }) {
   return (
     <div className="grid grid-cols-3 gap-3">
       <Field label="Threshold (AZN)">
-        <input type="number" step="0.01" value={form[thrKey]} onChange={(e) => set(thrKey, Number(e.target.value))} className={ipt} />
+        <NumberInput decimal value={form[thrKey]} onChange={(e) => set(thrKey, Number(e.target.value))} className={ipt} />
       </Field>
       <Field label="Threshold-dan aşağı %"><PctInput value={form[belowKey]} onChange={(v) => set(belowKey, v)} /></Field>
       <Field label="Threshold-dan yuxarı %"><PctInput value={form[aboveKey]} onChange={(v) => set(aboveKey, v)} /></Field>

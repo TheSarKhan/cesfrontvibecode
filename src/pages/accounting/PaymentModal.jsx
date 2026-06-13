@@ -8,6 +8,7 @@ import { investorsApi } from '../../api/investors'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const DIRECTIONS = [
   { value: 'OUTGOING', label: 'Ödəniş (Çıxan)', desc: 'Şirkətdən xaric', color: 'border-red-500 bg-red-50 dark:bg-red-900/20', text: 'text-red-700 dark:text-red-400' },
@@ -159,8 +160,8 @@ export default function PaymentModal({ editing, onClose, onSaved }) {
           {/* Amount + Date */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Məbləğ (AZN)" required>
-              <input type="number" value={form.amount} onChange={e => set('amount', e.target.value)}
-                placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
+              <NumberInput decimal value={form.amount} onChange={e => set('amount', e.target.value)}
+                placeholder="0.00" min="0.01" className={inputCls} />
             </Field>
             <Field label="Ödəniş tarixi" required>
               <DateInput value={form.paymentDate} onChange={e => set('paymentDate', e.target.value)} className={inputCls} />

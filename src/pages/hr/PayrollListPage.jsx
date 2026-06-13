@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import NumberInput from '../../components/common/NumberInput'
 
 const STATUS_CONFIG = {
   DRAFT:    { label: 'Layihə',     cls: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -179,7 +180,7 @@ export default function PayrollListPage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">İl</label>
-                <input type="number" value={newPeriod.year} onChange={e => setNewPeriod({ ...newPeriod, year: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
+                <NumberInput value={newPeriod.year} onChange={e => setNewPeriod({ ...newPeriod, year: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Ay</label>
@@ -189,7 +190,7 @@ export default function PayrollListPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">İş günü sayı</label>
-                <input type="number" min="1" max="31" value={newPeriod.workingDaysInMonth} onChange={e => setNewPeriod({ ...newPeriod, workingDaysInMonth: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
+                <NumberInput min="1" max="31" value={newPeriod.workingDaysInMonth} onChange={e => setNewPeriod({ ...newPeriod, workingDaysInMonth: Number(e.target.value) })} className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700" />
               </div>
               <p className="text-xs text-gray-500 italic">Bütün aktiv işçilər avtomatik daxil ediləcək.</p>
             </div>

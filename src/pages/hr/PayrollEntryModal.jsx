@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { X, Calculator } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
+import NumberInput from '../../components/common/NumberInput'
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('az-AZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -150,22 +151,22 @@ export default function PayrollEntryModal({ entry, onClose, onSaved }) {
           <div className="space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Daxiletmə</h3>
             <Field label="Əməkhaqqı (Gross)">
-              <input type="number" step="0.01" value={form.baseSalary} onChange={(e) => set('baseSalary', e.target.value)} className={ipt} />
+              <NumberInput decimal value={form.baseSalary} onChange={(e) => set('baseSalary', e.target.value)} className={ipt} />
             </Field>
             <Field label={`Faktiki iş günü (max ${entry.workingDaysInMonth})`}>
-              <input type="number" min="0" max="31" value={form.actualDaysWorked} onChange={(e) => set('actualDaysWorked', e.target.value)} className={ipt} />
+              <NumberInput min="0" max="31" value={form.actualDaysWorked} onChange={(e) => set('actualDaysWorked', e.target.value)} className={ipt} />
             </Field>
             <Field label="Mükafat (Bonus)">
-              <input type="number" step="0.01" min="0" value={form.bonus} onChange={(e) => set('bonus', e.target.value)} className={ipt} />
+              <NumberInput decimal min="0" value={form.bonus} onChange={(e) => set('bonus', e.target.value)} className={ipt} />
             </Field>
             <Field label="Məzuniyyət ödənişi">
-              <input type="number" step="0.01" min="0" value={form.vacationPay} onChange={(e) => set('vacationPay', e.target.value)} className={ipt} />
+              <NumberInput decimal min="0" value={form.vacationPay} onChange={(e) => set('vacationPay', e.target.value)} className={ipt} />
             </Field>
             <Field label="Saatlıq əlavə (overtime)">
-              <input type="number" step="0.01" min="0" value={form.overtimePay} onChange={(e) => set('overtimePay', e.target.value)} className={ipt} />
+              <NumberInput decimal min="0" value={form.overtimePay} onChange={(e) => set('overtimePay', e.target.value)} className={ipt} />
             </Field>
             <Field label="Cərimə">
-              <input type="number" step="0.01" min="0" value={form.penalty} onChange={(e) => set('penalty', e.target.value)} className={ipt} />
+              <NumberInput decimal min="0" value={form.penalty} onChange={(e) => set('penalty', e.target.value)} className={ipt} />
             </Field>
             <Field label="Qeyd">
               <textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} className={ipt} />

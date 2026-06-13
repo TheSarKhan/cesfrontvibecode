@@ -8,6 +8,7 @@ import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const TYPE_OPTIONS = [
   { value: 'INCOME',             label: 'Gəlir',  desc: 'Layihədən qazanılan gəlir' },
@@ -247,8 +248,8 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
           {/* Məbləğ + Tarix */}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Məbləğ (AZN)" required>
-              <input type="number" value={form.amount} onChange={e => set('amount', e.target.value)}
-                placeholder="0.00" min="0.01" step="0.01" className={inputCls} />
+              <NumberInput decimal value={form.amount} onChange={e => set('amount', e.target.value)}
+                placeholder="0.00" min="0.01" className={inputCls} />
             </Field>
             <Field label="Tarix" required>
               <DateInput value={form.invoiceDate} onChange={e => set('invoiceDate', e.target.value)} className={inputCls} />
@@ -283,41 +284,41 @@ export default function InvoiceModal({ editing, defaultType, preProject, onClose
                     </div>
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">İl</label>
-                      <input type="number" value={form.periodYear} onChange={e => set('periodYear', e.target.value)}
+                      <NumberInput value={form.periodYear} onChange={e => set('periodYear', e.target.value)}
                         min="2020" max="2040" className={inputCls} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Standart gün</label>
-                      <input type="number" value={form.standardDays} onChange={e => set('standardDays', e.target.value)}
+                      <NumberInput value={form.standardDays} onChange={e => set('standardDays', e.target.value)}
                         min="0" max="31" placeholder="0" className={inputCls} />
                     </div>
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Əlavə gün</label>
-                      <input type="number" value={form.extraDays} onChange={e => set('extraDays', e.target.value)}
+                      <NumberInput value={form.extraDays} onChange={e => set('extraDays', e.target.value)}
                         min="0" max="31" placeholder="0" className={inputCls} />
                     </div>
                   </div>
                   <div>
                     <label className="block text-[10px] font-medium text-gray-500 mb-1">Əlavə saat</label>
-                    <input type="number" value={form.extraHours} onChange={e => set('extraHours', e.target.value)}
-                      min="0" step="0.5" placeholder="0" className={inputCls} />
+                    <NumberInput decimal value={form.extraHours} onChange={e => set('extraHours', e.target.value)}
+                      min="0" placeholder="0" className={inputCls} />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Aylıq tarif ₼</label>
-                      <input type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
-                        min="1" step="0.01" className={inputCls} />
+                      <NumberInput decimal value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)}
+                        min="1" className={inputCls} />
                     </div>
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Norma gün</label>
-                      <input type="number" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)}
+                      <NumberInput value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)}
                         min="1" max="31" className={inputCls} />
                     </div>
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-1">Norma saat</label>
-                      <input type="number" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)}
+                      <NumberInput value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)}
                         min="1" max="24" className={inputCls} />
                     </div>
                   </div>

@@ -4,6 +4,7 @@ import { accountingApi } from '../../api/accounting'
 import { expenseCategoryApi, expenseSourceApi } from '../../api/expenseConfig'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const inputCls = 'w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500'
 const selectCls = inputCls
@@ -204,10 +205,9 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
               <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                 Məbləğ <span className="text-gray-400 font-normal">(boş = dəyişkən)</span>
               </label>
-              <input
-                type="number"
+              <NumberInput
+                decimal
                 min="0"
-                step="0.01"
                 value={form.amount}
                 onChange={e => set('amount', e.target.value)}
                 placeholder="0.00"
@@ -230,8 +230,7 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
               <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
                 Ödəniş günü <span className="text-gray-400 font-normal">(1-31)</span>
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min="1"
                 max="31"
                 value={form.dayOfMonth}

@@ -4,6 +4,7 @@ import { accountingApi } from '../../api/accounting'
 import { customersApi } from '../../api/customers'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import NumberInput from '../../components/common/NumberInput'
 
 /* ─── Sabitlər ──────────────────────────────────────────────────────────────── */
 const DOC_TYPES = [
@@ -503,8 +504,7 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Əlavə №</label>
                     <div className="flex gap-2">
-                      <input
-                        type="number"
+                      <NumberInput
                         min="1"
                         value={addendumInput}
                         onChange={e => setAddendumInput(e.target.value)}
@@ -601,8 +601,8 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                             className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
                           />
                         )}
-                        <input
-                          type="number"
+                        <NumberInput
+                          decimal
                           value={line.unitPrice}
                           onChange={e => updateLine(idx, 'unitPrice', e.target.value)}
                           min="0"

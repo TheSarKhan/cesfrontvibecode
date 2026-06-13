@@ -3,6 +3,7 @@ import { X, CheckCircle, AlertCircle } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import NumberInput from '../../components/common/NumberInput'
 
 export default function ProjectCompleteModal({ project, onClose, onSaved }) {
   const { confirm, ConfirmDialog } = useConfirm()
@@ -79,13 +80,12 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
             <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
               Evakuator Xərci (AZN) <span className="text-red-500">*</span>
             </label>
-            <input
-              type="number"
+            <NumberInput
+              decimal
               value={form.evacuationCost}
               onChange={(e) => set('evacuationCost', e.target.value)}
               placeholder="0.00"
               min="0"
-              step="0.01"
               className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
           </div>
@@ -96,13 +96,12 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
                 Planlaşdırılan İş Saatı <span className="text-red-500">*</span>
               </label>
-              <input
-                type="number"
+              <NumberInput
+                decimal
                 value={form.scheduledHours}
                 onChange={(e) => set('scheduledHours', e.target.value)}
                 placeholder="0"
                 min="0"
-                step="0.5"
                 className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
@@ -110,13 +109,12 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">
                 Faktiki İş Saatı <span className="text-red-500">*</span>
               </label>
-              <input
-                type="number"
+              <NumberInput
+                decimal
                 value={form.actualHours}
                 onChange={(e) => set('actualHours', e.target.value)}
                 placeholder="0"
                 min="0"
-                step="0.5"
                 className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>

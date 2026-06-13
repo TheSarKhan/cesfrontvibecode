@@ -4,6 +4,7 @@ import { Calendar, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
 import { useAuthStore } from '../../store/authStore'
+import NumberInput from '../../components/common/NumberInput'
 
 const STATUSES = [
   { v: 'PRESENT', label: 'İşdə', cls: 'bg-green-100 text-green-700 border-green-300' },
@@ -93,7 +94,7 @@ export default function AttendancePage() {
             <option key={i} value={i + 1}>{m}</option>
           ))}
         </select>
-        <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-24 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
+        <NumberInput value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-24 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" />
 
         <div className="flex items-center gap-2 ml-auto">
           {STATUSES.map(s => (
