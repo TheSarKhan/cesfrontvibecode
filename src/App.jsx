@@ -1,0 +1,107 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import ToastCard from './components/common/Toast'
+import ProtectedRoute from './components/common/ProtectedRoute'
+import GuestRoute from './components/common/GuestRoute'
+import MainLayout from './components/layout/MainLayout'
+import LoginPage from './pages/auth/LoginPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import DashboardPage from './pages/DashboardPage'
+import RolesPage from './pages/roles/RolesPage'
+import UsersPage from './pages/users/UsersPage'
+import ContractorsPage from './pages/contractors/ContractorsPage'
+import InvestorsPage from './pages/investors/InvestorsPage'
+import GaragePage from './pages/garage/GaragePage'
+import CustomersPage from './pages/customers/CustomersPage'
+import RequestsPage from './pages/requests/RequestsPage'
+import CoordinatorPage from './pages/coordinator/CoordinatorPage'
+import ProjectManagerPage from './pages/project-manager/ProjectManagerPage'
+import DocumentCheckPage from './pages/accounting/DocumentCheckPage'
+import ProjectsPage from './pages/projects/ProjectsPage'
+import AccountingPage from './pages/accounting/AccountingPage'
+import AccountingInvoicesPage from './pages/accounting/AccountingInvoicesPage'
+import AccountingReportsPage from './pages/accounting/AccountingReportsPage'
+import DebitCreditPage from './pages/accounting/DebitCreditPage'
+import KreditorPage from './pages/accounting/KreditorPage'
+import ServiceInvoicesPage from './pages/accounting/ServiceInvoicesPage'
+import ServicePage from './pages/service/ServicePage'
+import OperatorsPage from './pages/operators/OperatorsPage'
+import ApprovalPage from './pages/approval/ApprovalPage'
+import ProfilePage from './pages/profile/ProfilePage'
+import TrashPage from './pages/trash/TrashPage'
+import AuditPage from './pages/audit/AuditPage'
+import ConfigPage from './pages/config/ConfigPage'
+import HrPage from './pages/hr/HrPage'
+import EmployeesPage from './pages/hr/EmployeesPage'
+import PayrollListPage from './pages/hr/PayrollListPage'
+import PayrollDetailPage from './pages/hr/PayrollDetailPage'
+import TaxConfigPage from './pages/hr/TaxConfigPage'
+import PositionsPage from './pages/hr/PositionsPage'
+import AttendancePage from './pages/hr/AttendancePage'
+import LeavesPage from './pages/hr/LeavesPage'
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Toaster
+        position="top-right"
+        gutter={10}
+        containerStyle={{ top: 24, right: 24 }}
+        toastOptions={{ duration: 3500 }}
+      >
+        {(t) => <ToastCard t={t} message={t.message} />}
+      </Toaster>
+      <Routes>
+        {/* Guest only */}
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Route>
+
+        {/* Protected */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="contractors" element={<ContractorsPage />} />
+            <Route path="investors" element={<InvestorsPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="roles" element={<RolesPage />} />
+            <Route path="garage" element={<GaragePage />} />
+            <Route path="requests" element={<RequestsPage />} />
+            <Route path="project-manager" element={<ProjectManagerPage />} />
+            <Route path="coordinator" element={<CoordinatorPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="accounting" element={<AccountingPage />} />
+            <Route path="accounting/invoices" element={<AccountingInvoicesPage />} />
+            <Route path="accounting/reports" element={<AccountingReportsPage />} />
+            <Route path="accounting/debitor" element={<DebitCreditPage />} />
+            <Route path="accounting/kreditor" element={<KreditorPage />} />
+            <Route path="accounting/debit-credit" element={<Navigate to="/accounting/debitor" replace />} />
+            <Route path="accounting/service-invoices" element={<ServiceInvoicesPage />} />
+            <Route path="accounting/document-checks" element={<DocumentCheckPage />} />
+            <Route path="service" element={<ServicePage />} />
+            <Route path="operators" element={<OperatorsPage />} />
+            <Route path="approval" element={<ApprovalPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="trash" element={<TrashPage />} />
+            <Route path="config" element={<ConfigPage />} />
+            <Route path="audit" element={<AuditPage />} />
+            <Route path="hr" element={<HrPage />} />
+            <Route path="hr/employees" element={<EmployeesPage />} />
+            <Route path="hr/payroll" element={<PayrollListPage />} />
+            <Route path="hr/payroll/:id" element={<PayrollDetailPage />} />
+            <Route path="hr/tax-config" element={<TaxConfigPage />} />
+            <Route path="hr/positions" element={<PositionsPage />} />
+            <Route path="hr/attendance" element={<AttendancePage />} />
+            <Route path="hr/leaves" element={<LeavesPage />} />
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
