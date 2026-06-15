@@ -3,7 +3,7 @@ import { X, Settings, Pencil, Plus } from 'lucide-react'
 import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-import { v } from '../../utils/validation'
+import { v, onlyDigits, digitKeyDown, makePasteHandler } from '../../utils/validation'
 import { clsx } from 'clsx'
 import { CATEGORY_LABELS } from './ConfigPage'
 
@@ -215,10 +215,13 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
               <Field label="Sıra">
                 <div className="ces-input">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     min="0"
                     value={form.sortOrder}
-                    onChange={(e) => set('sortOrder', parseInt(e.target.value) || 0)}
+                    onChange={(e) => set('sortOrder', parseInt(onlyDigits(e.target.value)) || 0)}
+                    onKeyDown={digitKeyDown}
+                    onPaste={makePasteHandler(onlyDigits)}
                     className="mono"
                   />
                 </div>

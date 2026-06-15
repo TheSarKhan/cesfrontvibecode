@@ -5,6 +5,7 @@ import { requestsApi } from '../../api/requests'
 import { customersApi } from '../../api/customers'
 import { PROJECT_TYPES } from '../../constants/requests'
 import ComboInput from '../../components/common/ComboInput'
+import { onlyDigits, digitKeyDown, makePasteHandler } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -441,8 +442,12 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                     </select>
                     <input
                       className="mono"
+                      type="tel"
+                      inputMode="numeric"
                       value={form.phoneLocal}
-                      onChange={(e) => set('phoneLocal', e.target.value.replace(/[^\d\s\-().]/g, ''))}
+                      onChange={(e) => set('phoneLocal', onlyDigits(e.target.value))}
+                      onKeyDown={digitKeyDown}
+                      onPaste={makePasteHandler(onlyDigits)}
                       placeholder="501234567"
                     />
                   </div>

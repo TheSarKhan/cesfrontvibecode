@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import { AlertCircle, X } from 'lucide-react'
 import { PILL_STYLES } from './_constants'
+import { onlyDigits, onlyDecimal, digitKeyDown, decimalKeyDown, makePasteHandler } from '../../utils/validation'
 
 /* ─── UI kit `.pill` ─── */
 // dot prop saxlanılır (geriyə uyğunluq üçün) amma render etmir — istifadəçi
@@ -58,8 +59,25 @@ export function Field({ label, required, error, children, hint, wide }) {
   )
 }
 
-export function Input({ value, onChange, placeholder, type = 'text', error, prefix, suffix, autoFocus, min, max, step, maxLength, disabled, mono }) {
+export function Input({ value, onChange, placeholder, type = 'text', error, prefix, suffix, autoFocus, min, max, step, maxLength, disabled, mono, onKeyDown, onPaste, inputMode }) {
   const [focused, setFocused] = useState(false)
+
+  const isNumber = type === 'number'
+  const isDecimal = isNumber && step !== undefined && String(step) !== '1'
+  const renderType = isNumber ? 'text' : type
+  const resolvedInputMode = inputMode ?? (isDecimal ? 'decimal' : isNumber ? 'numeric' : undefined)
+
+  const sanitize = isDecimal ? onlyDecimal : isNumber ? onlyDigits : null
+  const handleChange = (e) => {
+    if (!onChange) return
+    if (!sanitize) { onChange(e); return }
+    const cleaned = sanitize(e.target.value)
+    if (cleaned === e.target.value) onChange(e)
+    else onChange({ ...e, target: { ...e.target, value: cleaned, name: e.target.name } })
+  }
+  const resolvedKeyDown = onKeyDown ?? (isDecimal ? decimalKeyDown : isNumber ? digitKeyDown : undefined)
+  const resolvedPaste = onPaste ?? (sanitize ? makePasteHandler(sanitize) : undefined)
+
   return (
     <div
       className="flex items-center px-[13px] transition-all"
@@ -81,9 +99,12 @@ export function Input({ value, onChange, placeholder, type = 'text', error, pref
         </span>
       )}
       <input
-        type={type}
+        type={renderType}
+        inputMode={resolvedInputMode}
         value={value ?? ''}
-        onChange={onChange}
+        onChange={handleChange}
+        onKeyDown={resolvedKeyDown}
+        onPaste={resolvedPaste}
         placeholder={placeholder}
         autoFocus={autoFocus}
         min={min}

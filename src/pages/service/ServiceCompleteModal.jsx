@@ -5,6 +5,7 @@ import { accountingApi } from '../../api/accounting'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 const inputCls = 'w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500'
 
@@ -126,13 +127,12 @@ export default function ServiceCompleteModal({ record, mode = 'repair', onClose,
                   {!isInspection && <span className="text-red-500 ml-1">*</span>}
                   {isInspection && <span className="text-gray-400 font-normal ml-1">(opsional)</span>}
                 </label>
-                <input
-                  type="number"
+                <NumberInput
+                  decimal
                   value={cost}
                   onChange={e => setCost(e.target.value)}
                   placeholder="0.00"
                   min="0"
-                  step="0.01"
                   className={inputCls}
                   autoFocus={!isInspection}
                 />

@@ -7,6 +7,8 @@ import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
+import { onlyDigits } from '../../utils/validation'
 
 const INSPECTION_TYPES = [
   'Texniki baxış',
@@ -246,8 +248,8 @@ export default function ServiceModal({ editing, initialEquipmentId, recordType =
             </Field>
             {!isInspection && (
               <Field label="Xərc (AZN)">
-                <input type="number" value={form.cost} onChange={e => set('cost', e.target.value)}
-                  placeholder="0.00" min="0" step="0.01" className={inputCls} />
+                <NumberInput decimal value={form.cost} onChange={e => set('cost', e.target.value)}
+                  placeholder="0.00" min="0" className={inputCls} />
               </Field>
             )}
           </div>
@@ -256,11 +258,10 @@ export default function ServiceModal({ editing, initialEquipmentId, recordType =
             label="Motosaat"
             hint={currentEquipment ? `Cari motosaat: ${minMoto}. Azaltmaq olmaz.` : 'Texnikanın motosaatı'}
           >
-            <input
-              type="number"
+            <NumberInput
               value={form.odometer}
               onChange={e => {
-                const val = parseInt(e.target.value) || 0
+                const val = parseInt(onlyDigits(e.target.value)) || 0
                 if (val >= minMoto) set('odometer', val)
                 else toast.error(`Motosaat ${minMoto}-dən az ola bilməz`)
               }}

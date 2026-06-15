@@ -5,6 +5,7 @@ import { hrApi } from '../../api/hr'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { ModalShell, Field, Input, Select, Pill } from './_shared'
 import { fmtMoney } from './_constants'
+import { onlyDecimal, decimalKeyDown, makePasteHandler } from '../../utils/validation'
 
 const APPLIES = [
   { v: 'ISCI', label: 'İşçi' },
@@ -485,12 +486,17 @@ function BracketTable({ title, rows, onCell, onAdd, onRemove, readOnly }) {
 function Cell({ value, onChange, readOnly, placeholder }) {
   return (
     <input
-      type="number"
-      step="0.01"
+      type="text"
+      inputMode="decimal"
       value={value ?? ''}
       placeholder={placeholder}
       disabled={readOnly}
-      onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+      onChange={(e) => {
+        const v = onlyDecimal(e.target.value)
+        onChange(v === '' ? '' : Number(v))
+      }}
+      onKeyDown={decimalKeyDown}
+      onPaste={makePasteHandler(onlyDecimal)}
       className="w-full px-2 py-1.5 text-[12.5px] num outline-none"
       style={{ background: readOnly ? 'var(--ces-graphite-50)' : 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '7px', color: 'var(--ces-ink)' }}
     />
@@ -519,8 +525,13 @@ function UpperCell({ value, onChange, readOnly }) {
   return (
     <div className="flex items-center gap-1">
       <input
-        type="number" step="0.01" value={value ?? ''} placeholder="rəqəm və ya ∞" disabled={readOnly}
-        onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+        type="text" inputMode="decimal" value={value ?? ''} placeholder="rəqəm və ya ∞" disabled={readOnly}
+        onChange={(e) => {
+          const v = onlyDecimal(e.target.value)
+          onChange(v === '' ? '' : Number(v))
+        }}
+        onKeyDown={decimalKeyDown}
+        onPaste={makePasteHandler(onlyDecimal)}
         className="w-full px-2 py-1.5 text-[12.5px] num outline-none"
         style={{ background: readOnly ? 'var(--ces-graphite-50)' : 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '7px', color: 'var(--ces-ink)' }}
       />
@@ -539,11 +550,16 @@ function PctCell({ value, onChange, readOnly }) {
   const display = value === '' || value === null || value === undefined ? '' : +(Number(value) * 100).toFixed(4)
   return (
     <input
-      type="number"
-      step="0.01"
+      type="text"
+      inputMode="decimal"
       value={display}
       disabled={readOnly}
-      onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value) / 100)}
+      onChange={(e) => {
+        const v = onlyDecimal(e.target.value)
+        onChange(v === '' ? 0 : Number(v) / 100)
+      }}
+      onKeyDown={decimalKeyDown}
+      onPaste={makePasteHandler(onlyDecimal)}
       className="w-full px-2 py-1.5 text-[12.5px] num outline-none"
       style={{ background: readOnly ? 'var(--ces-graphite-50)' : 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '7px', color: 'var(--ces-ink)' }}
     />

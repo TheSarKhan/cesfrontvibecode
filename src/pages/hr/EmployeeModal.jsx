@@ -3,6 +3,7 @@ import { X, User, Briefcase, Phone, MapPin, CreditCard, FileText } from 'lucide-
 import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
 import NumberInput from '../../components/common/NumberInput'
+import { onlyPhone, phoneKeyDown, makePasteHandler } from '../../utils/validation'
 
 const STATUSES = [
   { v: 'ACTIVE', label: 'Aktiv' },
@@ -121,7 +122,13 @@ export default function EmployeeModal({ editing, positions = [], departments = [
               <input value={form.fatherName} onChange={e => set('fatherName', e.target.value)} className={ipt} />
             </Field>
             <Field label="FİN">
-              <input value={form.fin} onChange={e => set('fin', e.target.value.toUpperCase())} maxLength={7} className={ipt} />
+              <input
+                value={form.fin}
+                onChange={e => set('fin', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                maxLength={7}
+                className={ipt}
+                placeholder="7 simvol (hərf/rəqəm)"
+              />
             </Field>
             <Field label="Cinsi">
               <select value={form.gender} onChange={e => set('gender', e.target.value)} className={ipt}>
@@ -168,7 +175,16 @@ export default function EmployeeModal({ editing, positions = [], departments = [
 
           <Section icon={Phone} title="Əlaqə">
             <Field label="Telefon">
-              <input value={form.phone} onChange={e => set('phone', e.target.value)} className={ipt} placeholder="+994 50 123 45 67" />
+              <input
+                type="tel"
+                inputMode="tel"
+                value={form.phone}
+                onChange={e => set('phone', onlyPhone(e.target.value))}
+                onKeyDown={phoneKeyDown}
+                onPaste={makePasteHandler(onlyPhone)}
+                className={ipt}
+                placeholder="+994501234567"
+              />
             </Field>
             <Field label="Email">
               <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={ipt} />
@@ -183,7 +199,13 @@ export default function EmployeeModal({ editing, positions = [], departments = [
               <input value={form.bankName} onChange={e => set('bankName', e.target.value)} className={ipt} />
             </Field>
             <Field label="IBAN / Hesab nömrəsi">
-              <input value={form.bankAccount} onChange={e => set('bankAccount', e.target.value)} className={ipt} placeholder="AZ12NABZ..." />
+              <input
+                value={form.bankAccount}
+                onChange={e => set('bankAccount', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                maxLength={34}
+                className={ipt}
+                placeholder="AZ12NABZ..."
+              />
             </Field>
           </Section>
 

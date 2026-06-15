@@ -19,6 +19,78 @@ export const onlyDecimal = (val) => {
   return t
 }
 
+// Telefon üçün: yalnız rəqəm və başlanğıcda + qəbul edilir
+export const onlyPhone = (val) => {
+  const s = String(val ?? '')
+  const hasPlus = s.trimStart().startsWith('+')
+  const digits = s.replace(/\D/g, '')
+  return (hasPlus ? '+' : '') + digits
+}
+
+const CONTROL_KEYS = new Set([
+  'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+  'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+  'Home', 'End',
+])
+
+const isControlKey = (e) => e.ctrlKey || e.metaKey || e.altKey || CONTROL_KEYS.has(e.key)
+
+// Yalnız tam ədəd qəbul edən sahələr üçün keyDown filtri
+export const digitKeyDown = (e) => {
+  if (isControlKey(e)) return
+  if (!/^\d$/.test(e.key)) e.preventDefault()
+}
+
+// Onluq ədəd qəbul edən sahələr üçün keyDown filtri (vergül nöqtəyə çevrilir)
+export const decimalKeyDown = (e) => {
+  if (isControlKey(e)) return
+  if (e.key === ',') {
+    e.preventDefault()
+    const el = e.target
+    if (!el.value.includes('.')) {
+      const start = el.selectionStart ?? el.value.length
+      const end   = el.selectionEnd   ?? el.value.length
+      const next  = el.value.slice(0, start) + '.' + el.value.slice(end)
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+      setter.call(el, next)
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    return
+  }
+  if (e.key === '.') {
+    if (e.target.value.includes('.')) e.preventDefault()
+    return
+  }
+  if (!/^\d$/.test(e.key)) e.preventDefault()
+}
+
+// Telefon sahəsi üçün keyDown filtri (yalnız rəqəm və başlanğıcda +)
+export const phoneKeyDown = (e) => {
+  if (isControlKey(e)) return
+  if (e.key === '+') {
+    const el = e.target
+    const start = el.selectionStart ?? 0
+    if (start !== 0 || el.value.includes('+')) e.preventDefault()
+    return
+  }
+  if (!/^\d$/.test(e.key)) e.preventDefault()
+}
+
+// Paste hadisəsi üçün ümumi sanitizer
+export const makePasteHandler = (sanitize) => (e) => {
+  const pasted = e.clipboardData?.getData('text') ?? ''
+  const el = e.target
+  const start = el.selectionStart ?? el.value.length
+  const end   = el.selectionEnd   ?? el.value.length
+  const next  = sanitize(el.value.slice(0, start) + pasted + el.value.slice(end))
+  if (next !== el.value) {
+    e.preventDefault()
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+    setter.call(el, next)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+}
+
 export const v = {
   required: (val, msg = 'Bu sahə tələb olunur') =>
     !val?.trim() ? msg : null,

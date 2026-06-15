@@ -13,6 +13,7 @@ import {
   Plus,
 } from 'lucide-react'
 import ActivityFeed from '../components/common/ActivityFeed'
+import NumberInput from '../components/common/NumberInput'
 import RevenueBarChart from '../components/common/RevenueBarChart'
 import ProjectStatusChart from '../components/common/ProjectStatusChart'
 import axiosInstance from '../api/axios'
@@ -665,8 +666,8 @@ function GoalTracker({ summary }) {
                 boxShadow: '0 0 0 3px var(--ces-gold-100)',
               }}
             >
-              <input
-                type="number"
+              <NumberInput
+                decimal
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 placeholder="Hədəf məbləğ"

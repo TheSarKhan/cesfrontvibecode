@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, TrendingUp, Pencil, AlertCircle } from 'lucide-react'
 import { investorsApi } from '../../api/investors'
-import { v } from '../../utils/validation'
+import { v, onlyDigits, onlyPhone, digitKeyDown, decimalKeyDown, phoneKeyDown, makePasteHandler } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -54,7 +54,7 @@ function Field({ label, required, error, children, hint }) {
   )
 }
 
-function Input({ value, onChange, placeholder, type = 'text', error, prefix, suffix, autoFocus }) {
+function Input({ value, onChange, placeholder, type = 'text', error, prefix, suffix, autoFocus, onKeyDown, onPaste, inputMode, maxLength }) {
   const [focused, setFocused] = useState(false)
   return (
     <div
@@ -89,6 +89,10 @@ function Input({ value, onChange, placeholder, type = 'text', error, prefix, suf
         type={type}
         value={value}
         onChange={onChange}
+        onKeyDown={onKeyDown}
+        onPaste={onPaste}
+        inputMode={inputMode}
+        maxLength={maxLength}
         placeholder={placeholder}
         autoFocus={autoFocus}
         onFocus={() => setFocused(true)}
@@ -340,7 +344,11 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
             <Field label="VÖEN" error={errors.voen} hint="10 rəqəmli vergi ödəyici nömrəsi">
               <Input
                 value={form.voen}
-                onChange={(e) => set('voen', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onChange={(e) => set('voen', onlyDigits(e.target.value).slice(0, 10))}
+                onKeyDown={digitKeyDown}
+                onPaste={makePasteHandler((v) => onlyDigits(v).slice(0, 10))}
+                inputMode="numeric"
+                maxLength={10}
                 placeholder="1234567890"
                 error={errors.voen}
                 prefix="AZ"
@@ -359,7 +367,11 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
               <Field label="Telefon" error={errors.contactPhone}>
                 <Input
                   value={form.contactPhone}
-                  onChange={(e) => set('contactPhone', e.target.value)}
+                  onChange={(e) => set('contactPhone', onlyPhone(e.target.value))}
+                  onKeyDown={phoneKeyDown}
+                  onPaste={makePasteHandler(onlyPhone)}
+                  inputMode="tel"
+                  type="tel"
                   placeholder="+994501234567"
                   error={errors.contactPhone}
                 />
@@ -427,9 +439,10 @@ export default function InvestorModal({ editing, onClose, onSaved }) {
 
             <Field label="Reytinq" hint="0.0 – 5.0 arası dəyər">
               <Input
-                type="number"
                 value={form.rating}
                 onChange={(e) => set('rating', e.target.value)}
+                onKeyDown={decimalKeyDown}
+                inputMode="decimal"
                 placeholder="4.5"
                 suffix="/ 5"
               />

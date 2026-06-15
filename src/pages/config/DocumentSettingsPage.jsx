@@ -3,6 +3,34 @@ import { Save, RefreshCw, Plus, Trash2, Pencil, FileText } from 'lucide-react'
 import { configApi } from '../../api/config'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
+import {
+  onlyDigits, onlyDecimal, onlyPhone,
+  digitKeyDown, decimalKeyDown, phoneKeyDown, makePasteHandler,
+} from '../../utils/validation'
+
+const fieldFilter = (key) => {
+  if (key === 'VOEN') return { sanitize: (v) => onlyDigits(v).slice(0, 10), keyDown: digitKeyDown, inputMode: 'numeric', maxLength: 10 }
+  if (key === 'PHONE') return { sanitize: onlyPhone, keyDown: phoneKeyDown, inputMode: 'tel' }
+  if (key === 'DEFAULT') return { sanitize: onlyDecimal, keyDown: decimalKeyDown, inputMode: 'decimal' }
+  return null
+}
+const bankFilter = (key) => {
+  if (key === 'BANK_CODE') return { sanitize: onlyDigits, keyDown: digitKeyDown, inputMode: 'numeric' }
+  if (key === 'IBAN' || key === 'CORRESPONDENT_ACCOUNT' || key === 'SWIFT') {
+    const san = (v) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    return {
+      sanitize: san,
+      keyDown: (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return
+        const ctrl = ['Backspace','Delete','Tab','Escape','Enter','ArrowLeft','ArrowRight','Home','End']
+        if (ctrl.includes(e.key)) return
+        if (!/^[a-zA-Z0-9]$/.test(e.key)) e.preventDefault()
+      },
+      inputMode: 'text',
+    }
+  }
+  return null
+}
 
 const SECTIONS = [
   {
@@ -220,14 +248,22 @@ export default function DocumentSettingsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0">
                 {section.fields.map(field => {
                   const k = mk(section.category, field.key)
+                  const f = fieldFilter(field.key)
                   return (
                     <div key={field.key} className="ces-field">
                       <label>{field.label}</label>
                       <div className="ces-input">
                         <input
                           type="text"
+                          inputMode={f?.inputMode}
+                          maxLength={f?.maxLength}
                           value={values[k] ?? ''}
-                          onChange={e => setValues(v => ({ ...v, [k]: e.target.value }))}
+                          onChange={e => setValues(v => ({
+                            ...v,
+                            [k]: f ? f.sanitize(e.target.value) : e.target.value,
+                          }))}
+                          onKeyDown={f?.keyDown}
+                          onPaste={f ? makePasteHandler(f.sanitize) : undefined}
                           placeholder={field.placeholder}
                         />
                       </div>
@@ -257,20 +293,29 @@ export default function DocumentSettingsPage() {
                   {editingBankIdx === banks.length ? 'Yeni Bank' : 'Bankı Redaktə Et'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-0">
-                  {BANK_FIELDS.map(field => (
-                    <div key={field.key} className="ces-field">
-                      <label>{field.label}</label>
-                      <div className="ces-input">
-                        <input
-                          type="text"
-                          value={bankForm[field.key] || ''}
-                          onChange={e => setBankForm(f => ({ ...f, [field.key]: e.target.value }))}
-                          placeholder={field.label}
-                          className={['BANK_CODE', 'SWIFT', 'IBAN', 'CORRESPONDENT_ACCOUNT'].includes(field.key) ? 'mono' : ''}
-                        />
+                  {BANK_FIELDS.map(field => {
+                    const f = bankFilter(field.key)
+                    return (
+                      <div key={field.key} className="ces-field">
+                        <label>{field.label}</label>
+                        <div className="ces-input">
+                          <input
+                            type="text"
+                            inputMode={f?.inputMode}
+                            value={bankForm[field.key] || ''}
+                            onChange={e => setBankForm(bf => ({
+                              ...bf,
+                              [field.key]: f ? f.sanitize(e.target.value) : e.target.value,
+                            }))}
+                            onKeyDown={f?.keyDown}
+                            onPaste={f ? makePasteHandler(f.sanitize) : undefined}
+                            placeholder={field.label}
+                            className={['BANK_CODE', 'SWIFT', 'IBAN', 'CORRESPONDENT_ACCOUNT'].includes(field.key) ? 'mono' : ''}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <div className="flex gap-2 justify-end mt-2">
                   <button

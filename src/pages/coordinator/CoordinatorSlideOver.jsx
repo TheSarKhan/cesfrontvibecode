@@ -13,6 +13,7 @@ import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/reques
 import { fmtDateTime } from '../../utils/date'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import ReasonPromptModal from '../../components/common/ReasonPromptModal'
+import NumberInput from '../../components/common/NumberInput'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentDetailsModal from '../../components/common/EquipmentDetailsModal'
 
@@ -354,9 +355,8 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0 flex items-center gap-1">
                       <DollarSign size={11} /> Ödəyəcəyimiz qiymət/{unitLabel}:
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <NumberInput
+                      decimal
                       min="0"
                       value={row.negotiatedPrice}
                       onChange={(e) => updateRowPrice(idx, e.target.value)}
@@ -382,9 +382,8 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
           <label className={labelCls}>
             Texnika qiyməti/{unitLabel} — sifarişçiyə təklif (₼)
           </label>
-          <input
-            type="number"
-            step="0.01"
+          <NumberInput
+            decimal
             min="0"
             value={customerEquipmentPrice}
             onChange={(e) => setCustomerEquipmentPrice(e.target.value)}
@@ -399,9 +398,8 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
                 <Truck size={10} className="inline mr-0.5" />
                 Daşınma qiyməti — birdəfəlik (₼)
               </label>
-              <input
-                type="number"
-                step="0.01"
+              <NumberInput
+                decimal
                 min="0"
                 value={transportationPrice}
                 onChange={(e) => setTransportationPrice(e.target.value)}

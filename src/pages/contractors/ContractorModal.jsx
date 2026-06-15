@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { X, HardHat, Pencil } from 'lucide-react'
 import { contractorsApi } from '../../api/contractors'
-import { v } from '../../utils/validation'
+import { v, onlyDigits } from '../../utils/validation'
+import NumberInput from '../../components/common/NumberInput'
+import PhoneInput from '../../components/common/PhoneInput'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -184,10 +186,10 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
             {/* VOEN */}
             <div>
               <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-1.5">VÖEN</label>
-              <input
-                type="text"
+              <NumberInput
                 value={form.voen}
-                onChange={(e) => set('voen', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onChange={(e) => set('voen', onlyDigits(e.target.value).slice(0, 10))}
+                maxLength={10}
                 placeholder="1234567890"
                 className={inputCls('voen')}
               />
@@ -210,8 +212,7 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
             {/* Phone */}
             <div>
               <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-1.5">Telefon</label>
-              <input
-                type="text"
+              <PhoneInput
                 value={form.phone}
                 onChange={(e) => set('phone', e.target.value)}
                 placeholder="+994501234567"
@@ -293,11 +294,8 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
               <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-1.5">
                 Reytinq (0–5)
               </label>
-              <input
-                type="number"
-                min="0"
-                max="5"
-                step="0.1"
+              <NumberInput
+                decimal
                 value={form.rating}
                 onChange={(e) => set('rating', e.target.value)}
                 placeholder="4.5"

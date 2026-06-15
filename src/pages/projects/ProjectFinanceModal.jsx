@@ -5,6 +5,7 @@ import { fmtDate } from '../../utils/date'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 function EntryRow({ entry, onDelete, readOnly }) {
   return (
@@ -64,14 +65,13 @@ function AddEntryForm({ onAdd, accentColor }) {
         />
       </div>
       <div className="ces-input sm" style={{ width: 100, flexShrink: 0 }}>
-        <input
+        <NumberInput
+          decimal
           className="mono"
-          type="number"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="AZN"
           min="0"
-          step="0.01"
           onKeyDown={(e) => e.key === 'Enter' && submit()}
         />
       </div>

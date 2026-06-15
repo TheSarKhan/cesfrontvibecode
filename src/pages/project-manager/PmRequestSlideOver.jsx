@@ -12,6 +12,7 @@ import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
 import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentCard from '../../components/common/EquipmentCard'
@@ -812,9 +813,8 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
                 <DollarSign size={10} className="inline mr-0.5" />
                 Razılaşdırılmış texnika qiyməti/{agreedUnitLabel} (₼)
               </label>
-              <input
-                type="number"
-                step="0.01"
+              <NumberInput
+                decimal
                 min="0"
                 value={agreedEquipmentPrice}
                 onChange={(e) => setAgreedEquipmentPrice(e.target.value)}
@@ -828,9 +828,8 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
                 <Truck size={10} className="inline mr-0.5" />
                 Daşınma qiyməti — birdəfəlik (₼)
               </label>
-              <input
-                type="number"
-                step="0.01"
+              <NumberInput
+                decimal
                 min="0"
                 value={agreedTransportPrice}
                 onChange={(e) => setAgreedTransportPrice(e.target.value)}

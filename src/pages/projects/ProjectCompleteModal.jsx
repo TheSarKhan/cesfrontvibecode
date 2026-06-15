@@ -4,6 +4,7 @@ import { projectsApi } from '../../api/projects'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import NumberInput from '../../components/common/NumberInput'
 
 export default function ProjectCompleteModal({ project, onClose, onSaved }) {
   useEscapeKey(onClose)
@@ -84,14 +85,13 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
           <div className="ces-field">
             <label>Evakuator xərci (AZN) <span className="req">*</span></label>
             <div className="ces-input">
-              <input
+              <NumberInput
+                decimal
                 className="mono"
-                type="number"
                 value={form.evacuationCost}
                 onChange={(e) => set('evacuationCost', e.target.value)}
                 placeholder="0.00"
                 min="0"
-                step="0.01"
               />
             </div>
           </div>
@@ -101,28 +101,26 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
             <div className="ces-field">
               <label>Plan saat <span className="req">*</span></label>
               <div className="ces-input">
-                <input
+                <NumberInput
+                  decimal
                   className="mono"
-                  type="number"
                   value={form.scheduledHours}
                   onChange={(e) => set('scheduledHours', e.target.value)}
                   placeholder="0"
                   min="0"
-                  step="0.5"
                 />
               </div>
             </div>
             <div className="ces-field">
               <label>Faktiki saat <span className="req">*</span></label>
               <div className="ces-input">
-                <input
+                <NumberInput
+                  decimal
                   className="mono"
-                  type="number"
                   value={form.actualHours}
                   onChange={(e) => set('actualHours', e.target.value)}
                   placeholder="0"
                   min="0"
-                  step="0.5"
                 />
               </div>
             </div>

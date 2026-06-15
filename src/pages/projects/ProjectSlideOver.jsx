@@ -13,6 +13,7 @@ import axiosInstance from '../../api/axios'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
+import NumberInput from '../../components/common/NumberInput'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import PrintButton from '../../components/common/PrintButton'
@@ -583,13 +584,13 @@ function FinanceTab({ project }) {
               />
             </div>
             <div className="ces-input sm" style={{ width: 90 }}>
-              <input
+              <NumberInput
+                decimal
                 className="mono"
-                type="number"
                 value={expVal}
                 onChange={(e) => setExpVal(e.target.value)}
                 placeholder="AZN"
-                min="0" step="0.01"
+                min="0"
                 onKeyDown={(e) => e.key === 'Enter' && addExpense()}
               />
             </div>
@@ -649,13 +650,13 @@ function FinanceTab({ project }) {
               />
             </div>
             <div className="ces-input sm" style={{ width: 90 }}>
-              <input
+              <NumberInput
+                decimal
                 className="mono"
-                type="number"
                 value={revVal}
                 onChange={(e) => setRevVal(e.target.value)}
                 placeholder="AZN"
-                min="0" step="0.01"
+                min="0"
                 onKeyDown={(e) => e.key === 'Enter' && addRevenue()}
               />
             </div>
@@ -928,13 +929,13 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
           </div>
         ) : (
           <div className="ces-input">
-            <input
+            <NumberInput
+              decimal
               className="mono"
-              type="number"
               value={form.evacuationCost}
               onChange={(e) => set('evacuationCost', e.target.value)}
               placeholder="0.00"
-              min="0" step="0.01"
+              min="0"
             />
           </div>
         )}

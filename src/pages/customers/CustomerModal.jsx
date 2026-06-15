@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Building2, Pencil } from 'lucide-react'
 import { customersApi } from '../../api/customers'
-import { v } from '../../utils/validation'
+import { v, onlyDigits, onlyPhone, digitKeyDown, phoneKeyDown, makePasteHandler } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -190,7 +190,16 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
               </Field>
               <Field label="VÖEN" error={errors.voen}>
                 <div className={inputWrap('voen')}>
-                  <input className="mono" value={form.voen} onChange={(e) => set('voen', e.target.value)} placeholder="1234567890" />
+                  <input
+                    className="mono"
+                    value={form.voen}
+                    onChange={(e) => set('voen', onlyDigits(e.target.value).slice(0, 10))}
+                    onKeyDown={digitKeyDown}
+                    onPaste={makePasteHandler((v) => onlyDigits(v).slice(0, 10))}
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="1234567890"
+                  />
                 </div>
               </Field>
               <Field label="Ünvan" error={errors.address}>
@@ -214,7 +223,15 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
               </Field>
               <Field label="Əlaqə nömrəsi" error={errors.supplierPhone}>
                 <div className={inputWrap('supplierPhone')}>
-                  <input value={form.supplierPhone} onChange={(e) => set('supplierPhone', e.target.value)} placeholder="+994501234567" />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={form.supplierPhone}
+                    onChange={(e) => set('supplierPhone', onlyPhone(e.target.value))}
+                    onKeyDown={phoneKeyDown}
+                    onPaste={makePasteHandler(onlyPhone)}
+                    placeholder="+994501234567"
+                  />
                 </div>
               </Field>
             </div>
@@ -228,7 +245,15 @@ export default function CustomerModal({ editing, onClose, onSaved }) {
               </Field>
               <Field label="Əlaqə nömrəsi" error={errors.officeContactPhone}>
                 <div className={inputWrap('officeContactPhone')}>
-                  <input value={form.officeContactPhone} onChange={(e) => set('officeContactPhone', e.target.value)} placeholder="+994501234567" />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={form.officeContactPhone}
+                    onChange={(e) => set('officeContactPhone', onlyPhone(e.target.value))}
+                    onKeyDown={phoneKeyDown}
+                    onPaste={makePasteHandler(onlyPhone)}
+                    placeholder="+994501234567"
+                  />
                 </div>
               </Field>
             </div>

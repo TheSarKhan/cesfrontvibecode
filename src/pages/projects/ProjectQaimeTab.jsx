@@ -7,6 +7,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useAuthStore } from '../../store/authStore'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
+import NumberInput from '../../components/common/NumberInput'
 
 const MONTHS = [
   'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
@@ -574,13 +575,13 @@ export default function ProjectQaimeTab({ project }) {
             <div>
               <label style={fieldLabel}>Standart gün</label>
               <div className="ces-input sm">
-                <input className="mono" type="number" value={form.standardDays} onChange={e => set('standardDays', e.target.value)} min="0" max="31" placeholder="0" />
+                <NumberInput className="mono" value={form.standardDays} onChange={e => set('standardDays', e.target.value)} min="0" max="31" placeholder="0" />
               </div>
             </div>
             <div>
               <label style={fieldLabel}>Əlavə gün</label>
               <div className="ces-input sm">
-                <input className="mono" type="number" value={form.extraDays} onChange={e => set('extraDays', e.target.value)} min="0" max="31" placeholder="0" />
+                <NumberInput className="mono" value={form.extraDays} onChange={e => set('extraDays', e.target.value)} min="0" max="31" placeholder="0" />
               </div>
             </div>
           </div>
@@ -589,7 +590,7 @@ export default function ProjectQaimeTab({ project }) {
           <div>
             <label style={fieldLabel}>Əlavə saat</label>
             <div className="ces-input sm">
-              <input className="mono" type="number" value={form.extraHours} onChange={e => set('extraHours', e.target.value)} min="0" step="0.5" placeholder="0" />
+              <NumberInput decimal className="mono" value={form.extraHours} onChange={e => set('extraHours', e.target.value)} min="0" placeholder="0" />
             </div>
           </div>
 
@@ -628,7 +629,7 @@ export default function ProjectQaimeTab({ project }) {
               <label style={fieldLabel}>Günlük tarif (₼)</label>
               {ratesUnlocked ? (
                 <div className="ces-input sm">
-                  <input className="mono" type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="0.01" step="0.01" required />
+                  <NumberInput decimal className="mono" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="0.01" required />
                 </div>
               ) : (
                 <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
@@ -642,7 +643,7 @@ export default function ProjectQaimeTab({ project }) {
                 <label style={fieldLabel}>Aylıq tarif (₼)</label>
                 {ratesUnlocked ? (
                   <div className="ces-input sm">
-                    <input className="mono" type="number" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="1" step="0.01" required />
+                    <NumberInput decimal className="mono" value={form.monthlyRate} onChange={e => set('monthlyRate', e.target.value)} min="1" required />
                   </div>
                 ) : (
                   <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
@@ -654,7 +655,7 @@ export default function ProjectQaimeTab({ project }) {
                 <label style={fieldLabel}>Norma gün/ay</label>
                 {ratesUnlocked ? (
                   <div className="ces-input sm">
-                    <input className="mono" type="number" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)} min="1" max="31" required />
+                    <NumberInput className="mono" value={form.workingDaysInMonth} onChange={e => set('workingDaysInMonth', e.target.value)} min="1" max="31" required />
                   </div>
                 ) : (
                   <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
@@ -669,7 +670,7 @@ export default function ProjectQaimeTab({ project }) {
             <label style={fieldLabel}>Norma saat/gün</label>
             {ratesUnlocked ? (
               <div className="ces-input sm">
-                <input className="mono" type="number" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)} min="1" max="24" required />
+                <NumberInput className="mono" value={form.workingHoursPerDay} onChange={e => set('workingHoursPerDay', e.target.value)} min="1" max="24" required />
               </div>
             ) : (
               <div style={{ padding: '8px 12px', background: 'var(--ces-graphite-50)', border: '1px solid var(--ces-line)', borderRadius: 10, fontSize: 13, color: 'var(--ces-ink)', fontWeight: 600 }} className="mono">
@@ -784,7 +785,7 @@ export default function ProjectQaimeTab({ project }) {
                     <div style={{ width: 90, flexShrink: 0 }}>
                       <label style={fieldLabel}>Məbləğ</label>
                       <div className="ces-input sm">
-                        <input className="mono" type="number" value={tr.amount} onChange={e => updateTransport(idx, 'amount', e.target.value)} min="0" step="0.01" placeholder="0.00" />
+                        <NumberInput decimal className="mono" value={tr.amount} onChange={e => updateTransport(idx, 'amount', e.target.value)} min="0" placeholder="0.00" />
                       </div>
                     </div>
                     <button type="button" onClick={() => removeTransport(idx)} className="ces-row-act danger" style={{ marginBottom: 4 }}>

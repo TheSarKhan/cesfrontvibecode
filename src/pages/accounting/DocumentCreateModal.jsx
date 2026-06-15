@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { Field, Input, Textarea, Select, ModalShell } from './_shared'
 import { fmtMoney } from './_constants'
+import { onlyDecimal, decimalKeyDown, makePasteHandler } from '../../utils/validation'
 
 const DOC_TYPES = [
   { id: 'HESAB_FAKTURA',      label: 'Hesab-Faktura',      desc: 'AZ dilində rəsmi hesab-faktura' },
@@ -553,10 +554,12 @@ export default function DocumentCreateModal({ onClose, onCreated }) {
                       />
                     )}
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={line.unitPrice}
-                      onChange={(e) => updateLine(idx, 'unitPrice', e.target.value)}
-                      min="0"
+                      onChange={(e) => updateLine(idx, 'unitPrice', onlyDecimal(e.target.value))}
+                      onKeyDown={decimalKeyDown}
+                      onPaste={makePasteHandler(onlyDecimal)}
                       placeholder="0.00"
                       className="w-full px-2 py-1.5 text-[12.5px] outline-none num"
                       style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '8px', color: 'var(--ces-ink)' }}

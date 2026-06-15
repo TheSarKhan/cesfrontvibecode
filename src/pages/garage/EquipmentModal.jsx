@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import NumberInput from '../../components/common/NumberInput'
 
 const OWNERSHIP_TYPES = [
   { value: 'COMPANY', label: 'Şirkət', desc: 'Şirkətin öz texnikası' },
@@ -388,7 +389,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                     placeholder="SN-12345" className={inputCls('serialNumber')} />
                 </Field>
                 <Field label="İstehsal ili" required error={errors.manufactureYear}>
-                  <input type="number" min="1900" max={new Date().getFullYear() + 1} value={form.manufactureYear}
+                  <NumberInput min="1900" max={new Date().getFullYear() + 1} value={form.manufactureYear}
                     onChange={(e) => set('manufactureYear', e.target.value)} placeholder="2020" className={inputCls('manufactureYear')} />
                 </Field>
               </div>
@@ -404,29 +405,29 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                     className={inputCls('purchaseDate')} />
                 </Field>
                 <Field label="Alış qiyməti (AZN)" required error={errors.purchasePrice}>
-                  <input type="number" min="0" step="0.01" value={form.purchasePrice}
+                  <NumberInput decimal min="0" value={form.purchasePrice}
                     onChange={(e) => set('purchasePrice', e.target.value)} placeholder="0.00" className={inputCls('purchasePrice')} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Cari bazar dəyəri (AZN)" required error={errors.currentMarketValue}>
-                  <input type="number" min="0" step="0.01" value={form.currentMarketValue}
+                  <NumberInput decimal min="0" value={form.currentMarketValue}
                     onChange={(e) => set('currentMarketValue', e.target.value)} placeholder="0.00" className={inputCls('currentMarketValue')} />
                 </Field>
                 <Field label="Amortizasiya faizi (%)" required error={errors.depreciationRate}>
-                  <input type="number" min="0" max="100" step="0.01" value={form.depreciationRate}
+                  <NumberInput decimal min="0" max="100" value={form.depreciationRate}
                     onChange={(e) => set('depreciationRate', e.target.value)} placeholder="0.00" className={inputCls('depreciationRate')} />
                 </Field>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <Field label="Saat / KM göstəricisi" required error={errors.hourKmCounter}>
-                  <input type="number" min="0" step="0.01" value={form.hourKmCounter}
+                  <NumberInput decimal min="0" value={form.hourKmCounter}
                     onChange={(e) => set('hourKmCounter', e.target.value)} placeholder="0.00" className={inputCls('hourKmCounter')} />
                 </Field>
                 <Field label="Moto saatlar" required error={errors.motoHours}>
-                  <input type="number" min="0" step="0.01" value={form.motoHours}
+                  <NumberInput decimal min="0" value={form.motoHours}
                     onChange={(e) => set('motoHours', e.target.value)} placeholder="0.00" className={inputCls('motoHours')} />
                 </Field>
                 <Field label="Saxlanma yeri" required error={errors.storageLocation}>

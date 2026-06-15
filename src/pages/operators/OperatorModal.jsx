@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, UserCog, Pencil } from 'lucide-react'
 import { operatorsApi } from '../../api/operators'
-import { v } from '../../utils/validation'
+import { v, onlyPhone, phoneKeyDown, makePasteHandler } from '../../utils/validation'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -175,8 +175,15 @@ export default function OperatorModal({ editing, onClose, onSaved }) {
                 <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-1.5">Telefon</label>
                 <input
                   type="tel"
+                  inputMode="tel"
                   value={form.phone}
-                  onChange={set('phone')}
+                  onChange={(e) => {
+                    const value = onlyPhone(e.target.value)
+                    setForm((f) => ({ ...f, phone: value }))
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }))
+                  }}
+                  onKeyDown={phoneKeyDown}
+                  onPaste={makePasteHandler(onlyPhone)}
                   placeholder="+994 50 000 00 00"
                   className={inputCls('phone')}
                 />

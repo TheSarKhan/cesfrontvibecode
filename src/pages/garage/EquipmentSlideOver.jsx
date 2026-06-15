@@ -1,5 +1,5 @@
 import DateInput from '../../components/common/DateInput'
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { X, Plus, Upload, FileText, ClipboardCheck, History, Info, Image as ImageIcon, Trash2, CalendarClock, Pencil, Download, ZoomIn, Wrench, DollarSign, User, Building2, CheckCircle, ShieldCheck, Save, Copy } from 'lucide-react'
 import { garageApi } from '../../api/garage'
 import { configApi } from '../../api/config'
@@ -39,7 +39,7 @@ function InfoField({ label, value, mono }) {
 }
 
 /* ─── InspectionsTab ───────────────────────────────────────────────── */
-function InspectionsTab({ equipmentId }) {
+function InspectionsTab({ equipmentId, onUploadingChange }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [inspections, setInspections] = useState([])
   const [nextInspectionDate, setNextInspectionDate] = useState(null)
@@ -63,6 +63,11 @@ function InspectionsTab({ equipmentId }) {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [equipmentId])
+
+  useEffect(() => {
+    onUploadingChange?.(saving)
+    return () => onUploadingChange?.(false)
+  }, [saving, onUploadingChange])
 
   const latestInspection = useMemo(() => {
     if (!inspections.length) return null
@@ -345,7 +350,7 @@ const MANDATORY_DOCS = [
 ]
 
 /* ─── DocumentsTab ─────────────────────────────────────────────────── */
-function DocumentsTab({ equipmentId }) {
+function DocumentsTab({ equipmentId, onUploadingChange }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -367,6 +372,11 @@ function DocumentsTab({ equipmentId }) {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [equipmentId])
+
+  useEffect(() => {
+    onUploadingChange?.(uploading != null)
+    return () => onUploadingChange?.(false)
+  }, [uploading, onUploadingChange])
 
   const handleDelete = async (doc) => {
     if (!(await confirm({ title: 'Sənədi sil', message: `"${doc.documentName || 'Sənəd'}" silmək istəyirsiniz?` }))) return
@@ -674,7 +684,7 @@ function ImageLightbox({ blobUrl, name, onClose }) {
 }
 
 /* ─── ImagesTab ────────────────────────────────────────────────────── */
-function ImagesTab({ equipmentId }) {
+function ImagesTab({ equipmentId, onUploadingChange }) {
   const { confirm, ConfirmDialog } = useConfirm()
   const [images, setImages] = useState([])
   const [loading, setLoading] = useState(true)
@@ -693,6 +703,11 @@ function ImagesTab({ equipmentId }) {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [equipmentId])
+
+  useEffect(() => {
+    onUploadingChange?.(uploading)
+    return () => onUploadingChange?.(false)
+  }, [uploading, onUploadingChange])
 
   const uploadFile = async (file) => {
     if (!file) return
@@ -878,10 +893,23 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
   const [safetyTypes, setSafetyTypes] = useState([])
   const [safetyIds, setSafetyIds] = useState(equipment.safetyEquipment?.map(s => s.id) || [])
   const [savingSafety, setSavingSafety] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const safetyDirty = JSON.stringify([...safetyIds].sort()) !== JSON.stringify([...(equipment.safetyEquipment?.map(s => s.id) || [])].sort())
 
   const status = STATUS_CFG[equipment.status] || STATUS_CFG.AVAILABLE
   const nextInsp = useMemo(() => inspectionCountdown(equipment.nextInspectionDate), [equipment.nextInspectionDate])
+
+  const handleUploadingChange = useCallback((isUploading) => {
+    setUploading(isUploading)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    if (uploading) {
+      toast.error('Fayl yüklənir. Zəhmət olmasa bitməsini gözləyin.', { icon: '⏳', duration: 3500 })
+      return
+    }
+    onClose?.()
+  }, [uploading, onClose])
 
   useEffect(() => {
     configApi.getActiveByCategory('SAFETY_EQUIPMENT')
@@ -939,7 +967,7 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
     <>
       <div
         className="fixed inset-0 z-40 bg-[rgba(58,58,58,0.45)] backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       <div className="fixed inset-y-0 right-0 z-50 w-full max-w-xl bg-[var(--ces-surface)] shadow-[0_24px_48px_-20px_rgba(58,58,58,0.28),0_6px_14px_rgba(58,58,58,0.08)] flex flex-col ces-font">
@@ -981,8 +1009,11 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
             >
               <Pencil size={16} />
             </button>
-            <button onClick={onClose}
+            <button onClick={handleClose}
               className="w-9 h-9 grid place-items-center rounded-[8px] text-[var(--ces-muted)] hover:text-[var(--ces-graphite)] hover:bg-[var(--ces-graphite-50)] transition-colors ml-1"
+              title={uploading ? 'Fayl yüklənir...' : 'Bağla'}
+              disabled={uploading}
+              style={uploading ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
             >
               <X size={17} />
             </button>
@@ -1137,9 +1168,9 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
             </div>
           )}
 
-          {activeTab === 'inspections' && <InspectionsTab equipmentId={equipment.id} />}
-          {activeTab === 'documents' && <DocumentsTab equipmentId={equipment.id} />}
-          {activeTab === 'images' && <ImagesTab equipmentId={equipment.id} />}
+          {activeTab === 'inspections' && <InspectionsTab equipmentId={equipment.id} onUploadingChange={handleUploadingChange} />}
+          {activeTab === 'documents' && <DocumentsTab equipmentId={equipment.id} onUploadingChange={handleUploadingChange} />}
+          {activeTab === 'images' && <ImagesTab equipmentId={equipment.id} onUploadingChange={handleUploadingChange} />}
           {activeTab === 'history' && <HistoryTab equipmentId={equipment.id} />}
         </div>
       </div>
