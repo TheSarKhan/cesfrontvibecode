@@ -2,7 +2,9 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { isTokenExpired } from '../utils/jwt'
 
-const BASE_URL = '/api'
+// Default relativ `/api` — prod-da nginx backend-ə proxy edir.
+// Ayrı host/mobil üçün .env-dəki VITE_API_BASE_URL ilə override olunur.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 export const axiosInstance = axios.create({
   baseURL: BASE_URL,
