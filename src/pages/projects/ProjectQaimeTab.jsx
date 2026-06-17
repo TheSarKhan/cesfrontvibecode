@@ -47,6 +47,31 @@ function parseTransportations(val) {
   try { return JSON.parse(val) } catch { return [] }
 }
 
+// İnvestora / podratçıya ödəniləcək məbləğ — backend InvoiceService ilə EYNİ
+// 3-mərhələli fallback: contractorDailyRate → contractorPayment → planEquipmentPrice.
+function computeContractorAmt(project, { std = 0, extD = 0, extH = 0, workDays = 26, workHours = 9, isDaily = false } = {}) {
+  if (!project) return 0
+  const owned = project.ownershipType === 'CONTRACTOR' || project.ownershipType === 'INVESTOR'
+  if (!owned) return 0
+
+  const rate = parseFloat(project.contractorDailyRate || 0)
+  if (rate > 0) {
+    const perDay = isDaily ? rate : rate / (workDays || 26)
+    const daysAmt = perDay * (std + extD)
+    const extHAmt = workHours > 0 ? (perDay / workHours) * extH : 0
+    return daysAmt + extHAmt
+  }
+  const payment = parseFloat(project.contractorPayment || 0)
+  if (payment > 0) return payment
+  const eqPrice = parseFloat(project.planEquipmentPrice || 0)
+  if (eqPrice > 0) return eqPrice
+  return 0
+}
+
+function contractorPayLabel(project) {
+  return project?.ownershipType === 'CONTRACTOR' ? 'Podratçıya ödəniləcək' : 'İnvestora ödəniləcək'
+}
+
 const STATUS_CFG = {
   DRAFT:    { pill: 'ces-p-mute',   label: 'Qaralama',        icon: FileText },
   SENT:     { pill: 'ces-p-warn',   label: 'Göndərilib',      icon: Send },
@@ -54,7 +79,7 @@ const STATUS_CFG = {
   RETURNED: { pill: 'ces-p-danger', label: 'Geri qaytarılıb', icon: Undo2 },
 }
 
-function InvoiceDetailModal({ inv, onClose }) {
+function InvoiceDetailModal({ inv, project, onClose }) {
   if (!inv) return null
 
   const st = STATUS_CFG[inv.status] || STATUS_CFG.DRAFT
@@ -72,6 +97,13 @@ function InvoiceDetailModal({ inv, onClose }) {
   const stdAmt     = daily * std
   const extDAmt    = daily * extD
   const extHAmt    = workHours ? (daily / workHours) * extH * rate : 0
+
+  const contractorAmt = computeContractorAmt(project, {
+    std, extD, extH,
+    workDays: isDailyInv ? 1 : workDays,
+    workHours,
+    isDaily: isDailyInv,
+  })
 
   const period = (inv.periodMonth && inv.periodYear)
     ? `${MONTHS[inv.periodMonth - 1]} ${inv.periodYear}` : '—'
@@ -157,9 +189,15 @@ function InvoiceDetailModal({ inv, onClose }) {
               )}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--ces-ok-100)', borderTop: '1px solid #d8f3d0' }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--ces-ok)' }}>Cəmi</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--ces-ok)' }}>Müştəridən alınacaq</span>
               <span className="mono" style={{ fontSize: 16, fontWeight: 800, color: 'var(--ces-ok)' }}>{fmtMoney(inv.amount)} ₼</span>
             </div>
+            {contractorAmt > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--ces-warn-100, #fff7ec)', borderTop: '1px solid #fbe6c1' }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--ces-warn)' }}>{contractorPayLabel(project)}</span>
+                <span className="mono" style={{ fontSize: 15, fontWeight: 800, color: 'var(--ces-warn)' }}>−{fmtMoney(contractorAmt)} ₼</span>
+              </div>
+            )}
           </div>
 
           {/* Daşınmalar */}
@@ -269,9 +307,7 @@ export default function ProjectQaimeTab({ project }) {
     ? form.transportations.reduce((s, tr) => s + (parseFloat(tr.amount) || 0), 0)
     : 0
 
-  const contractorDailyRate = parseFloat(project?.contractorDailyRate || 0)
-  const hasContractorRate = contractorDailyRate > 0 &&
-    (project?.ownershipType === 'CONTRACTOR' || project?.ownershipType === 'INVESTOR')
+  const isPartnerOwned = project?.ownershipType === 'CONTRACTOR' || project?.ownershipType === 'INVESTOR'
 
   const calc = useMemo(() => {
     const workHours = parseFloat(form.workingHoursPerDay) || 9
@@ -294,21 +330,10 @@ export default function ProjectQaimeTab({ project }) {
     const stdAmt  = daily * std
     const extDAmt = daily * extD
     const extHAmt = workHours ? (daily / workHours) * extH * rate : 0
-    const totalDays = std + extD
-    let contractorAmt = 0
-    if (contractorDailyRate > 0) {
-      let perDay
-      if (isDaily) perDay = contractorDailyRate
-      else {
-        const workDays = parseFloat(form.workingDaysInMonth) || 26
-        perDay = contractorDailyRate / workDays
-      }
-      const daysAmt = perDay * totalDays
-      const extHAmtC = workHours > 0 ? (perDay / workHours) * extH : 0
-      contractorAmt = daysAmt + extHAmtC
-    }
+    const workDays = isDaily ? 1 : (parseFloat(form.workingDaysInMonth) || 26)
+    const contractorAmt = computeContractorAmt(project, { std, extD, extH, workDays, workHours, isDaily })
     return { daily, stdAmt, extDAmt, extHAmt, total: stdAmt + extDAmt + extHAmt, contractorAmt }
-  }, [isDaily, form.monthlyRate, form.workingDaysInMonth, form.workingHoursPerDay, form.standardDays, form.extraDays, form.extraHours, form.overtimeRate, contractorDailyRate])
+  }, [isDaily, form.monthlyRate, form.workingDaysInMonth, form.workingHoursPerDay, form.standardDays, form.extraDays, form.extraHours, form.overtimeRate, project])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -709,11 +734,9 @@ export default function ProjectQaimeTab({ project }) {
                 <span>Müştəridən alınacaq</span>
                 <span className="mono">{fmtMoney(calc.total)} ₼</span>
               </div>
-              {hasContractorRate && calc.contractorAmt > 0 && (
+              {isPartnerOwned && calc.contractorAmt > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: 'var(--ces-warn)', borderTop: '1px solid #fbe6c1', paddingTop: 6, marginTop: 2 }}>
-                  <span>
-                    {project?.ownershipType === 'CONTRACTOR' ? 'Podratçıya ödəniləcək' : 'İnvestora ödəniləcək'}
-                  </span>
+                  <span>{contractorPayLabel(project)}</span>
                   <span className="mono">−{fmtMoney(calc.contractorAmt)} ₼</span>
                 </div>
               )}
@@ -997,7 +1020,7 @@ export default function ProjectQaimeTab({ project }) {
       )}
 
       <ConfirmDialog />
-      {viewInvoice && <InvoiceDetailModal inv={viewInvoice} onClose={() => setViewInvoice(null)} />}
+      {viewInvoice && <InvoiceDetailModal inv={viewInvoice} project={project} onClose={() => setViewInvoice(null)} />}
     </div>
   )
 }
