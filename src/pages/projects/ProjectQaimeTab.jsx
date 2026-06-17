@@ -47,25 +47,26 @@ function parseTransportations(val) {
   try { return JSON.parse(val) } catch { return [] }
 }
 
-// İnvestora / podratçıya ödəniləcək məbləğ — backend InvoiceService ilə EYNİ
-// 3-mərhələli fallback: contractorDailyRate → contractorPayment → planEquipmentPrice.
+// İnvestora / podratçıya ödəniləcək məbləğ.
+// Sahibə gündəlik ödəniş dərəcəsi: contractorDailyRate, yoxdursa equipment_price
+// (= koordinatorda "bizim ödəyəcəyimiz" cost). Bu dərəcə müştəri hesablaması kimi
+// gün sayına və əlavə saata vurulur. Yalnız son çarə olaraq contractorPayment (lump sum).
 function computeContractorAmt(project, { std = 0, extD = 0, extH = 0, workDays = 26, workHours = 9, isDaily = false } = {}) {
   if (!project) return 0
   const owned = project.ownershipType === 'CONTRACTOR' || project.ownershipType === 'INVESTOR'
   if (!owned) return 0
 
-  const rate = parseFloat(project.contractorDailyRate || 0)
-  if (rate > 0) {
-    const perDay = isDaily ? rate : rate / (workDays || 26)
+  let dailyRate = parseFloat(project.contractorDailyRate || 0)
+  if (dailyRate <= 0) dailyRate = parseFloat(project.planEquipmentPrice || 0)
+
+  if (dailyRate > 0) {
+    const perDay = isDaily ? dailyRate : dailyRate / (workDays || 26)
     const daysAmt = perDay * (std + extD)
     const extHAmt = workHours > 0 ? (perDay / workHours) * extH : 0
     return daysAmt + extHAmt
   }
   const payment = parseFloat(project.contractorPayment || 0)
-  if (payment > 0) return payment
-  const eqPrice = parseFloat(project.planEquipmentPrice || 0)
-  if (eqPrice > 0) return eqPrice
-  return 0
+  return payment > 0 ? payment : 0
 }
 
 function contractorPayLabel(project) {
