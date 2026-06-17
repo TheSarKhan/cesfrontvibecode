@@ -18,6 +18,21 @@ export const documentCheckApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  // Çoxlu texnika — xətt üzrə sənəd yükləmə
+  uploadContractItem: (requestId, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/accounting/document-checks/${requestId}/items/${itemId}/upload-contract`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  uploadPriceProtocolItem: (requestId, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/accounting/document-checks/${requestId}/items/${itemId}/upload-price-protocol`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   deleteDocument: (requestId, documentId) =>
     api.delete(`/accounting/document-checks/${requestId}/documents/${documentId}`),
   getDownloadUrl: (requestId, documentId) =>

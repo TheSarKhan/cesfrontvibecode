@@ -272,6 +272,32 @@ export default function ProjectQaimeTab({ project }) {
   const isDaily = project?.projectType === 'DAILY'
   const isLocked = project?.status !== 'ACTIVE'
 
+  // ─── Çoxlu texnika: hər qaimə bir texnika xəttinə aiddir ───
+  const equipmentLines = project?.equipmentLines || []
+  const isMulti = equipmentLines.length > 0
+  const [selectedLineId, setSelectedLineId] = useState('')
+  const selectedLine = equipmentLines.find(l => String(l.id) === String(selectedLineId)) || null
+
+  // Texnika xətti seçiləndə müştəri tarifini ondan doldur
+  function selectLine(id) {
+    setSelectedLineId(id)
+    const line = equipmentLines.find(l => String(l.id) === String(id))
+    if (line && line.customerEquipmentPrice != null) {
+      set('monthlyRate', String(line.customerEquipmentPrice))
+    }
+  }
+
+  // İnvestor/podratçı ödənişi hesablaması üçün mənbə: seçilmiş xətt (multi) və ya layihə (legacy)
+  const contractorSource = selectedLine
+    ? {
+        ownershipType: selectedLine.ownershipType,
+        contractorDailyRate: selectedLine.equipmentPrice,
+        planEquipmentPrice: selectedLine.equipmentPrice,
+        contractorPayment: null,
+      }
+    : project
+  const effectiveOwnership = selectedLine ? selectedLine.ownershipType : project?.ownershipType
+
   useEffect(() => { load() }, [project.id])
 
   async function load() {
@@ -308,7 +334,7 @@ export default function ProjectQaimeTab({ project }) {
     ? form.transportations.reduce((s, tr) => s + (parseFloat(tr.amount) || 0), 0)
     : 0
 
-  const isPartnerOwned = project?.ownershipType === 'CONTRACTOR' || project?.ownershipType === 'INVESTOR'
+  const isPartnerOwned = effectiveOwnership === 'CONTRACTOR' || effectiveOwnership === 'INVESTOR'
 
   const calc = useMemo(() => {
     const workHours = parseFloat(form.workingHoursPerDay) || 9
@@ -321,7 +347,7 @@ export default function ProjectQaimeTab({ project }) {
     // equipment_price × gün sayına görə hesablanır. Müştəri tarifi boş olsa belə
     // gün daxil edildiyi anda hesablanıb göstərilməlidir.
     const cWorkDays = isDaily ? 1 : (parseFloat(form.workingDaysInMonth) || 26)
-    const contractorAmt = computeContractorAmt(project, { std, extD, extH, workDays: cWorkDays, workHours, isDaily })
+    const contractorAmt = computeContractorAmt(contractorSource, { std, extD, extH, workDays: cWorkDays, workHours, isDaily })
 
     let daily
     if (isDaily) {
@@ -338,12 +364,14 @@ export default function ProjectQaimeTab({ project }) {
     const extDAmt = daily * extD
     const extHAmt = workHours ? (daily / workHours) * extH * rate : 0
     return { daily, stdAmt, extDAmt, extHAmt, total: stdAmt + extDAmt + extHAmt, contractorAmt }
-  }, [isDaily, form.monthlyRate, form.workingDaysInMonth, form.workingHoursPerDay, form.standardDays, form.extraDays, form.extraHours, form.overtimeRate, project])
+  }, [isDaily, form.monthlyRate, form.workingDaysInMonth, form.workingHoursPerDay, form.standardDays, form.extraDays, form.extraHours, form.overtimeRate, project, selectedLineId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.invoiceDate) return toast.error('Tarix seçilməlidir')
+    if (isMulti && !selectedLine) return toast.error('Texnika seçilməlidir')
     if (calc.total <= 0) return toast.error('Məbləğ 0-dan böyük olmalıdır')
+    if (!aktFile) return toast.error('Təhvil-təslim aktı yüklənməlidir')
 
     const ok = await confirm({
       title: 'Qaime Yaratma',
@@ -360,7 +388,8 @@ export default function ProjectQaimeTab({ project }) {
         type: 'INCOME',
         projectId: project.id,
         companyName: project.companyName || '',
-        equipmentName: project.equipmentName || '',
+        equipmentName: selectedLine ? selectedLine.equipmentName : (project.equipmentName || ''),
+        equipmentId: selectedLine ? selectedLine.equipmentId : null,
         invoiceDate: form.invoiceDate,
         notes: form.notes || null,
         amount: parseFloat(calc.total.toFixed(2)),
@@ -391,6 +420,7 @@ export default function ProjectQaimeTab({ project }) {
       }
       setJustCreatedId(createdId)
       setAktFile(null)
+      setSelectedLineId('')
       setForm(getDefaultForm(project))
       setShowForm(false)
       load()
@@ -600,6 +630,32 @@ export default function ProjectQaimeTab({ project }) {
             )}
           </div>
 
+          {/* Texnika seçimi (çoxlu texnika modeli) — hər qaimə bir texnikaya */}
+          {isMulti && !editingInvoice && (
+            <div>
+              <label style={fieldLabel}>Texnika *</label>
+              <select
+                value={selectedLineId}
+                onChange={(e) => selectLine(e.target.value)}
+                className="ces-select"
+                style={{ width: '100%' }}
+              >
+                <option value="">— Texnika seçin —</option>
+                {equipmentLines.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.equipmentName} ({l.equipmentCode}) · {l.ownershipType === 'CONTRACTOR' ? 'Podratçı' : l.ownershipType === 'INVESTOR' ? 'İnvestor' : 'Şirkət'}
+                  </option>
+                ))}
+              </select>
+              {selectedLine && (
+                <p style={{ fontSize: 10.5, color: 'var(--ces-mute2)', marginTop: 4 }}>
+                  Müştəri tarifi: {fmtMoney(selectedLine.customerEquipmentPrice)} ₼/{isDaily ? 'gün' : 'ay'}
+                  {selectedLine.ownershipType !== 'COMPANY' && ` · Sahibə: ${fmtMoney(selectedLine.equipmentPrice)} ₼/${isDaily ? 'gün' : 'ay'}`}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Standard + Extra days */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
@@ -745,7 +801,7 @@ export default function ProjectQaimeTab({ project }) {
               )}
               {isPartnerOwned && calc.contractorAmt > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: 'var(--ces-warn)', borderTop: '1px solid #fbe6c1', paddingTop: 6, marginTop: 2 }}>
-                  <span>{contractorPayLabel(project)}</span>
+                  <span>{contractorPayLabel({ ownershipType: effectiveOwnership })}</span>
                   <span className="mono">−{fmtMoney(calc.contractorAmt)} ₼</span>
                 </div>
               )}
@@ -842,7 +898,7 @@ export default function ProjectQaimeTab({ project }) {
           {!editingInvoice && (
             <div style={{ border: '1px solid var(--ces-line)', background: 'var(--ces-surface)', borderRadius: 12, padding: 12 }}>
               <label style={{ ...fieldLabel, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <Paperclip size={11} /> Təhvil-Təslim Aktı <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'var(--ces-mute2)' }}>(opsional)</span>
+                <Paperclip size={11} /> Təhvil-Təslim Aktı <span style={{ color: 'var(--ces-danger)' }}>*</span>
               </label>
               {aktFile ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--ces-ok-100)', border: '1px solid #d8f3d0', borderRadius: 10 }}>
@@ -868,13 +924,13 @@ export default function ProjectQaimeTab({ project }) {
                     onChange={e => e.target.files?.[0] && setAktFile(e.target.files[0])} />
                 </label>
               )}
-              <p style={{ fontSize: 10.5, color: 'var(--ces-mute2)', marginTop: 6 }}>Yüklənməsə də qaimə yaradıla bilər.</p>
+              <p style={{ fontSize: 10.5, color: 'var(--ces-mute2)', marginTop: 6 }}>Akt yüklənmədən qaimə mühasibatlığa göndərilə bilməz.</p>
             </div>
           )}
 
           <button
             type="submit"
-            disabled={saving || calc.total <= 0 || !canCreate}
+            disabled={saving || calc.total <= 0 || !canCreate || (!editingInvoice && !aktFile) || (isMulti && !editingInvoice && !selectedLine)}
             className={clsx('ces-btn', editingInvoice ? '' : 'ces-btn-primary')}
             style={{
               justifyContent: 'center',
@@ -966,6 +1022,9 @@ export default function ProjectQaimeTab({ project }) {
                     {inv.invoiceNumber && (
                       <span className="mono" style={{ fontSize: 11, color: 'var(--ces-mute2)' }}>№{inv.invoiceNumber}</span>
                     )}
+                    {isMulti && inv.equipmentName && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ces-alt, #7d4ec9)' }}>🔧 {inv.equipmentName}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 flex-wrap" style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
                     {inv.standardDays != null && <span>Std: {inv.standardDays} gün</span>}
@@ -1006,7 +1065,12 @@ export default function ProjectQaimeTab({ project }) {
                     </button>
                   )}
                   {!isLocked && inv.status === 'DRAFT' && canSend && (
-                    <button onClick={() => handleSend(inv.id, periodLbl)} disabled={sendingId === inv.id} className="ces-row-act info" title="Mühasibatlığa göndər">
+                    <button
+                      onClick={() => handleSend(inv.id, periodLbl)}
+                      disabled={sendingId === inv.id || !inv.aktFileUploaded}
+                      className="ces-row-act info"
+                      title={inv.aktFileUploaded ? 'Mühasibatlığa göndər' : 'Əvvəlcə təhvil-təslim aktını yükləyin'}
+                    >
                       <Send size={13} />
                     </button>
                   )}

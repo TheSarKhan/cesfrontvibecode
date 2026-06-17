@@ -11,6 +11,9 @@ export const projectManagerApi = {
   saveCustomerContact: (id, data) =>
     api.put(`/project-manager/requests/${id}/customer-contact`, data),
 
+  saveRequiredDocuments: (id, documentItemIds) =>
+    api.put(`/project-manager/requests/${id}/required-documents`, { documentItemIds }),
+
   saveShortlist: (id, data) => api.post(`/project-manager/requests/${id}/shortlist`, data),
   deleteShortlistItem: (id, itemId) =>
     api.delete(`/project-manager/requests/${id}/shortlist/items/${itemId}`),
@@ -19,6 +22,10 @@ export const projectManagerApi = {
 
   saveCustomerAgreement: (id, data) =>
     api.put(`/project-manager/requests/${id}/customer-agreement`, data),
+
+  // Çoxlu texnika — xətt üzrə razılaşma
+  saveCustomerAgreementItem: (id, itemId, data) =>
+    api.put(`/project-manager/requests/${id}/items/${itemId}/customer-agreement`, data),
 
   approve: (id) => api.post(`/project-manager/requests/${id}/approve`),
 
@@ -38,6 +45,21 @@ export const projectManagerApi = {
     const fd = new FormData()
     fd.append('file', file)
     return api.post(`/project-manager/requests/${id}/upload-price-protocol`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  // Çoxlu texnika — xətt üzrə sənəd yükləmə
+  uploadContractItem: (id, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/project-manager/requests/${id}/items/${itemId}/upload-contract`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  uploadPriceProtocolItem: (id, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/project-manager/requests/${id}/items/${itemId}/upload-price-protocol`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },

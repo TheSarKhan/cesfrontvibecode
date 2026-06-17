@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   X, Info, FileText, Building2, MapPin, Calendar, ClipboardCheck,
   CheckCircle, XCircle, AlertTriangle, ListChecks, Plus, Save, Send,
-  Trash2, Phone, User, Handshake, Trophy, DollarSign, Truck, Upload, Download, CornerUpLeft,
+  Trash2, Phone, User, Handshake, Trophy, DollarSign, Truck, Upload, Download, CornerUpLeft, Search,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { projectManagerApi } from '../../api/projectManager'
+import { configApi } from '../../api/config'
 import { garageApi } from '../../api/garage'
 import { contractorsApi } from '../../api/contractors'
 import { investorsApi } from '../../api/investors'
@@ -166,6 +167,134 @@ function CustomerContactSection({ data, editable, requestId, onSaved }) {
   )
 }
 
+/* ═════════════ Tələb olunan əlavə sənədlər (LM dəqiqləşdirir) ═════════════ */
+function RequiredDocsSection({ data, editable, requestId, onSaved }) {
+  const [docTypes, setDocTypes] = useState([])
+  const [selectedIds, setSelectedIds] = useState([])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    configApi.getActiveByCategory('EQUIPMENT_DOCUMENT_TYPE')
+      .then((r) => setDocTypes(r.data.data || r.data || []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    setSelectedIds((data?.extraRequiredDocuments || []).map((d) => d.id))
+  }, [data?.extraRequiredDocuments])
+
+  const initialIds = useMemo(
+    () => (data?.extraRequiredDocuments || []).map((d) => d.id),
+    [data?.extraRequiredDocuments]
+  )
+  const dirty = selectedIds.length !== initialIds.length
+    || selectedIds.some((id) => !initialIds.includes(id))
+
+  const toggle = (id) => {
+    setSelectedIds((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await projectManagerApi.saveRequiredDocuments(requestId, selectedIds)
+      toast.success('Tələb olunan sənədlər saxlandı')
+      onSaved?.()
+    } catch {} finally {
+      setSaving(false)
+    }
+  }
+
+  // Shortlist texnikalarının öz məcburi sənədləri — informativ (read-only)
+  const equipDocs = data?.equipmentRequiredDocuments || []
+  const equipInfo = equipDocs.length > 0 ? (
+    <div className="mb-2.5">
+      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+        Texnikanın məcburi sənədləri (shortlist)
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {equipDocs.map((d) => (
+          <span key={d.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+            <FileText size={11} /> {d.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  ) : null
+
+  if (!editable) {
+    const sel = data?.extraRequiredDocuments || []
+    if (!sel.length && !equipDocs.length) {
+      return <p style={{ fontSize: 12.5, color: 'var(--ces-mute2)' }}>Tələb olunan sənəd qeyd edilməyib</p>
+    }
+    return (
+      <div>
+        {equipInfo}
+        {sel.length > 0 && (
+          <>
+            {equipDocs.length > 0 && (
+              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">LM-in əlavə etdiyi</p>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {sel.map((d) => (
+                <span key={d.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                  <FileText size={11} /> {d.name}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  if (docTypes.length === 0) {
+    return (
+      <div>
+        {equipInfo}
+        <p style={{ fontSize: 12, color: 'var(--ces-mute2)' }}>Konfiqurasiyada sənəd tipi yoxdur</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {equipInfo}
+      {equipDocs.length > 0 && (
+        <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Əlavə tələb olunan sənədlər</p>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        {docTypes.map((dt) => {
+          const checked = selectedIds.includes(dt.id)
+          return (
+            <label key={dt.id} className={clsx(
+              'flex items-center gap-2 cursor-pointer rounded-lg border px-2.5 py-2 text-xs transition-colors',
+              checked
+                ? 'border-amber-500 bg-amber-50 text-amber-700 font-semibold'
+                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-amber-300'
+            )}>
+              <input type="checkbox" checked={checked} onChange={() => toggle(dt.id)} className="accent-amber-600 w-4 h-4" />
+              {dt.key}
+            </label>
+          )
+        })}
+      </div>
+      {dirty && (
+        <div className="flex justify-end mt-2.5">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+          >
+            <Save size={12} />
+            {saving ? 'Saxlanılır...' : 'Saxla'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ═════════════════════════ Shortlist tab ═════════════════════════ */
 function ShortlistTab({ data, editable, requestId, onSaved }) {
   // Reference data
@@ -175,10 +304,13 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
   const [refLoading, setRefLoading] = useState(true)
 
   // Editable rows state (local; saved as bulk POST)
+  // Hər sətr = 1 tədarükçü (Şirkət/Podratçı/Investor) + həmin tədarükçünün
+  // bir neçə texnikası (çoxlu seçim). Saxlanarkən sətirlər düz item siyahısına açılır.
   const [rows, setRows] = useState([])
   const [saving, setSaving] = useState(false)
-  const [deletingId, setDeletingId] = useState(null)
+  const [deletingKey, setDeletingKey] = useState(null)
   const [detailsEqId, setDetailsEqId] = useState(null)
+  const newKeyRef = useRef(0)
 
   useEffect(() => {
     setRefLoading(true)
@@ -194,16 +326,33 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
   }, [])
 
   useEffect(() => {
-    // shortlistItems → editable rows (tempId for new rows)
+    // shortlistItems (düz siyahı, hər biri 1 texnika) → tədarükçüyə görə qruplaşdırılmış sətirlər
     const items = data?.shortlistItems || []
-    setRows(items.map((it) => ({
-      id: it.id,
-      partyType: it.partyType,
-      contractorId: it.contractorId,
-      investorId: it.investorId,
-      equipmentId: it.equipmentId,
-      notes: it.notes || '',
-    })))
+    const groups = new Map()
+    for (const it of items) {
+      const key = it.partyType === 'CONTRACTOR' ? `C:${it.contractorId}`
+        : it.partyType === 'INVESTOR' ? `I:${it.investorId}`
+        : 'COMPANY'
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          partyType: it.partyType,
+          contractorId: it.contractorId,
+          investorId: it.investorId,
+          equipmentIds: [],
+          itemIdByEq: {},   // equipmentId → mövcud DB item id (saxlanarkən id qorunur)
+          notes: it.notes || '',
+          search: '',
+        })
+      }
+      const g = groups.get(key)
+      if (it.equipmentId != null) {
+        g.equipmentIds.push(it.equipmentId)
+        g.itemIdByEq[it.equipmentId] = it.id
+      }
+      if (!g.notes && it.notes) g.notes = it.notes
+    }
+    setRows([...groups.values()])
   }, [data?.shortlistItems])
 
   const investorVoenById = useMemo(() => {
@@ -234,14 +383,29 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
     return []
   }
 
+  // Tədarükçü filtrindən sonra axtarış mətninə görə filtrasiya
+  const visibleEquipmentsForRow = (row) => {
+    const base = filterEquipmentsForRow(row)
+    const q = (row.search || '').trim().toLowerCase()
+    if (!q) return base
+    return base.filter((e) =>
+      [e.name, e.equipmentCode, e.type, e.brand, e.model, e.plateNumber, e.serialNumber]
+        .filter(Boolean)
+        .some((f) => String(f).toLowerCase().includes(q))
+    )
+  }
+
   const addRow = () => {
+    const key = `new-${newKeyRef.current++}`
     setRows((r) => [...r, {
-      id: null,
+      key,
       partyType: null,
       contractorId: null,
       investorId: null,
-      equipmentId: null,
+      equipmentIds: [],
+      itemIdByEq: {},
       notes: '',
+      search: '',
     }])
   }
 
@@ -249,31 +413,50 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
     setRows((r) => r.map((row, i) => {
       if (i !== idx) return row
       const next = { ...row, ...patch }
-      // partyType/contractor/investor dəyişəndə equipment-i sıfırla
+      // partyType/contractor/investor dəyişəndə seçilmiş texnikaları sıfırla
       const partyChanged = patch.partyType !== undefined && patch.partyType !== row.partyType
       const contractorChanged = patch.contractorId !== undefined && patch.contractorId !== row.contractorId
       const investorChanged = patch.investorId !== undefined && patch.investorId !== row.investorId
       if (partyChanged || contractorChanged || investorChanged) {
-        next.equipmentId = null
+        next.equipmentIds = []
+        next.itemIdByEq = {}
+        next.search = ''
       }
       return next
     }))
   }
 
+  // Eyni tədarükçüdən bir neçə texnika seçilə bilər — kart klikləməsi seçimi əlavə/çıxarır
+  const toggleEquipment = (idx, eqId) => {
+    setRows((r) => r.map((row, i) => {
+      if (i !== idx) return row
+      const has = row.equipmentIds.includes(eqId)
+      return {
+        ...row,
+        equipmentIds: has
+          ? row.equipmentIds.filter((x) => x !== eqId)
+          : [...row.equipmentIds, eqId],
+      }
+    }))
+  }
+
   const removeRow = async (idx) => {
     const row = rows[idx]
-    if (row.id) {
-      // Mevcut DB satırı — soft-delete et
-      setDeletingId(row.id)
+    const existingItemIds = Object.values(row.itemIdByEq || {})
+    if (existingItemIds.length) {
+      // Mövcud DB sətirləri — hamısını soft-delete et
+      setDeletingKey(row.key)
       try {
-        await projectManagerApi.deleteShortlistItem(requestId, row.id)
+        for (const itemId of existingItemIds) {
+          await projectManagerApi.deleteShortlistItem(requestId, itemId)
+        }
         toast.success('Sətir silindi')
         onSaved?.()
       } catch {
-        setDeletingId(null)
+        setDeletingKey(null)
         return
       } finally {
-        setDeletingId(null)
+        setDeletingKey(null)
       }
     }
     setRows((r) => r.filter((_, i) => i !== idx))
@@ -285,24 +468,30 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
       if (!row.partyType) return toast.error(`Sətir ${i + 1}: Mənbə seçilməyib`)
       if (row.partyType === 'CONTRACTOR' && !row.contractorId) return toast.error(`Sətir ${i + 1}: Podratçı seçilməyib`)
       if (row.partyType === 'INVESTOR' && !row.investorId) return toast.error(`Sətir ${i + 1}: Investor seçilməyib`)
-      if (!row.equipmentId) return toast.error(`Sətir ${i + 1}: Texnika seçilməyib`)
+      if (!row.equipmentIds.length) return toast.error(`Sətir ${i + 1}: Ən az bir texnika seçilməlidir`)
     }
+
+    // Sətirləri düz item siyahısına aç (hər seçilmiş texnika = 1 item).
+    // Backend gəlməyən id-ləri avtomatik soft-delete edir.
+    const items = []
+    rows.forEach((row) => {
+      row.equipmentIds.forEach((eqId) => {
+        items.push({
+          id: row.itemIdByEq[eqId] || null,
+          partyType: row.partyType,
+          contractorId: row.partyType === 'CONTRACTOR' ? row.contractorId : null,
+          investorId: row.partyType === 'INVESTOR' ? row.investorId : null,
+          equipmentId: eqId,
+          negotiatedPrice: null,
+          rank: null,
+          notes: row.notes || null,
+        })
+      })
+    })
 
     setSaving(true)
     try {
-      await projectManagerApi.saveShortlist(requestId, {
-        notes: null,
-        items: rows.map((r) => ({
-          id: r.id,
-          partyType: r.partyType,
-          contractorId: r.partyType === 'CONTRACTOR' ? r.contractorId : null,
-          investorId: r.partyType === 'INVESTOR' ? r.investorId : null,
-          equipmentId: r.equipmentId,
-          negotiatedPrice: null,
-          rank: null,
-          notes: r.notes || null,
-        })),
-      })
+      await projectManagerApi.saveShortlist(requestId, { notes: null, items })
       toast.success('Shortlist saxlandı')
       onSaved?.()
     } catch {} finally {
@@ -332,30 +521,33 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
       <>
         <div className="flex flex-col gap-2.5">
           {rows.map((row, i) => {
-            const eq = equipments.find((e) => e.id === row.equipmentId)
             const partyLabel = PARTY_OPTIONS.find((p) => p.value === row.partyType)?.label || row.partyType
             const partyName = row.partyType === 'CONTRACTOR'
               ? contractors.find((c) => c.id === row.contractorId)?.companyName
               : row.partyType === 'INVESTOR'
                 ? investors.find((iv) => iv.id === row.investorId)?.companyName
                 : 'Şirkət'
+            const eqList = row.equipmentIds.map((id) => equipments.find((e) => e.id === id)).filter(Boolean)
             return (
-              <div key={row.id || i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+              <div key={row.key || i} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-mono text-amber-600 dark:text-amber-400">#{i + 1}</span>
-                  <span className="text-xs text-gray-500">{partyLabel}</span>
+                  <span className="text-xs text-gray-500">{partyLabel} · {row.equipmentIds.length} texnika</span>
                 </div>
                 <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{partyName}</p>
-                <div className="flex items-center justify-between mt-0.5">
-                  <p className="text-xs text-gray-500">{eq?.name || '—'} ({eq?.equipmentCode || '—'})</p>
-                  {eq?.id && (
-                    <button
-                      onClick={() => setDetailsEqId(eq.id)}
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-colors hover:bg-amber-100 text-amber-700"
-                    >
-                      Haqqında
-                    </button>
-                  )}
+                <div className="flex flex-col gap-1 mt-1">
+                  {eqList.length === 0 && <p className="text-xs text-gray-400">—</p>}
+                  {eqList.map((eq) => (
+                    <div key={eq.id} className="flex items-center justify-between">
+                      <p className="text-xs text-gray-500">{eq.name} ({eq.equipmentCode})</p>
+                      <button
+                        onClick={() => setDetailsEqId(eq.id)}
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-colors hover:bg-amber-100 text-amber-700"
+                      >
+                        Haqqında
+                      </button>
+                    </div>
+                  ))}
                 </div>
                 {row.notes && <p className="text-xs text-gray-400 mt-1">{row.notes}</p>}
               </div>
@@ -376,14 +568,15 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
   return (
     <div className="flex flex-col gap-3">
       {rows.map((row, idx) => {
-        const filteredEquipments = filterEquipmentsForRow(row)
+        const baseEquipments = filterEquipmentsForRow(row)
+        const shownEquipments = visibleEquipmentsForRow(row)
         return (
-          <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800">
+          <div key={row.key || idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Sətir #{idx + 1}</span>
               <button
                 onClick={() => removeRow(idx)}
-                disabled={deletingId === row.id}
+                disabled={deletingKey === row.key}
                 className="text-xs text-red-500 hover:text-red-600 inline-flex items-center gap-1 disabled:opacity-50"
               >
                 <Trash2 size={12} />
@@ -420,9 +613,10 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
             <div className="mb-2">
               <label className={labelCls}>
                 Texnika
-                {row.partyType && filteredEquipments.length > 0 && (
+                {row.partyType && baseEquipments.length > 0 && (
                   <span className="ml-2 text-[10px] text-gray-400 font-normal">
-                    ({filteredEquipments.length} ədəd mövcuddur)
+                    ({baseEquipments.length} ədəd mövcuddur
+                    {row.equipmentIds.length > 0 && ` · ${row.equipmentIds.length} seçildi`})
                   </span>
                 )}
               </label>
@@ -430,22 +624,41 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
                 <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 px-3 py-4 text-center text-xs text-gray-400">
                   Əvvəlcə mənbə seçin
                 </div>
-              ) : filteredEquipments.length === 0 ? (
+              ) : baseEquipments.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 px-3 py-4 text-center text-xs text-gray-400">
                   {row.partyType === 'COMPANY' ? 'Şirkət' : (row.partyType === 'CONTRACTOR' ? 'Bu podratçı' : 'Bu investor')}da texnika yoxdur
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {filteredEquipments.map((eq) => (
-                    <EquipmentCard
-                      key={eq.id}
-                      eq={eq}
-                      selected={row.equipmentId === eq.id}
-                      onSelect={() => updateRow(idx, { equipmentId: eq.id })}
-                      onShowDetails={() => setDetailsEqId(eq.id)}
-                    />
-                  ))}
-                </div>
+                <>
+                  {baseEquipments.length > 3 && (
+                    <div className="relative mb-2">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        value={row.search}
+                        onChange={(e) => updateRow(idx, { search: e.target.value })}
+                        placeholder="Ad, kod, növ, marka, q.n. ilə axtar..."
+                        className={`${inputCls} pl-7`}
+                      />
+                    </div>
+                  )}
+                  {shownEquipments.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 px-3 py-4 text-center text-xs text-gray-400">
+                      Axtarışa uyğun texnika tapılmadı
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {shownEquipments.map((eq) => (
+                        <EquipmentCard
+                          key={eq.id}
+                          eq={eq}
+                          selected={row.equipmentIds.includes(eq.id)}
+                          onSelect={() => toggleEquipment(idx, eq.id)}
+                          onShowDetails={() => setDetailsEqId(eq.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -610,6 +823,158 @@ function PmDocumentSection({ data, requestId, editable, canDelete, onSaved }) {
   )
 }
 
+/* ═══════════ Bir texnika xətti üçün razılaşma + sənədlər (çoxlu model) ═══════════ */
+function AgreementLineCard({ line, requestId, projectType, requestDayCount, editable, canDeleteDoc, documents, onSaved }) {
+  const [eqPrice, setEqPrice] = useState('')
+  const [trPrice, setTrPrice] = useState('')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(null) // 'CONTRACT' | 'PRICE_PROTOCOL'
+  const contractRef = useRef(null)
+  const protocolRef = useRef(null)
+
+  useEffect(() => {
+    setEqPrice(line.agreedEquipmentPrice ?? '')
+    setTrPrice(line.agreedTransportPrice ?? '')
+    setNote(line.agreementNote ?? '')
+  }, [line.agreedEquipmentPrice, line.agreedTransportPrice, line.agreementNote])
+
+  const unitLabel = projectType === 'MONTHLY' ? 'ay' : 'gün'
+  const units = line.dayCount && line.dayCount > 0 ? line.dayCount
+    : (requestDayCount && requestDayCount > 0 ? requestDayCount : 1)
+  const eqNum = eqPrice !== '' ? Number(eqPrice) : 0
+  const trNum = trPrice !== '' ? Number(trPrice) : 0
+  const eqValid = Number.isFinite(eqNum) ? eqNum : 0
+  const trValid = Number.isFinite(trNum) ? trNum : 0
+  const total = eqValid * units + trValid
+  const fmtN = (v) => Number(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
+
+  const contractDoc = documents.find((d) => d.docType === 'CONTRACT')
+  const protocolDoc = documents.find((d) => d.docType === 'PRICE_PROTOCOL')
+  const saved = line.agreedTotalPrice != null
+
+  const handleSave = async () => {
+    if (eqPrice === '' || Number(eqPrice) <= 0) return toast.error('Texnika qiyməti daxil edilməlidir')
+    setSaving(true)
+    try {
+      await projectManagerApi.saveCustomerAgreementItem(requestId, line.id, {
+        agreedEquipmentPrice: Number(eqPrice),
+        agreedTransportPrice: trPrice !== '' ? Number(trPrice) : null,
+        agreedTotalPrice: total,
+        agreementNote: note.trim() || null,
+      })
+      toast.success('Razılaşma saxlandı')
+      onSaved?.()
+    } catch {} finally { setSaving(false) }
+  }
+
+  const handleUpload = async (type, file) => {
+    if (!file) return
+    setUploading(type)
+    try {
+      if (type === 'CONTRACT') await projectManagerApi.uploadContractItem(requestId, line.id, file)
+      else await projectManagerApi.uploadPriceProtocolItem(requestId, line.id, file)
+      toast.success(type === 'CONTRACT' ? 'Müqavilə yükləndi' : 'Protokol yükləndi')
+      onSaved?.()
+    } catch {} finally { setUploading(null) }
+  }
+
+  const handleDelete = async (doc) => {
+    if (!confirm(`"${doc.fileName}" silinsin?`)) return
+    try {
+      await projectManagerApi.deleteDocument(requestId, doc.id)
+      toast.success('Sənəd silindi')
+      onSaved?.()
+    } catch {}
+  }
+
+  const docSlot = (label, type, doc, ref) => (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 bg-gray-50/50 dark:bg-gray-900/30">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{label}</span>
+        {doc
+          ? <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-green-50 text-green-700 border-green-200"><CheckCircle size={9} /> Var</span>
+          : <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-gray-50 text-gray-400 border-gray-200">Yoxdur</span>}
+      </div>
+      {doc && (
+        <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded px-2 py-1 mb-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <FileText size={11} className="text-amber-600 shrink-0" />
+            <span className="text-[11px] text-gray-700 dark:text-gray-200 truncate">{doc.fileName}</span>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <a href={projectManagerApi.getDocumentDownloadUrl(requestId, doc.id)} target="_blank" rel="noopener noreferrer" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Yüklə"><Download size={11} /></a>
+            {editable && canDeleteDoc && (
+              <button onClick={() => handleDelete(doc)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Sil"><Trash2 size={11} /></button>
+            )}
+          </div>
+        </div>
+      )}
+      {editable && (
+        <>
+          <input ref={ref} type="file" className="hidden" onChange={(e) => { if (e.target.files?.[0]) { handleUpload(type, e.target.files[0]); e.target.value = '' } }} />
+          <button onClick={() => ref.current?.click()} disabled={uploading === type} className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md border border-dashed border-amber-300 hover:border-amber-500 hover:bg-amber-50 text-amber-700 disabled:opacity-50">
+            <Upload size={10} /> {uploading === type ? 'Yüklənir...' : (doc ? 'Yenidən' : 'Yüklə')}
+          </button>
+        </>
+      )}
+    </div>
+  )
+
+  return (
+    <div className={clsx('rounded-xl border bg-white dark:bg-gray-800 p-3.5', saved ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700')}>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+            {line.equipmentName} <span className="font-mono text-gray-400">({line.equipmentCode})</span>
+          </p>
+          <p className="text-[10px] text-gray-500">
+            {line.partyType === 'CONTRACTOR' ? 'Podratçı' : line.partyType === 'INVESTOR' ? 'İnvestor' : 'Şirkət'} · {line.partyName} · {units} {unitLabel}
+            {line.customerEquipmentPrice != null && ` · təklif: ${fmtN(line.customerEquipmentPrice)}/${unitLabel}`}
+          </p>
+        </div>
+        {saved && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border bg-green-50 text-green-700 border-green-200 shrink-0"><CheckCircle size={10} /> Razılaşdı</span>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-2.5">
+        <div>
+          <label className={labelCls}><DollarSign size={10} className="inline mr-0.5" /> Razılaşdırılmış qiymət/{unitLabel} (₼)</label>
+          <NumberInput decimal min="0" value={eqPrice} onChange={(e) => setEqPrice(e.target.value)} placeholder={line.customerEquipmentPrice != null ? String(line.customerEquipmentPrice) : '0.00'} disabled={!editable} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}><Truck size={10} className="inline mr-0.5" /> Daşınma — birdəfəlik (₼)</label>
+          <NumberInput decimal min="0" value={trPrice} onChange={(e) => setTrPrice(e.target.value)} placeholder={line.transportationPrice != null ? String(line.transportationPrice) : '0.00'} disabled={!editable} className={inputCls} />
+        </div>
+      </div>
+
+      <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-1.5 mb-2.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Cəm ({units} {unitLabel}{trValid > 0 ? ' + daşınma' : ''})</span>
+        <span className="text-sm font-bold mono text-amber-700 dark:text-amber-400">{fmtN(total)} ₼</span>
+      </div>
+
+      {editable && (
+        <>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Razılaşma qeydi (opsional)..." rows={2} className={`${inputCls} resize-none mb-2.5`} />
+          <div className="flex justify-end mb-3">
+            <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 inline-flex items-center gap-1.5"><Save size={13} /> {saving ? 'Saxlanılır...' : 'Razılaşmanı saxla'}</button>
+          </div>
+        </>
+      )}
+      {!editable && note && <p className="text-[11px] text-gray-500 italic mb-3">{note}</p>}
+
+      {(editable || contractDoc || protocolDoc) && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-2.5">
+          <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 mb-1.5 inline-flex items-center gap-1"><FileText size={10} /> Sənədlər</p>
+          <div className="grid grid-cols-2 gap-2">
+            {docSlot('Müqavilə', 'CONTRACT', contractDoc, contractRef)}
+            {docSlot('Qiymət protokolu', 'PRICE_PROTOCOL', protocolDoc, protocolRef)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ═════════════════════════ Agreement tab — Mərhələ B ═════════════════════════ */
 function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm, onSaved }) {
   const offer = data?.coordinatorOffer
@@ -633,7 +998,10 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
   }
 
   const isPriceNegotiation = data?.status === 'PM_PRICE_NEGOTIATION'
-  const agreementSaved = data?.agreedTotalPrice != null
+  // Çoxlu model: bütün xətlər razılaşdırılmalıdır; əks halda köhnə tək dəyər
+  const agreementSaved = offer?.items?.length > 0
+    ? offer.items.every((it) => it.agreedTotalPrice != null)
+    : data?.agreedTotalPrice != null
   const showApproveButton = isPriceNegotiation && agreementSaved
 
   useEffect(() => {
@@ -693,6 +1061,48 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
           <Trophy size={11} /> Koordinator təklifi
         </p>
         <div className="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/10 p-3.5">
+          {/* Çoxlu texnika — hər xətt + ümumi total */}
+          {offer.items?.length > 0 && (() => {
+            const unitLabel = offer.projectType === 'MONTHLY' ? 'ay' : 'gün'
+            const fmtN = (v) => Number(v || 0).toLocaleString('az-AZ', { minimumFractionDigits: 2 })
+            let tCost = 0, tRev = 0
+            const rowsCalc = offer.items.map((it) => {
+              const units = it.dayCount && it.dayCount > 0 ? it.dayCount : (offer.dayCount || 1)
+              const cost = Number(it.equipmentPrice || 0) * units
+              const rev = Number(it.customerEquipmentPrice || 0) * units + Number(it.transportationPrice || 0)
+              tCost += cost; tRev += rev
+              return { it, units, cost, rev }
+            })
+            return (
+              <div className="space-y-2">
+                {rowsCalc.map(({ it, units, cost, rev }) => (
+                  <div key={it.id} className="rounded-lg border border-purple-100 dark:border-purple-900 bg-white dark:bg-gray-800 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                          {it.equipmentName} <span className="font-mono text-gray-400">({it.equipmentCode})</span>
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          {it.partyType === 'CONTRACTOR' ? 'Podratçı' : it.partyType === 'INVESTOR' ? 'İnvestor' : 'Şirkət'} · {it.partyName} · {units} {unitLabel}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[11px] mono text-red-600">öd. {fmtN(cost)} ₼</p>
+                        <p className="text-[11px] mono text-emerald-700">al. {fmtN(rev)} ₼</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-purple-200 dark:border-purple-800">
+                  <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Ödəyəcəyimiz</p><p className="text-sm font-bold mono text-red-600">{fmtN(tCost)} ₼</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Sifarişçidən</p><p className="text-sm font-bold mono text-emerald-700">{fmtN(tRev)} ₼</p></div>
+                  <div><p className="text-[10px] uppercase tracking-wide text-gray-500">Xeyir</p><p className={clsx('text-sm font-bold mono', (tRev - tCost) >= 0 ? 'text-emerald-700' : 'text-red-600')}>{fmtN(tRev - tCost)} ₼</p></div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {!offer.items?.length && (<>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <InfoField label="Qalib mənbə" value={offer.winnerPartyName} />
             <InfoField
@@ -791,6 +1201,7 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
               </div>
             )
           })()}
+          </>)}
 
           {offer.notes && (
             <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800">
@@ -801,7 +1212,32 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
         </div>
       </div>
 
-      {/* Sifarişçi ilə razılaşma */}
+      {/* Sifarişçi ilə razılaşma — çoxlu texnika: hər xətt ayrıca */}
+      {offer.items?.length > 0 && (
+        <div>
+          <p className="ces-sec-label mb-2 inline-flex items-center gap-1.5">
+            <Handshake size={11} /> Sifarişçi ilə razılaşma — hər texnika ayrıca
+          </p>
+          <div className="space-y-3">
+            {offer.items.map((line) => (
+              <AgreementLineCard
+                key={line.id}
+                line={line}
+                requestId={requestId}
+                projectType={offer.projectType || data?.projectType}
+                requestDayCount={offer.dayCount || data?.dayCount}
+                editable={editable}
+                canDeleteDoc={canDeleteDoc}
+                documents={(data?.documents || []).filter((d) => d.planItemId === line.id)}
+                onSaved={onSaved}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Legacy tək texnika (item-siz köhnə planlar üçün) */}
+      {!offer.items?.length && (<>
       <div>
         <p className="ces-sec-label mb-2 inline-flex items-center gap-1.5">
           <Handshake size={11} /> Sifarişçi ilə razılaşma
@@ -880,7 +1316,7 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
         </div>
       </div>
 
-      {/* Sənədlər — razılaşma sonrası yüklənə bilər */}
+      {/* Sənədlər — razılaşma sonrası yüklənə bilər (legacy tək texnika) */}
       {(editable || (data?.documents && data.documents.length > 0)) && (
         <PmDocumentSection
           data={data}
@@ -890,6 +1326,7 @@ function AgreementTab({ data, requestId, editable, canDeleteDoc, canApproveByPm,
           onSaved={onSaved}
         />
       )}
+      </>)}
 
       {/* Inline təsdiq düyməsi — PM_PRICE_NEGOTIATION + razılaşma saxlanılıb */}
       {showApproveButton && (
@@ -934,7 +1371,6 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
 
   const [tab, setTab] = useState('info')
   const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -942,11 +1378,11 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
 
   const refresh = () => {
     if (!requestId) return
-    setLoading(true)
+    // Diqqət: refresh zamanı məzmun mount qalır (data köhnə dəyəri saxlayır) ki,
+    // saxlanmamış per-line razılaşma inputları silinməsin.
     projectManagerApi.getRequest(requestId)
       .then((res) => setData(res.data.data || res.data))
       .catch(() => {})
-      .finally(() => setLoading(false))
   }
 
   useEffect(() => { refresh() }, [requestId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1124,7 +1560,9 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
 
         {/* Body */}
         <div className="ces-drawer-body" style={{ padding: 0 }}>
-          {loading || !data ? (
+          {/* Spinner yalnız ilk yükləmədə; refresh zamanı məzmun mount qalır ki,
+              saxlanmamış per-line razılaşma inputları silinməsin */}
+          {!data ? (
             <Spinner />
           ) : tab === 'info' ? (
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -1147,6 +1585,19 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
                   <User size={11} /> Sifarişçi ofisi (PM)
                 </p>
                 <CustomerContactSection
+                  data={data}
+                  editable={editable}
+                  requestId={requestId}
+                  onSaved={() => { refresh(); onChanged?.() }}
+                />
+              </div>
+
+              {/* Tələb olunan əlavə sənədlər (LM dəqiqləşdirir) */}
+              <div>
+                <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <FileText size={11} /> Tələb olunan əlavə sənədlər
+                </p>
+                <RequiredDocsSection
                   data={data}
                   editable={editable}
                   requestId={requestId}
@@ -1251,7 +1702,7 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
         </div>
 
         {/* Footer */}
-        {!loading && data && showFooter && !rejectOpen && (
+        {data && showFooter && !rejectOpen && (
           <div className="ces-drawer-foot">
             {canReject && (
               <button

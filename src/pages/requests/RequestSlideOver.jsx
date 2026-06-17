@@ -184,6 +184,10 @@ export default function RequestSlideOver({ request, onClose }) {
                     label="Müddət"
                     value={request.dayCount ? `${request.dayCount} ${request.projectType === 'MONTHLY' ? 'ay' : 'gün'}` : '—'}
                   />
+                  <InfoField
+                    label="Ödəniş növü"
+                    value={request.paymentMethod === 'CASH' ? 'Nağd' : request.paymentMethod === 'TRANSFER' ? 'Köçürmə' : '—'}
+                  />
                   <div>
                     <span className="ces-sec-label" style={{ fontSize: 10, display: 'block', marginBottom: 3 }}>Daşınma</span>
                     {request.transportationRequired

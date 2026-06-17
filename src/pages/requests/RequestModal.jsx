@@ -24,9 +24,15 @@ const EMPTY = {
   projectType: '',
   dayCount: '',
   transportationRequired: false,
+  paymentMethod: '',
   params: [],
   notes: '',
 }
+
+const PAYMENT_METHODS = [
+  { value: 'CASH', label: 'Nağd' },
+  { value: 'TRANSFER', label: 'Köçürmə' },
+]
 
 const COUNTRY_CODES = [
   { code: '+994', flag: '🇦🇿', label: 'AZ' },
@@ -114,6 +120,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
         projectType: editing.projectType || '',
         dayCount: editing.dayCount ?? '',
         transportationRequired: editing.transportationRequired || false,
+        paymentMethod: editing.paymentMethod || '',
         params: editing.params ? editing.params.map((p) => ({ ...p })) : [],
         notes: editing.notes || '',
       }
@@ -163,6 +170,8 @@ export default function RequestModal({ editing, onClose, onSaved }) {
       if (!form.requestDate) errs.requestDate = 'Sorğu tarixi tələb olunur'
 
       if (!form.projectType) errs.projectType = 'Layihə tipi seçilməlidir'
+
+      if (!form.paymentMethod) errs.paymentMethod = 'Ödəniş növü seçilməlidir'
 
       if (form.dayCount !== '' && form.dayCount !== null) {
         const n = parseInt(form.dayCount)
@@ -284,7 +293,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
 
   const stepComplete = [
     !!(form.companyName.trim() && form.contactPerson?.trim() && form.phoneLocal?.trim()),
-    !!(form.projectName?.trim() && form.region?.trim() && form.requestDate && form.projectType),
+    !!(form.projectName?.trim() && form.region?.trim() && form.requestDate && form.projectType && form.paymentMethod),
     true,
   ]
 
@@ -516,6 +525,26 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                 </Field>
               </div>
 
+              <Field label="Ödəniş növü" required error={errors.paymentMethod}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {PAYMENT_METHODS.map((m) => {
+                    const active = form.paymentMethod === m.value
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => set('paymentMethod', m.value)}
+                        className={clsx('ces-btn', active ? 'ces-btn-primary' : 'ces-btn-outline')}
+                        style={{ flex: 1, justifyContent: 'center' }}
+                      >
+                        {active && <Check size={14} />}
+                        {m.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+
               <label
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
@@ -614,6 +643,10 @@ export default function RequestModal({ editing, onClose, onSaved }) {
                 <div className="ces-card-row"><span>Layihə</span><b>{form.projectName || '—'}</b></div>
                 <div className="ces-card-row"><span>Bölgə</span><b>{form.region || '—'}</b></div>
                 <div className="ces-card-row"><span>Tarix</span><b className="mono">{form.requestDate || '—'}</b></div>
+                <div className="ces-card-row">
+                  <span>Ödəniş növü</span>
+                  <b>{PAYMENT_METHODS.find((m) => m.value === form.paymentMethod)?.label || '—'}</b>
+                </div>
                 <div className="ces-card-row">
                   <span>Daşınma</span>
                   <b style={{ color: form.transportationRequired ? 'var(--ces-ok)' : 'var(--ces-muted)' }}>

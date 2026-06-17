@@ -14,10 +14,32 @@ const STAT_CARDS = [
   { id: 'READY',   label: 'Tam',        icon: FileCheck, color: 'text-green-500' },
 ]
 
+// Çoxlu texnika: hər sənəd növü üçün BÜTÜN xətlər tam olmalıdır.
+// 'full' = bütün xətlərdə var, 'partial' = bəzisində, 'none' = heç birində.
+// (Sorğu səviyyəli/köhnə sənəd bütün xətlər üçün keçərli sayılır.)
+const rowReadiness = (r) => {
+  const lines = r.equipmentLines || []
+  const docs = r.documents || []
+  if (lines.length === 0) {
+    return {
+      contract: r.contractUploaded ? 'full' : 'none',
+      protocol: r.priceProtocolUploaded ? 'full' : 'none',
+    }
+  }
+  const genContract = docs.some((d) => d.docType === 'CONTRACT' && d.planItemId == null)
+  const genProtocol = docs.some((d) => d.docType === 'PRICE_PROTOCOL' && d.planItemId == null)
+  const has = (ln, t, gen) => gen || docs.some((d) => d.docType === t && d.planItemId === ln.planItemId)
+  const cCount = lines.filter((ln) => has(ln, 'CONTRACT', genContract)).length
+  const pCount = lines.filter((ln) => has(ln, 'PRICE_PROTOCOL', genProtocol)).length
+  const state = (cnt) => (cnt === 0 ? 'none' : cnt === lines.length ? 'full' : 'partial')
+  return { contract: state(cCount), protocol: state(pCount) }
+}
+
 const classifyRow = (r) => {
-  if (r.contractUploaded && r.priceProtocolUploaded) return 'READY'
-  if (r.contractUploaded || r.priceProtocolUploaded) return 'PARTIAL'
-  return 'EMPTY'
+  const { contract, protocol } = rowReadiness(r)
+  if (contract === 'full' && protocol === 'full') return 'READY'
+  if (contract === 'none' && protocol === 'none') return 'EMPTY'
+  return 'PARTIAL'
 }
 
 export default function DocumentCheckPage() {
@@ -149,7 +171,9 @@ export default function DocumentCheckPage() {
                   {list.length === 0 ? 'Sənəd yoxlamasını gözləyən sorğu yoxdur' : 'Filtrlərə uyğun nəticə tapılmadı'}
                 </td></tr>
               ) : (
-                filtered.map(r => (
+                filtered.map(r => {
+                  const rd = rowReadiness(r)
+                  return (
                   <tr
                     key={r.requestId}
                     onClick={() => setSelected(r)}
@@ -164,10 +188,10 @@ export default function DocumentCheckPage() {
                       {r.agreedTotalPrice ? `${parseFloat(r.agreedTotalPrice).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'}
                     </td>
                     <td className="py-3 px-4">
-                      <DocBadge ok={r.contractUploaded} label="Müqavilə" />
+                      <DocBadge status={rd.contract} label="Müqavilə" />
                     </td>
                     <td className="py-3 px-4">
-                      <DocBadge ok={r.priceProtocolUploaded} label="Protokol" />
+                      <DocBadge status={rd.protocol} label="Protokol" />
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex justify-end">
@@ -180,7 +204,8 @@ export default function DocumentCheckPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -203,16 +228,20 @@ export default function DocumentCheckPage() {
   )
 }
 
-function DocBadge({ ok, label }) {
+// status: 'full' (Tam/OK) | 'partial' (Natamam) | 'none' (Yoxdur)
+function DocBadge({ status, label }) {
+  const cfg = status === 'full'
+    ? { cls: 'bg-green-50 text-green-700 border-green-200', icon: <CheckCircle size={11} />, text: `${label} OK`.trim() }
+    : status === 'partial'
+      ? { cls: 'bg-amber-50 text-amber-700 border-amber-200', icon: <FileClock size={11} />, text: `${label} natamam`.trim() }
+      : { cls: 'bg-gray-100 text-gray-500 border-gray-200', icon: <FileX size={11} />, text: `${label} yoxdur`.trim() }
   return (
     <span className={clsx(
       'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border',
-      ok
-        ? 'bg-green-50 text-green-700 border-green-200'
-        : 'bg-gray-100 text-gray-500 border-gray-200'
+      cfg.cls,
     )}>
-      {ok ? <CheckCircle size={11} /> : <FileText size={11} />}
-      {ok ? `${label} OK` : `${label} yoxdur`}
+      {cfg.icon}
+      {cfg.text}
     </span>
   )
 }
@@ -252,6 +281,20 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
     try {
       await documentCheckApi.uploadPriceProtocol(requestId, file)
       toast.success('Protokol yükləndi')
+      await load()
+      onChanged?.()
+    } catch {} finally {
+      setBusy(false)
+    }
+  }
+
+  // Çoxlu texnika — xətt üzrə yükləmə (mühasib də yükləyə bilər)
+  const uploadItem = async (type, planItemId, file) => {
+    setBusy(true)
+    try {
+      if (type === 'CONTRACT') await documentCheckApi.uploadContractItem(requestId, planItemId, file)
+      else await documentCheckApi.uploadPriceProtocolItem(requestId, planItemId, file)
+      toast.success(type === 'CONTRACT' ? 'Müqavilə yükləndi' : 'Protokol yükləndi')
       await load()
       onChanged?.()
     } catch {} finally {
@@ -318,6 +361,26 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
 
   const allReady = data.contractUploaded && data.priceProtocolUploaded
 
+  // Çoxlu texnika: BÜTÜN texnika xətləri göstərilir (sənədi olmasa belə),
+  // hər xəttin sənədləri planItemId üzrə tapılır.
+  const equipmentLines = data.equipmentLines || []
+  const hasPerLine = equipmentLines.length > 0
+  const lineGroups = equipmentLines.map((ln) => {
+    const lineDocs = (data.documents || []).filter((d) => d.planItemId === ln.planItemId)
+    return {
+      planItemId: ln.planItemId,
+      equipmentName: ln.equipmentName,
+      equipmentCode: ln.equipmentCode,
+      contract: lineDocs.find((d) => d.docType === 'CONTRACT') || null,
+      protocol: lineDocs.find((d) => d.docType === 'PRICE_PROTOCOL') || null,
+    }
+  })
+  // Sorğu səviyyəli (xəttə bağlı olmayan) sənədlər — köhnə yol / əlavə
+  const generalContract = (data.documents || []).find((d) => d.docType === 'CONTRACT' && d.planItemId == null)
+  const generalProtocol = (data.documents || []).find((d) => d.docType === 'PRICE_PROTOCOL' && d.planItemId == null)
+  const perLineReady = hasPerLine && lineGroups.every((g) => (g.contract || generalContract) && (g.protocol || generalProtocol))
+  const effectiveReady = hasPerLine ? perLineReady : allReady
+
   return (
     <div
       className="fixed inset-0 z-[900] flex justify-end"
@@ -345,37 +408,68 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          <DocSection
-            title="Müqavilə"
-            type="CONTRACT"
-            uploaded={data.contractUploaded}
-            doc={data.documents?.find(d => d.docType === 'CONTRACT')}
-            fileRef={contractRef}
-            onUpload={uploadContract}
-            onDelete={handleDelete}
-            requestId={requestId}
-            canPost={canPost}
-            canDelete={canDelete}
-            busy={busy}
-          />
-          <DocSection
-            title="Qiymət razılaşma protokolu"
-            type="PRICE_PROTOCOL"
-            uploaded={data.priceProtocolUploaded}
-            doc={data.documents?.find(d => d.docType === 'PRICE_PROTOCOL')}
-            fileRef={protocolRef}
-            onUpload={uploadProtocol}
-            onDelete={handleDelete}
-            requestId={requestId}
-            canPost={canPost}
-            canDelete={canDelete}
-            busy={busy}
-          />
+          {hasPerLine ? (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika üzrə sənədlər</p>
+              {lineGroups.map((g) => {
+                const contract = g.contract || generalContract
+                const protocol = g.protocol || generalProtocol
+                const ready = contract && protocol
+                return (
+                  <div key={g.planItemId} className={clsx('rounded-xl border p-3', ready ? 'border-green-200 dark:border-green-800' : 'border-amber-200 dark:border-amber-800')}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {g.equipmentName || `Xətt #${g.planItemId}`}
+                        {g.equipmentCode && <span className="font-mono text-gray-400 font-normal"> ({g.equipmentCode})</span>}
+                      </span>
+                      {ready
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border bg-green-50 text-green-700 border-green-200"><CheckCircle size={10} /> Tam</span>
+                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200">Yarımçıq</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <AccLineDoc label="Müqavilə" type="CONTRACT" doc={contract} shared={!g.contract && !!generalContract} planItemId={g.planItemId} requestId={requestId} canPost={canPost} canDelete={canDelete} onUpload={uploadItem} onDelete={handleDelete} busy={busy} />
+                      <AccLineDoc label="Qiymət protokolu" type="PRICE_PROTOCOL" doc={protocol} shared={!g.protocol && !!generalProtocol} planItemId={g.planItemId} requestId={requestId} canPost={canPost} canDelete={canDelete} onUpload={uploadItem} onDelete={handleDelete} busy={busy} />
+                    </div>
+                  </div>
+                )
+              })}
+              <p className="text-[11px] text-gray-400">Sənədlər LM (Razılaşma) mərhələsində hər texnika üçün yüklənir. Əskik varsa “LM-ə geri qaytar”.</p>
+            </div>
+          ) : (
+            <>
+              <DocSection
+                title="Müqavilə"
+                type="CONTRACT"
+                uploaded={data.contractUploaded}
+                doc={data.documents?.find(d => d.docType === 'CONTRACT')}
+                fileRef={contractRef}
+                onUpload={uploadContract}
+                onDelete={handleDelete}
+                requestId={requestId}
+                canPost={canPost}
+                canDelete={canDelete}
+                busy={busy}
+              />
+              <DocSection
+                title="Qiymət razılaşma protokolu"
+                type="PRICE_PROTOCOL"
+                uploaded={data.priceProtocolUploaded}
+                doc={data.documents?.find(d => d.docType === 'PRICE_PROTOCOL')}
+                fileRef={protocolRef}
+                onUpload={uploadProtocol}
+                onDelete={handleDelete}
+                requestId={requestId}
+                canPost={canPost}
+                canDelete={canDelete}
+                busy={busy}
+              />
+            </>
+          )}
         </div>
 
         <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
           <div className="text-xs text-gray-500">
-            {allReady ? 'Bütün sənədlər tam' : 'Müqavilə + Protokol yüklənməlidir'}
+            {effectiveReady ? 'Bütün sənədlər tam' : 'Hər texnika üçün Müqavilə + Protokol yüklənməlidir'}
           </div>
           <div className="flex items-center gap-2">
             {canComplete && (
@@ -390,7 +484,7 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
             {canComplete && (
               <button
                 onClick={complete}
-                disabled={!allReady || busy}
+                disabled={!effectiveReady || busy}
                 className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
               >
                 <CheckCircle size={13} /> Yoxlamanı tamamla
@@ -419,7 +513,7 @@ function DocSection({ title, type, uploaded, doc, fileRef, onUpload, onDelete, r
     <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-2">
       <div className="flex items-center justify-between">
         <div className="font-semibold text-sm text-gray-800 dark:text-gray-200">{title}</div>
-        <DocBadge ok={uploaded} label="" />
+        <DocBadge status={uploaded ? 'full' : 'none'} label="" />
       </div>
       {doc ? (
         <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2">
@@ -474,6 +568,45 @@ function DocSection({ title, type, uploaded, doc, fileRef, onUpload, onDelete, r
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg disabled:opacity-50"
           >
             <Upload size={13} /> {doc ? 'Yenidən yüklə' : 'Yüklə'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* Çoxlu texnika: bir xəttin bir sənədi (oxu/endir/sil + mühasib yükləyə bilər) */
+function AccLineDoc({ label, type, doc, shared, planItemId, requestId, canPost, canDelete, onUpload, onDelete, busy }) {
+  const fileRef = useRef(null)
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 bg-gray-50/50 dark:bg-gray-900/30">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300">{label}</span>
+        {doc
+          ? <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-green-50 text-green-700 border-green-200"><CheckCircle size={9} /> Var{shared ? ' (ümumi)' : ''}</span>
+          : <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border bg-gray-50 text-gray-400 border-gray-200">Yoxdur</span>}
+      </div>
+      {doc ? (
+        <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded px-2 py-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <FileText size={11} className="text-amber-600 shrink-0" />
+            <span className="text-[11px] text-gray-700 dark:text-gray-200 truncate">{doc.fileName}</span>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <a href={documentCheckApi.getDownloadUrl(requestId, doc.id)} target="_blank" rel="noopener noreferrer" className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Yüklə"><Download size={11} /></a>
+            {canDelete && !shared && (
+              <button disabled={busy} onClick={() => onDelete(doc)} className="p-1 text-red-500 hover:bg-red-50 rounded disabled:opacity-50" title="Sil"><Trash2 size={11} /></button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="text-[11px] text-gray-400">Hələ yüklənməyib</div>
+      )}
+      {canPost && (
+        <>
+          <input ref={fileRef} type="file" className="hidden" onChange={(e) => { if (e.target.files?.[0]) { onUpload(type, planItemId, e.target.files[0]); e.target.value = '' } }} />
+          <button onClick={() => fileRef.current?.click()} disabled={busy} className="mt-1.5 w-full inline-flex items-center justify-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md border border-dashed border-amber-300 hover:border-amber-500 hover:bg-amber-50 text-amber-700 disabled:opacity-50">
+            <Upload size={10} /> {doc ? 'Yenidən yüklə' : 'Yüklə'}
           </button>
         </>
       )}

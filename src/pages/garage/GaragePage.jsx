@@ -309,11 +309,13 @@ export default function GaragePage() {
   const [contractors, setContractors] = useState([])
   const [investors, setInvestors] = useState([])
   const [safetyTypes, setSafetyTypes] = useState([])
+  const [documentTypes, setDocumentTypes] = useState([])
 
   useEffect(() => {
     contractorsApi.getAll().then(r => setContractors(r.data.data || r.data || [])).catch(() => {})
     investorsApi.getAll().then(r => setInvestors(r.data.data || r.data || [])).catch(() => {})
     configApi.getActiveByCategory('SAFETY_EQUIPMENT').then(r => setSafetyTypes(r.data.data || [])).catch(() => {})
+    configApi.getActiveByCategory('EQUIPMENT_DOCUMENT_TYPE').then(r => setDocumentTypes(r.data.data || [])).catch(() => {})
   }, [])
 
   const [presets, setPresets] = useState(() => {
@@ -1242,6 +1244,7 @@ export default function GaragePage() {
           contractors={contractors}
           investors={investors}
           safetyTypes={safetyTypes}
+          documentTypes={documentTypes}
           onClose={() => setModal({ open: false, editing: null })}
           onSaved={() => { setModal({ open: false, editing: null }); load() }}
         />

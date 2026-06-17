@@ -29,6 +29,7 @@ const EMPTY = {
   ownershipType: 'COMPANY',
   notes: '', ownerInvestorId: '', ownerContractorId: '',
   safetyEquipmentIds: [],
+  requiredDocumentIds: [],
 }
 
 function Field({ label, required, children, error }) {
@@ -78,7 +79,7 @@ function StepIndicator({ steps, current }) {
   )
 }
 
-export default function EquipmentModal({ editing, onClose, onSaved, contractors = [], investors = [], safetyTypes = [] }) {
+export default function EquipmentModal({ editing, onClose, onSaved, contractors = [], investors = [], safetyTypes = [], documentTypes = [] }) {
   const isClone = editing?._clone
   const isEditing = editing && !isClone
   const [step, setStep] = useState(1)
@@ -131,6 +132,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
         ownerInvestorId: investorId ? String(investorId) : '',
         ownerContractorId: editing.ownerContractorId ?? '',
         safetyEquipmentIds: editing.safetyEquipment?.map(s => s.id) || [],
+        requiredDocumentIds: editing.requiredDocuments?.map(s => s.id) || [],
       }
       setForm(data)
       setInitialForm(data)
@@ -292,6 +294,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
       status: isEditing ? editing.status : 'AVAILABLE',
       notes: form.notes || null,
       safetyEquipmentIds: form.safetyEquipmentIds || [],
+      requiredDocumentIds: form.requiredDocumentIds || [],
     }
 
     if (form.ownershipType === 'INVESTOR') {
@@ -467,6 +470,36 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                   {errors.safetyEquipmentIds && (
                     <p className="mt-1.5 text-xs font-semibold text-[var(--ces-danger)]">{errors.safetyEquipmentIds}</p>
                   )}
+                </div>
+              )}
+
+              {documentTypes.length > 0 && (
+                <div>
+                  <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-2">
+                    Məcburi sənədlər
+                    <span className="ml-1 text-[11px] font-normal text-[var(--ces-mute2)]">(koordinator yoxlamasında istifadə olunur)</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {documentTypes.map((dt) => {
+                      const checked = (form.requiredDocumentIds || []).includes(dt.id)
+                      return (
+                        <label key={dt.id} className={clsx(
+                          'flex items-center gap-2 cursor-pointer rounded-[10px] border p-2.5 transition-all text-[13px]',
+                          checked
+                            ? 'border-[var(--ces-gold)] bg-[var(--ces-gold-50)] text-[var(--ces-gold-700)] font-bold'
+                            : 'border-[var(--ces-line)] bg-white text-[var(--ces-muted)] hover:border-[var(--ces-graphite)]'
+                        )}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => {
+                              const ids = form.requiredDocumentIds || []
+                              set('requiredDocumentIds', checked ? ids.filter(id => id !== dt.id) : [...ids, dt.id])
+                            }}
+                            className="accent-[var(--ces-gold)] w-4 h-4" />
+                          {dt.key}
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </>
