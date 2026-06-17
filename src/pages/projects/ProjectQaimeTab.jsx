@@ -317,22 +317,26 @@ export default function ProjectQaimeTab({ project }) {
     const extH = parseFloat(form.extraHours) || 0
     const rate = parseFloat(form.overtimeRate) || 1
 
+    // İnvestor/podratçı qiyməti müştəri tarifindən (monthlyRate) ASILI DEYİL —
+    // equipment_price × gün sayına görə hesablanır. Müştəri tarifi boş olsa belə
+    // gün daxil edildiyi anda hesablanıb göstərilməlidir.
+    const cWorkDays = isDaily ? 1 : (parseFloat(form.workingDaysInMonth) || 26)
+    const contractorAmt = computeContractorAmt(project, { std, extD, extH, workDays: cWorkDays, workHours, isDaily })
+
     let daily
     if (isDaily) {
       daily = parseFloat(form.monthlyRate) || 0
-      if (!daily) return { daily: 0, stdAmt: 0, extDAmt: 0, extHAmt: 0, total: 0, contractorAmt: 0 }
+      if (!daily) return { daily: 0, stdAmt: 0, extDAmt: 0, extHAmt: 0, total: 0, contractorAmt }
     } else {
       const monthly  = parseFloat(form.monthlyRate) || 0
       const workDays = parseFloat(form.workingDaysInMonth) || 26
-      if (!monthly || !workDays) return { daily: 0, stdAmt: 0, extDAmt: 0, extHAmt: 0, total: 0, contractorAmt: 0 }
+      if (!monthly || !workDays) return { daily: 0, stdAmt: 0, extDAmt: 0, extHAmt: 0, total: 0, contractorAmt }
       daily = monthly / workDays
     }
 
     const stdAmt  = daily * std
     const extDAmt = daily * extD
     const extHAmt = workHours ? (daily / workHours) * extH * rate : 0
-    const workDays = isDaily ? 1 : (parseFloat(form.workingDaysInMonth) || 26)
-    const contractorAmt = computeContractorAmt(project, { std, extD, extH, workDays, workHours, isDaily })
     return { daily, stdAmt, extDAmt, extHAmt, total: stdAmt + extDAmt + extHAmt, contractorAmt }
   }, [isDaily, form.monthlyRate, form.workingDaysInMonth, form.workingHoursPerDay, form.standardDays, form.extraDays, form.extraHours, form.overtimeRate, project])
 
@@ -706,13 +710,15 @@ export default function ProjectQaimeTab({ project }) {
           </div>
 
           {/* Preview */}
-          {calc.total > 0 && (
+          {(calc.total > 0 || calc.contractorAmt > 0) && (
             <div style={{ border: '1px solid #d8f3d0', background: 'var(--ces-ok-100)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <p className="ces-sec-label" style={{ color: 'var(--ces-ok)', margin: 0 }}>Hesablanmış məbləğ</p>
+              {calc.total > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--ces-muted)' }}>
                 <span>{isDaily ? 'Günlük tarif' : 'Günlük tarif (hesabi)'}</span>
                 <span className="mono">{fmtMoney(calc.daily)} ₼</span>
               </div>
+              )}
               {calc.stdAmt > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--ces-graphite)' }}>
                   <span>Standart ({form.standardDays} × {fmtMoney(calc.daily)})</span>
@@ -731,10 +737,12 @@ export default function ProjectQaimeTab({ project }) {
                   <span className="mono">{fmtMoney(calc.extHAmt)} ₼</span>
                 </div>
               )}
+              {calc.total > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 800, color: 'var(--ces-ok)', borderTop: '1px solid #d8f3d0', paddingTop: 6, marginTop: 4 }}>
                 <span>Müştəridən alınacaq</span>
                 <span className="mono">{fmtMoney(calc.total)} ₼</span>
               </div>
+              )}
               {isPartnerOwned && calc.contractorAmt > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: 'var(--ces-warn)', borderTop: '1px solid #fbe6c1', paddingTop: 6, marginTop: 2 }}>
                   <span>{contractorPayLabel(project)}</span>
