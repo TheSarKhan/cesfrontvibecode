@@ -363,13 +363,15 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
 
   const filterEquipmentsForRow = (row) => {
     if (!row.partyType) return []
+    // İcarədə olan (RENTED) texnika başqa layihəyə seçilə bilməz
+    const selectable = (e) => e.status !== 'RENTED'
     if (row.partyType === 'COMPANY') {
-      return equipments.filter((e) => e.ownershipType === 'COMPANY')
+      return equipments.filter((e) => e.ownershipType === 'COMPANY' && selectable(e))
     }
     if (row.partyType === 'CONTRACTOR') {
       if (!row.contractorId) return []
       return equipments.filter((e) =>
-        e.ownershipType === 'CONTRACTOR' && e.ownerContractorId === row.contractorId
+        e.ownershipType === 'CONTRACTOR' && e.ownerContractorId === row.contractorId && selectable(e)
       )
     }
     if (row.partyType === 'INVESTOR') {
@@ -377,7 +379,7 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
       const voen = investorVoenById.get(row.investorId)
       if (!voen) return []
       return equipments.filter((e) =>
-        e.ownershipType === 'INVESTOR' && e.ownerInvestorVoen === voen
+        e.ownershipType === 'INVESTOR' && e.ownerInvestorVoen === voen && selectable(e)
       )
     }
     return []

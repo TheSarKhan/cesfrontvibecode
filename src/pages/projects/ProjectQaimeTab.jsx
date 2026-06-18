@@ -569,12 +569,15 @@ export default function ProjectQaimeTab({ project }) {
       })
       if (lf.hasTransport) {
         for (const tr of (lf.transports || [])) {
-          if (!tr.direction && !tr.amount) continue
+          const amt = parseFloat(tr.amount)
+          // Yalnız tam doldurulmuş daşınma sətri göndərilir (istiqamət + müsbət məbləğ).
+          // Boş/yarımçıq sətirlər ötürülmür ki, daşınma seçilməyəndə "tələb olunur" xətası çıxmasın.
+          if (!tr.direction || !tr.direction.trim() || !(amt > 0)) continue
           transports.push({
             equipmentId: lf.equipmentId || null,
             transportDate: tr.date || form.invoiceDate,
-            transportDirection: tr.direction || '',
-            transportAmount: parseFloat(tr.amount) || 0,
+            transportDirection: tr.direction.trim(),
+            transportAmount: amt,
           })
         }
       }

@@ -177,7 +177,7 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
         shortlistItemId: r.itemId,
         equipmentPrice: isCompany ? 0 : (r.negotiatedPrice !== '' ? Number(r.negotiatedPrice) : null),
         customerEquipmentPrice: ln.customerPrice !== '' ? Number(ln.customerPrice) : null,
-        transportationPrice: ln.transport !== '' ? Number(ln.transport) : null,
+        transportationPrice: data?.transportationRequired && ln.transport !== '' ? Number(ln.transport) : null,
         dayCount: ln.dayCount !== '' ? Number(ln.dayCount) : null,
       }
     }),
@@ -370,9 +370,9 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
                   </div>
                 )}
 
-                {/* Seçildikdə: müştəri qiyməti + daşınma + müddət (hər texnika ayrı) */}
+                {/* Seçildikdə: müştəri qiyməti + (yalnız sorğuda tələb olunarsa) daşınma. Müddət sorğu səviyyəsindədir. */}
                 {selected && (
-                  <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-800 grid grid-cols-3 gap-2">
+                  <div className={clsx('mt-3 pt-3 border-t border-purple-200 dark:border-purple-800 grid gap-2', data?.transportationRequired ? 'grid-cols-2' : 'grid-cols-1')}>
                     <div>
                       <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Müştəri/{unitLabel} (₼)</label>
                       <NumberInput
@@ -381,14 +381,7 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
                         placeholder="0.00" disabled={!editable} className={inputCls}
                       />
                     </div>
-                    <div>
-                      <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1">Müddət ({unitLabel})</label>
-                      <NumberInput
-                        min="0" value={ln.dayCount}
-                        onChange={(e) => updateLine(row.itemId, 'dayCount', e.target.value)}
-                        placeholder={String(defaultUnits || '')} disabled={!editable} className={inputCls}
-                      />
-                    </div>
+                    {data?.transportationRequired && (
                     <div>
                       <label className="text-[10px] text-gray-500 uppercase tracking-wide block mb-1 flex items-center gap-0.5"><Truck size={9} /> Daşınma (₼)</label>
                       <NumberInput
@@ -397,7 +390,8 @@ function NegotiateTab({ data, requestId, editable, onSaved, onShowEquipmentDetai
                         placeholder="0.00" disabled={!editable} className={inputCls}
                       />
                     </div>
-                    <div className="col-span-3 flex items-center justify-between text-[11px] pt-1">
+                    )}
+                    <div className="col-span-2 flex items-center justify-between text-[11px] pt-1">
                       <span className="text-gray-500">
                         {c.units} {unitLabel} · ödəniləcək <span className="mono text-red-600">{fmt(c.costTotal)} ₼</span> · alınacaq <span className="mono text-emerald-700">{fmt(c.revTotal)} ₼</span>
                       </span>
