@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Search, Clock, Zap, CheckCircle, ChevronRight, FileText, FolderKanban } from 'lucide-react'
+import { Search, Clock, Zap, CheckCircle, ChevronRight, FolderKanban } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import { fmtDate } from '../../utils/date'
 import ProjectSlideOver from './ProjectSlideOver'
@@ -14,7 +14,7 @@ import { useSearchParams } from 'react-router-dom'
 const STATUS_CONFIG = {
   PENDING:   { label: 'Gözləmədə', pill: 'ces-p-info' },
   ACTIVE:    { label: 'Aktiv',     pill: 'ces-p-ok' },
-  COMPLETED: { label: 'Bağlanmış', pill: 'ces-p-mute' },
+  COMPLETED: { label: 'Bağlanıb', pill: 'ces-p-mute' },
 }
 
 const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }
@@ -122,9 +122,9 @@ export default function ProjectsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        <StatCard icon={Clock}       label="Gözləmədə"  value={stats.pending}   sub="müqavilə gözlənilir" />
+        <StatCard icon={Clock}       label="Gözləmədə"  value={stats.pending}   sub="təsdiq gözlənilir" />
         <StatCard icon={Zap}         label="Aktiv"      value={stats.active}    sub="icra mərhələsində"      iconCls="ok" />
-        <StatCard icon={CheckCircle} label="Bağlanmış"  value={stats.completed} sub="mühasibatlığa göndərildi" />
+        <StatCard icon={CheckCircle} label="Bağlanıb"   value={stats.completed} sub="mühasibatlığa göndərildi" />
       </div>
 
       {/* Filters */}
@@ -161,14 +161,13 @@ export default function ProjectsPage() {
                 <th>Şirkət / Layihə</th>
                 <th>Bölgə</th>
                 <th>Texnika</th>
-                <th>Müqavilə</th>
                 <th>Status</th>
                 <th className="w-act"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <TableSkeleton cols={7} rows={6} />
+                <TableSkeleton cols={6} rows={6} />
               ) : data.content.length === 0 ? (
                 <EmptyState
                   icon={FolderKanban}
@@ -253,21 +252,6 @@ export default function ProjectsPage() {
                             )}
                           </div>
                         ) : <span style={{ color: 'var(--ces-mute2)' }}>—</span>}
-                      </td>
-
-                      {/* Müqavilə */}
-                      <td>
-                        {p.hasContract ? (
-                          <span className="ces-pill ces-p-ok sm">
-                            <FileText size={10} />
-                            Yüklənib
-                          </span>
-                        ) : (
-                          <span className="ces-pill ces-p-warn sm">
-                            <Clock size={10} />
-                            Gözlənilir
-                          </span>
-                        )}
                       </td>
 
                       {/* Status */}

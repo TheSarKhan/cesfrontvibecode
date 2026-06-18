@@ -1342,6 +1342,30 @@ export default function AccountingInvoicesPage() {
                                           </div>
                                         </div>
                                       )}
+                                      {/* Daşınmalar (ilk + proses) */}
+                                      {inv.transports?.length > 0 && (
+                                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--ces-line)' }}>
+                                          <p className="text-[10.5px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--ces-info)' }}>
+                                            Daşınmalar ({inv.transports.length}) · {fmtMoney(inv.totalTransportAmount)}
+                                          </p>
+                                          <div className="overflow-hidden" style={{ borderRadius: '8px', border: '1px solid #e3edfb', background: 'var(--ces-surface)' }}>
+                                            {inv.transports.map((t, i) => {
+                                              const eqName = inv.lines?.find(l => l.equipmentId === t.equipmentId)?.equipmentName
+                                              return (
+                                                <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-[11.5px]"
+                                                  style={{ borderBottom: i < inv.transports.length - 1 ? '1px solid var(--ces-line-2)' : 'none' }}>
+                                                  <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                                                    {t.transportDate && <span className="font-mono" style={{ color: 'var(--ces-mute2)' }}>{fmtD(t.transportDate)}</span>}
+                                                    <span style={{ color: 'var(--ces-ink)' }}>{t.transportDirection || 'Daşınma'}</span>
+                                                    {eqName && <span style={{ color: '#7d4ec9' }}>🔧 {eqName}</span>}
+                                                  </div>
+                                                  <span className="font-bold num" style={{ color: 'var(--ces-info)' }}>{fmtMoney(t.transportAmount)}</span>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
                                       {inv.type === 'INCOME' && (
                                         <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--ces-line)' }}>
                                           <span className="text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ces-muted)' }}>Akt:</span>

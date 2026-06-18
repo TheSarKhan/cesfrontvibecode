@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   X, Info, DollarSign, CheckCircle,
-  FileText, Plus, Trash2, Download,
+  FileText, Plus, Trash2,
   TrendingUp, TrendingDown, Calendar,
   AlertCircle, Phone, User, MapPin, Building2,
   Clock, FolderKanban
@@ -9,7 +9,6 @@ import {
 import { projectsApi } from '../../api/projects'
 import { accountingApi } from '../../api/accounting'
 import ProjectQaimeTab from './ProjectQaimeTab'
-import axiosInstance from '../../api/axios'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
@@ -150,52 +149,14 @@ function EquipmentLineCard({ line, projectType, planDayCount }) {
 
 // ─── Məlumat Tab ──────────────────────────────────────────────────────────────
 
-function InfoTab({ project, onEndDateUpdated }) {
-  const [editingDate, setEditingDate] = useState(false)
-  const [date, setDate] = useState(project.endDate?.substring(0, 10) || '')
-  const [savingDate, setSavingDate] = useState(false)
-
+function InfoTab({ project }) {
   const [editingStartDate, setEditingStartDate] = useState(false)
   const [startDate, setStartDate] = useState(project.startDate?.substring(0, 10) || '')
   const [savingStartDate, setSavingStartDate] = useState(false)
 
-  const handleDownloadContract = async () => {
-    try {
-      const url = projectsApi.contractDownloadUrl(project.id)
-      const res = await axiosInstance.get(url, { responseType: 'blob' })
-      const baseName = project.contractFileName || `contract_${project.id}`
-      const cd = res.headers['content-disposition'] || ''
-      const match = cd.match(/filename="?([^";\s]+)"?/)
-      const serverExt = match ? match[1].substring(match[1].lastIndexOf('.')) : ''
-      const fileName = serverExt && !baseName.toLowerCase().endsWith(serverExt.toLowerCase())
-        ? baseName + serverExt : baseName
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(res.data)
-      link.download = fileName
-      link.click()
-      URL.revokeObjectURL(link.href)
-    } catch (err) {
-      if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl yüklənə bilmədi')
-    }
-  }
-
-  // QEYD: Müqavilə YÜKLƏMƏ silindi — layihə mühasibat OK + Əməliyyatların təsdiqi ilə ACTIVE olur.
-  // Yalnız mövcud müqaviləni endirmək qaldı (handleDownloadContract).
-
-  const saveDate = async () => {
-    if (!date) return
-    setSavingDate(true)
-    try {
-      await projectsApi.updateEndDate(project.id, { endDate: date })
-      toast.success('Bitmə tarixi yeniləndi')
-      setEditingDate(false)
-      onEndDateUpdated()
-    } catch (err) {
-      if (!err._toasted) toast.error(err?.response?.data?.message || 'Tarix yenilənə bilmədi')
-    } finally {
-      setSavingDate(false)
-    }
-  }
+  // QEYD: Müqavilə bölməsi layihə modulundan silindi — müqavilə koordinator tərəfindən
+  // yüklənir və sənəd mərkəzində görünür; layihə mühasibat OK + Əməliyyat təsdiqi ilə ACTIVE olur.
+  // Bitmə tarixi yalnız Bağlanış tabında, layihə bağlananda qeyd olunur — məlumatlardan dəyişilmir.
 
   const saveStartDate = async () => {
     if (!startDate) return
@@ -416,65 +377,12 @@ function InfoTab({ project, onEndDateUpdated }) {
             <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{fmt(project.startDate ?? project.planStartDate)}</span>
           )}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px dashed var(--ces-line)' }}>
-          <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>Bitmə</span>
-          {project.status !== 'COMPLETED' ? (
-            editingDate ? (
-              <div className="flex items-center gap-1.5">
-                <div className="ces-input sm" style={{ minHeight: 30, padding: '0 8px' }}>
-                  <DateInput
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 12.5, padding: '6px 0', width: 120 }}
-                  />
-                </div>
-                <button onClick={saveDate} disabled={savingDate} className="ces-btn ces-btn-xs" style={{ background: 'var(--ces-ok)', color: '#fff' }}>
-                  {savingDate ? '...' : 'Saxla'}
-                </button>
-                <button onClick={() => setEditingDate(false)} className="ces-btn ces-btn-xs ces-btn-ghost">Ləğv</button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setEditingDate(true)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 500, color: 'var(--ces-ink)', background: 'transparent', border: 0, cursor: 'pointer' }}
-              >
-                <Calendar size={11} style={{ color: 'var(--ces-mute2)' }} />
-                <span className="mono">{fmt(project.endDate ?? project.planEndDate)}</span>
-                <span style={{ fontSize: 10.5, color: 'var(--ces-gold-700)', marginLeft: 4 }}>(dəyiş)</span>
-              </button>
-            )
-          ) : (
-            <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{fmt(project.endDate ?? project.planEndDate)}</span>
-          )}
-        </div>
-      </Section>
-
-      <Section title="Müqavilə" icon={FileText}>
-        <InfoRow label="Status">
-          {project.hasContract ? (
-            <span className="flex items-center gap-2">
-              <span className="ces-pill ces-p-ok sm">
-                <FileText size={10} />
-                Yüklənib
-              </span>
-              <button
-                onClick={handleDownloadContract}
-                className="ces-btn ces-btn-xs ces-btn-ghost"
-                style={{ color: 'var(--ces-gold-700)' }}
-              >
-                <Download size={11} />
-                Endir
-              </button>
-            </span>
-          ) : (
-            <span className="ces-pill ces-p-warn sm">
-              <AlertCircle size={10} />
-              Gözlənilir
-            </span>
-          )}
-        </InfoRow>
-        {project.contractFileName && (
-          <InfoRow label="Fayl adı" value={project.contractFileName} />
+        {/* Bitmə tarixi yalnız layihə bağlananda görünür və yalnız bağlanış zamanı qeyd olunur */}
+        {project.status === 'COMPLETED' && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px dashed var(--ces-line)' }}>
+            <span style={{ fontSize: 12, color: 'var(--ces-muted)' }}>Bitmə</span>
+            <span className="mono" style={{ fontSize: 13, fontWeight: 500 }}>{fmt(project.endDate)}</span>
+          </div>
         )}
       </Section>
 
@@ -796,7 +704,10 @@ function SummaryRow({ label, value, valueColor }) {
 
 function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const { confirm, ConfirmDialog } = useConfirm()
-  const [form, setForm] = useState({ evacuationCost: project.evacuationCost ?? '' })
+  const [form, setForm] = useState({
+    evacuationCost: project.evacuationCost ?? '',
+    endDate: (project.endDate ?? project.planEndDate)?.substring(0, 10) || new Date().toISOString().slice(0, 10),
+  })
   const [saving, setSaving] = useState(false)
   const [invoiceCounts, setInvoiceCounts] = useState(null)
   const set = (f, v) => setForm((p) => ({ ...p, [f]: v }))
@@ -847,6 +758,7 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
   const handleComplete = async () => {
     if (form.evacuationCost === '' || parseFloat(form.evacuationCost) < 0)
       return toast.error('Evakuator xərcini daxil edin')
+    if (!form.endDate) return toast.error('Bitmə tarixini seçin')
 
     const invoicesReady = await confirm({
       title: 'Qaimələr əlavə edilib?',
@@ -865,7 +777,7 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
 
     setSaving(true)
     try {
-      await projectsApi.complete(project.id, { evacuationCost: parseFloat(form.evacuationCost) })
+      await projectsApi.complete(project.id, { evacuationCost: parseFloat(form.evacuationCost), endDate: form.endDate })
       toast.success('Layihə bağlandı')
       onCompleted()
     } catch {
@@ -999,6 +911,33 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
             {netProfit >= 0 ? '+' : ''}{fmtMoney(netProfit)}
           </span>
         </div>
+      </div>
+
+      {/* Bitmə tarixi — yalnız bağlanış zamanı qeyd olunur */}
+      <div className="ces-field" style={{ marginBottom: 0 }}>
+        <label>
+          Bitmə tarixi {!isCompleted && <span className="req">*</span>}
+        </label>
+        {isCompleted ? (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '12px 14px', background: 'var(--ces-graphite-50)',
+              border: '1px solid var(--ces-line)', borderRadius: 12,
+            }}
+          >
+            <Calendar size={14} style={{ color: 'var(--ces-mute2)' }} />
+            <span className="mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ces-ink)' }}>{fmt(project.endDate)}</span>
+          </div>
+        ) : (
+          <div className="ces-input">
+            <DateInput
+              value={form.endDate}
+              onChange={(e) => set('endDate', e.target.value)}
+              style={{ flex: 1, border: 0, outline: 0, background: 'transparent' }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Evakuator xərci */}
