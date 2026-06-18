@@ -501,13 +501,21 @@ function StepCard({ num, title, active, done, children }) {
 }
 
 /* ─── İcra: tək texnika xətti kartı (çoxlu model) ─── */
-function ItemExecuteCard({ item, requestId, operators, canPut, canDispatch, canDeliver, canPost, canDelete, onSaved, onOpenDoc, onOpenEquipmentDoc }) {
+const AGREEMENT_DOC_LABELS = {
+  CONTRACT: 'Müştəri müqaviləsi',
+  PRICE_PROTOCOL: 'Müştəri qiymət protokolu',
+  OWNER_CONTRACT: 'Sahib müqaviləsi',
+  OWNER_PRICE_PROTOCOL: 'Sahib qiymət protokolu',
+}
+
+function ItemExecuteCard({ item, requestId, operators, canPut, canDispatch, canDeliver, canPost, canDelete, onSaved, onOpenDoc, onOpenEquipmentDoc, onOpenRequestDoc }) {
   const [selectedOperatorId, setSelectedOperatorId] = useState('')
   const [busy, setBusy] = useState(false)
   const actRef = useRef(null)
 
   const reqDocs = item.requiredDocuments || []
   const eqDocs = item.equipmentDocuments || []
+  const agDocs = item.agreementDocuments || []
   const allChecked = reqDocs.length === 0 || reqDocs.every((d) => d.checked)
   const hasOperator = !!item.operatorId
   // Seçilmiş və ya təyin olunmuş operatorun sənədləri (operators siyahısından)
@@ -589,6 +597,23 @@ function ItemExecuteCard({ item, requestId, operators, canPut, canDispatch, canD
               </div>
             )}
           </div>
+
+          {/* Müqavilə sənədləri — oxu rejimi (müştəri + sahib) */}
+          {agDocs.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Müqavilə sənədləri</p>
+              <div className="space-y-1">
+                {agDocs.map((d) => (
+                  <button key={d.id} type="button" onClick={() => onOpenRequestDoc(d)}
+                    className="flex items-center gap-1.5 w-full text-[11px] text-gray-600 dark:text-gray-300 hover:text-purple-600 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1">
+                    <FileText size={11} className="text-amber-500 shrink-0" />
+                    <span className="truncate">{AGREEMENT_DOC_LABELS[d.docType] || d.fileName}</span>
+                    <Download size={10} className="ml-auto shrink-0 text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 2. Sənəd yoxlaması */}
           {hasOperator && (
@@ -857,6 +882,20 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, canPost,
     }
   }
 
+  // Müqavilə sənədini (müştəri/sahib) oxu-rejimi üçün aç
+  const handleOpenRequestDoc = async (doc) => {
+    try {
+      const res = await coordinatorApi.downloadRequestDocument(requestId, doc.id)
+      const url = URL.createObjectURL(
+        new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' })
+      )
+      window.open(url, '_blank', 'noopener')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch {
+      toast.error('Fayl açıla bilmədi')
+    }
+  }
+
   // ── Step 3: yükləmə şəkilləri ──
   const dispatchPhotos = (data?.documents || []).filter((d) => d.documentType === 'DISPATCH_PHOTO')
   const photoRef = useRef(null)
@@ -916,6 +955,7 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, canPost,
             onSaved={onSaved}
             onOpenDoc={handleOpenDoc}
             onOpenEquipmentDoc={handleOpenEquipmentDoc}
+            onOpenRequestDoc={handleOpenRequestDoc}
           />
         ))}
         {status === 'DELIVERED' && (

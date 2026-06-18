@@ -252,7 +252,8 @@ export default function AccountingInvoicesPage() {
   }, [tableItems, invoiceTab])
 
   const pendingGroups = useMemo(() => {
-    const pending = invoices.filter(i => i.status === 'DRAFT' || i.status === 'SENT')
+    // Yalnız mühasibatlığa GÖNDƏRİLMİŞ (SENT) qaimələr; göndərilməmiş qaralama (DRAFT) layihə-daxili qalır
+    const pending = invoices.filter(i => i.status === 'SENT')
     const incomes  = pending.filter(i => i.type === 'INCOME')
     const expenses = pending.filter(i => i.type !== 'INCOME')
     const groups = []
@@ -269,7 +270,7 @@ export default function AccountingInvoicesPage() {
   }, [invoices])
 
   const pendingCount = useMemo(() =>
-    invoices.filter(i => i.status === 'DRAFT' || i.status === 'SENT').length
+    invoices.filter(i => i.status === 'SENT').length
   , [invoices])
 
   const toggleExpand = (item) => {

@@ -1,4 +1,5 @@
 import api from './axios'
+import { makePartyDocsApi } from './partyDocs'
 
 export const contractorsApi = {
   getAll: (params) => api.get('/contractors', { params }),
@@ -10,4 +11,6 @@ export const contractorsApi = {
   getProjectHistory: (id) => api.get(`/contractors/${id}/projects`),
   getInvoices: (id) => api.get(`/contractors/${id}/invoices`),
   getPayables: (id) => api.get(`/contractors/${id}/payables`),
+  // Sənəd mərkəzi
+  docs: makePartyDocsApi('/contractors'),
 }

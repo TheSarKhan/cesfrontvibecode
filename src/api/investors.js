@@ -1,4 +1,5 @@
 import api from './axios'
+import { makePartyDocsApi } from './partyDocs'
 
 export const investorsApi = {
   getAll: (params) => api.get('/investors', { params }),
@@ -14,4 +15,6 @@ export const investorsApi = {
   // Portal hesabı (admin)
   updatePortalAccount: (id, data) => api.put(`/investors/${id}/portal-account`, data),
   setPassword: (id, data) => api.post(`/investors/${id}/set-password`, data),
+  // Sənəd mərkəzi
+  docs: makePartyDocsApi('/investors'),
 }

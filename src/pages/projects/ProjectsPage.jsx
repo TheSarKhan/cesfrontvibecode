@@ -219,7 +219,19 @@ export default function ProjectsPage() {
 
                       {/* Texnika */}
                       <td>
-                        {p.equipmentName ? (
+                        {p.equipmentLines?.length > 1 ? (() => {
+                          const types = [...new Set(p.equipmentLines.map((l) => l.equipmentType).filter(Boolean))]
+                          return (
+                            <div>
+                              <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ces-ink)' }}>{p.equipmentLines.length} texnika</p>
+                              {types.length > 0 && (
+                                <p style={{ fontSize: 11, color: 'var(--ces-muted)' }}>
+                                  {types.slice(0, 3).join(' · ')}{types.length > 3 ? ' …' : ''}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })() : p.equipmentName ? (
                           <div>
                             <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ces-ink)' }}>{p.equipmentName}</p>
                             <p style={{ fontSize: 11, color: 'var(--ces-muted)' }}>

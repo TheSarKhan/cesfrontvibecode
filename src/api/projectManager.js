@@ -63,6 +63,21 @@ export const projectManagerApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  // Sahib tərəfi (podratçı/investor) — xətt üzrə
+  uploadOwnerContractItem: (id, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/project-manager/requests/${id}/items/${itemId}/upload-owner-contract`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  uploadOwnerPriceProtocolItem: (id, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/project-manager/requests/${id}/items/${itemId}/upload-owner-price-protocol`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   deleteDocument: (id, documentId) =>
     api.delete(`/project-manager/requests/${id}/documents/${documentId}`),
   getDocumentDownloadUrl: (id, documentId) =>

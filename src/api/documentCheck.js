@@ -33,6 +33,21 @@ export const documentCheckApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  // Sahib tərəfi (podratçı/investor) — xətt üzrə
+  uploadOwnerContractItem: (requestId, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/accounting/document-checks/${requestId}/items/${itemId}/upload-owner-contract`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  uploadOwnerPriceProtocolItem: (requestId, itemId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/accounting/document-checks/${requestId}/items/${itemId}/upload-owner-price-protocol`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
   deleteDocument: (requestId, documentId) =>
     api.delete(`/accounting/document-checks/${requestId}/documents/${documentId}`),
   getDownloadUrl: (requestId, documentId) =>

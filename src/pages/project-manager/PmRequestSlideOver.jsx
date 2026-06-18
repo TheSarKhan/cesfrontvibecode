@@ -829,9 +829,12 @@ function AgreementLineCard({ line, requestId, projectType, requestDayCount, edit
   const [trPrice, setTrPrice] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(null) // 'CONTRACT' | 'PRICE_PROTOCOL'
+  const [uploading, setUploading] = useState(null) // 'CONTRACT' | 'PRICE_PROTOCOL' | 'OWNER_CONTRACT' | 'OWNER_PRICE_PROTOCOL'
   const contractRef = useRef(null)
   const protocolRef = useRef(null)
+  const ownerContractRef = useRef(null)
+  const ownerProtocolRef = useRef(null)
+  const isOwnerLine = line.partyType === 'CONTRACTOR' || line.partyType === 'INVESTOR'
 
   useEffect(() => {
     setEqPrice(line.agreedEquipmentPrice ?? '')
@@ -851,6 +854,8 @@ function AgreementLineCard({ line, requestId, projectType, requestDayCount, edit
 
   const contractDoc = documents.find((d) => d.docType === 'CONTRACT')
   const protocolDoc = documents.find((d) => d.docType === 'PRICE_PROTOCOL')
+  const ownerContractDoc = documents.find((d) => d.docType === 'OWNER_CONTRACT')
+  const ownerProtocolDoc = documents.find((d) => d.docType === 'OWNER_PRICE_PROTOCOL')
   const saved = line.agreedTotalPrice != null
 
   const handleSave = async () => {
@@ -873,8 +878,10 @@ function AgreementLineCard({ line, requestId, projectType, requestDayCount, edit
     setUploading(type)
     try {
       if (type === 'CONTRACT') await projectManagerApi.uploadContractItem(requestId, line.id, file)
-      else await projectManagerApi.uploadPriceProtocolItem(requestId, line.id, file)
-      toast.success(type === 'CONTRACT' ? 'Müqavilə yükləndi' : 'Protokol yükləndi')
+      else if (type === 'PRICE_PROTOCOL') await projectManagerApi.uploadPriceProtocolItem(requestId, line.id, file)
+      else if (type === 'OWNER_CONTRACT') await projectManagerApi.uploadOwnerContractItem(requestId, line.id, file)
+      else await projectManagerApi.uploadOwnerPriceProtocolItem(requestId, line.id, file)
+      toast.success('Sənəd yükləndi')
       onSaved?.()
     } catch {} finally { setUploading(null) }
   }
@@ -964,10 +971,22 @@ function AgreementLineCard({ line, requestId, projectType, requestDayCount, edit
 
       {(editable || contractDoc || protocolDoc) && (
         <div className="border-t border-gray-100 dark:border-gray-700 pt-2.5">
-          <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 mb-1.5 inline-flex items-center gap-1"><FileText size={10} /> Sənədlər</p>
+          <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 mb-1.5 inline-flex items-center gap-1"><FileText size={10} /> Müştəri tərəfi sənədləri</p>
           <div className="grid grid-cols-2 gap-2">
             {docSlot('Müqavilə', 'CONTRACT', contractDoc, contractRef)}
             {docSlot('Qiymət protokolu', 'PRICE_PROTOCOL', protocolDoc, protocolRef)}
+          </div>
+        </div>
+      )}
+
+      {isOwnerLine && (editable || ownerContractDoc || ownerProtocolDoc) && (
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-2.5 mt-2.5">
+          <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 mb-1.5 inline-flex items-center gap-1">
+            <FileText size={10} /> Sahib tərəfi sənədləri ({line.partyType === 'CONTRACTOR' ? 'Podratçı' : 'İnvestor'})
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {docSlot('Sahib müqaviləsi', 'OWNER_CONTRACT', ownerContractDoc, ownerContractRef)}
+            {docSlot('Sahib qiymət protokolu', 'OWNER_PRICE_PROTOCOL', ownerProtocolDoc, ownerProtocolRef)}
           </div>
         </div>
       )}

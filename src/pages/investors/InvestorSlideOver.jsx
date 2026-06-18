@@ -8,6 +8,8 @@ import {
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import ActivityFeed from '../../components/common/ActivityFeed'
+import PartyDocumentsHub from '../../components/common/PartyDocumentsHub'
+import { useAuthStore } from '../../store/authStore'
 import { garageApi } from '../../api/garage'
 import { investorsApi } from '../../api/investors'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
@@ -82,6 +84,7 @@ const TABS = [
   { id: 'invoices',  label: 'Qaimələr',        icon: TrendingDown },
   { id: 'payments',  label: 'Ödənişlər',       icon: Banknote },
   { id: 'projects',  label: 'Layihə tarixçəsi', icon: FolderKanban },
+  { id: 'documents', label: 'Sənədlər',          icon: FileText },
   { id: 'history',   label: 'Audit',            icon: History },
 ]
 
@@ -345,6 +348,9 @@ function PortalTab({ investor, canManage, onUpdated }) {
 
 /* ═══════════════════════════════════════════════════ */
 export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete, canManageAccount, onUpdated }) {
+  const hasPermission = useAuthStore(s => s.hasPermission)
+  const canPostDoc = hasPermission('INVESTORS', 'canPost')
+  const canDeleteDoc = hasPermission('INVESTORS', 'canDelete')
   const [tab, setTab] = useState('info')
   const [equipment, setEquipment] = useState([])
   const [eqLoading, setEqLoading] = useState(false)
@@ -853,6 +859,19 @@ export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete,
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* ── SƏNƏDLƏR (sənəd mərkəzi) ── */}
+          {tab === 'documents' && (
+            <div className="p-4">
+              <PartyDocumentsHub
+                docsApi={investorsApi.docs}
+                partyId={investor.id}
+                partyName={investor.companyName}
+                canEdit={canPostDoc}
+                canDelete={canDeleteDoc}
+              />
             </div>
           )}
 

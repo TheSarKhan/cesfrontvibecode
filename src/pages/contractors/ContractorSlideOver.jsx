@@ -8,6 +8,8 @@ import { garageApi } from '../../api/garage'
 import { contractorsApi } from '../../api/contractors'
 import { clsx } from 'clsx'
 import ActivityFeed from '../../components/common/ActivityFeed'
+import PartyDocumentsHub from '../../components/common/PartyDocumentsHub'
+import { useAuthStore } from '../../store/authStore'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
 import { fmtDate } from '../../utils/date'
@@ -55,10 +57,14 @@ const TABS = [
   { id: 'invoices',  label: 'Qaimələr',         icon: TrendingDown },
   { id: 'payments',  label: 'Ödənişlər',        icon: Banknote },
   { id: 'projects',  label: 'Layihə Tarixçəsi', icon: FolderKanban },
+  { id: 'documents', label: 'Sənədlər',          icon: FileText },
   { id: 'history',   label: 'Tarixçə',          icon: History },
 ]
 
 export default function ContractorSlideOver({ contractor, onClose, onEdit, onDelete }) {
+  const hasPermission = useAuthStore(s => s.hasPermission)
+  const canPostDoc = hasPermission('CONTRACTOR_MANAGEMENT', 'canPost')
+  const canDeleteDoc = hasPermission('CONTRACTOR_MANAGEMENT', 'canDelete')
   const [tab, setTab] = useState('info')
   const [invoices, setInvoices] = useState([])
   const [invLoading, setInvLoading] = useState(false)
@@ -483,6 +489,19 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Sənədlər (sənəd mərkəzi) ── */}
+          {tab === 'documents' && (
+            <div className="p-5">
+              <PartyDocumentsHub
+                docsApi={contractorsApi.docs}
+                partyId={contractor.id}
+                partyName={contractor.companyName}
+                canEdit={canPostDoc}
+                canDelete={canDeleteDoc}
+              />
             </div>
           )}
 

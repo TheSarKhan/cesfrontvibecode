@@ -28,9 +28,14 @@ const rowReadiness = (r) => {
   }
   const genContract = docs.some((d) => d.docType === 'CONTRACT' && d.planItemId == null)
   const genProtocol = docs.some((d) => d.docType === 'PRICE_PROTOCOL' && d.planItemId == null)
+  const genOwnerContract = docs.some((d) => d.docType === 'OWNER_CONTRACT' && d.planItemId == null)
+  const genOwnerProtocol = docs.some((d) => d.docType === 'OWNER_PRICE_PROTOCOL' && d.planItemId == null)
   const has = (ln, t, gen) => gen || docs.some((d) => d.docType === t && d.planItemId === ln.planItemId)
-  const cCount = lines.filter((ln) => has(ln, 'CONTRACT', genContract)).length
-  const pCount = lines.filter((ln) => has(ln, 'PRICE_PROTOCOL', genProtocol)).length
+  // Sahib (podratçı/investor) xəttində müştəri + sahib sənədi birlikdə tələb olunur
+  const cOk = (ln) => has(ln, 'CONTRACT', genContract) && (!ln.ownerDocsRequired || has(ln, 'OWNER_CONTRACT', genOwnerContract))
+  const pOk = (ln) => has(ln, 'PRICE_PROTOCOL', genProtocol) && (!ln.ownerDocsRequired || has(ln, 'OWNER_PRICE_PROTOCOL', genOwnerProtocol))
+  const cCount = lines.filter(cOk).length
+  const pCount = lines.filter(pOk).length
   const state = (cnt) => (cnt === 0 ? 'none' : cnt === lines.length ? 'full' : 'partial')
   return { contract: state(cCount), protocol: state(pCount) }
 }
@@ -293,8 +298,10 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
     setBusy(true)
     try {
       if (type === 'CONTRACT') await documentCheckApi.uploadContractItem(requestId, planItemId, file)
-      else await documentCheckApi.uploadPriceProtocolItem(requestId, planItemId, file)
-      toast.success(type === 'CONTRACT' ? 'Müqavilə yükləndi' : 'Protokol yükləndi')
+      else if (type === 'PRICE_PROTOCOL') await documentCheckApi.uploadPriceProtocolItem(requestId, planItemId, file)
+      else if (type === 'OWNER_CONTRACT') await documentCheckApi.uploadOwnerContractItem(requestId, planItemId, file)
+      else await documentCheckApi.uploadOwnerPriceProtocolItem(requestId, planItemId, file)
+      toast.success('Sənəd yükləndi')
       await load()
       onChanged?.()
     } catch {} finally {
@@ -371,14 +378,24 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
       planItemId: ln.planItemId,
       equipmentName: ln.equipmentName,
       equipmentCode: ln.equipmentCode,
+      ownerDocsRequired: ln.ownerDocsRequired,
+      ownershipType: ln.ownershipType,
+      ownerName: ln.ownerName,
       contract: lineDocs.find((d) => d.docType === 'CONTRACT') || null,
       protocol: lineDocs.find((d) => d.docType === 'PRICE_PROTOCOL') || null,
+      ownerContract: lineDocs.find((d) => d.docType === 'OWNER_CONTRACT') || null,
+      ownerProtocol: lineDocs.find((d) => d.docType === 'OWNER_PRICE_PROTOCOL') || null,
     }
   })
   // Sorğu səviyyəli (xəttə bağlı olmayan) sənədlər — köhnə yol / əlavə
   const generalContract = (data.documents || []).find((d) => d.docType === 'CONTRACT' && d.planItemId == null)
   const generalProtocol = (data.documents || []).find((d) => d.docType === 'PRICE_PROTOCOL' && d.planItemId == null)
-  const perLineReady = hasPerLine && lineGroups.every((g) => (g.contract || generalContract) && (g.protocol || generalProtocol))
+  const lineReady = (g) => {
+    const cust = (g.contract || generalContract) && (g.protocol || generalProtocol)
+    if (!g.ownerDocsRequired) return !!cust
+    return !!cust && !!g.ownerContract && !!g.ownerProtocol
+  }
+  const perLineReady = hasPerLine && lineGroups.every(lineReady)
   const effectiveReady = hasPerLine ? perLineReady : allReady
 
   return (
@@ -414,7 +431,7 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
               {lineGroups.map((g) => {
                 const contract = g.contract || generalContract
                 const protocol = g.protocol || generalProtocol
-                const ready = contract && protocol
+                const ready = lineReady(g)
                 return (
                   <div key={g.planItemId} className={clsx('rounded-xl border p-3', ready ? 'border-green-200 dark:border-green-800' : 'border-amber-200 dark:border-amber-800')}>
                     <div className="flex items-center justify-between mb-2">
@@ -426,14 +443,26 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
                         ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border bg-green-50 text-green-700 border-green-200"><CheckCircle size={10} /> Tam</span>
                         : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200">Yarımçıq</span>}
                     </div>
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 mb-1">Müştəri tərəfi</p>
                     <div className="grid grid-cols-2 gap-2">
                       <AccLineDoc label="Müqavilə" type="CONTRACT" doc={contract} shared={!g.contract && !!generalContract} planItemId={g.planItemId} requestId={requestId} canPost={canPost} canDelete={canDelete} onUpload={uploadItem} onDelete={handleDelete} busy={busy} />
                       <AccLineDoc label="Qiymət protokolu" type="PRICE_PROTOCOL" doc={protocol} shared={!g.protocol && !!generalProtocol} planItemId={g.planItemId} requestId={requestId} canPost={canPost} canDelete={canDelete} onUpload={uploadItem} onDelete={handleDelete} busy={busy} />
                     </div>
+                    {g.ownerDocsRequired && (
+                      <>
+                        <p className="text-[10px] uppercase tracking-wide font-bold text-gray-400 mb-1 mt-2.5">
+                          Sahib tərəfi ({g.ownershipType === 'CONTRACTOR' ? 'Podratçı' : 'İnvestor'}{g.ownerName ? ` · ${g.ownerName}` : ''})
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <AccLineDoc label="Sahib müqaviləsi" type="OWNER_CONTRACT" doc={g.ownerContract} shared={false} planItemId={g.planItemId} requestId={requestId} canPost={canPost} canDelete={canDelete} onUpload={uploadItem} onDelete={handleDelete} busy={busy} />
+                          <AccLineDoc label="Sahib protokolu" type="OWNER_PRICE_PROTOCOL" doc={g.ownerProtocol} shared={false} planItemId={g.planItemId} requestId={requestId} canPost={canPost} canDelete={canDelete} onUpload={uploadItem} onDelete={handleDelete} busy={busy} />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )
               })}
-              <p className="text-[11px] text-gray-400">Sənədlər LM (Razılaşma) mərhələsində hər texnika üçün yüklənir. Əskik varsa “LM-ə geri qaytar”.</p>
+              <p className="text-[11px] text-gray-400">Sənədlər LM (Razılaşma) mərhələsində hər texnika üçün yüklənir. Sahib texnikasında həm müştəri, həm sahib sənədləri lazımdır. Əskik varsa “LM-ə geri qaytar”.</p>
             </div>
           ) : (
             <>

@@ -22,6 +22,13 @@ export const accountingApi = {
     return api.post(`/accounting/invoices/${id}/akt`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
   downloadAkt: (id) => api.get(`/accounting/invoices/${id}/akt`, { responseType: 'blob' }),
+  // Toplu qaimə: hər texnika sətrinin öz təhvil-təslim aktı
+  uploadLineAkt: (id, lineId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post(`/accounting/invoices/${id}/lines/${lineId}/akt`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  downloadLineAkt: (id, lineId) => api.get(`/accounting/invoices/${id}/lines/${lineId}/akt`, { responseType: 'blob' }),
 
   // ── Transactions (Əməliyyatlar) ──
   getTransactions: (params) => api.get('/accounting/transactions', { params }),

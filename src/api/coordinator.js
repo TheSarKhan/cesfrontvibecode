@@ -69,4 +69,7 @@ export const coordinatorApi = {
   // Texnikanın qarajdakı sənədi (koordinator yoxlaması üçün)
   downloadEquipmentDocument: (requestId, documentId) =>
     api.get(`/coordinator/requests/${requestId}/equipment-documents/${documentId}/download`, { responseType: 'blob' }),
+  // Müqavilə sənədi (müştəri/sahib — koordinator oxu-rejimi)
+  downloadRequestDocument: (requestId, documentId) =>
+    api.get(`/coordinator/requests/${requestId}/request-documents/${documentId}/download`, { responseType: 'blob' }),
 }

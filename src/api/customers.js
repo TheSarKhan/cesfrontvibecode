@@ -1,4 +1,5 @@
 import api from './axios'
+import { makePartyDocsApi } from './partyDocs'
 
 export const customersApi = {
   getAll: (params) => api.get('/customers', { params }),
@@ -33,4 +34,6 @@ export const customersApi = {
     link.click()
     URL.revokeObjectURL(link.href)
   },
+  // Sənəd mərkəzi (bütün mənbələrdən aqreqasiya)
+  docs: makePartyDocsApi('/customers'),
 }

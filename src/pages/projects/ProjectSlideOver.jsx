@@ -82,6 +82,70 @@ function Section({ children, title, icon: Icon }) {
   )
 }
 
+// Çoxlu texnika: bir texnika xəttinin kartı (sahib, operator, qiymət, müddət, icra statusu)
+function EquipmentLineCard({ line, projectType, planDayCount }) {
+  const fmtM = (v) => v != null ? `${parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 })} ₼` : '—'
+  const isMonthly = projectType === 'MONTHLY'
+  const unitLabel = isMonthly ? 'ay' : 'gün'
+  const days = line.dayCount || planDayCount || 0
+  const costTotal = (isMonthly || !days) ? Number(line.equipmentPrice || 0) : Number(line.equipmentPrice || 0) * days
+  const revUnit = Number(line.customerEquipmentPrice || 0)
+  const revTotal = ((isMonthly || !days) ? revUnit : revUnit * days) + Number(line.transportationPrice || 0)
+  const own = OWNERSHIP_CFG[line.ownershipType]
+  const ownerName = line.ownershipType === 'CONTRACTOR' ? line.contractorName
+    : line.ownershipType === 'INVESTOR' ? line.investorName : 'Şirkət'
+  const ownerPhone = line.ownershipType === 'CONTRACTOR' ? line.contractorPhone
+    : line.ownershipType === 'INVESTOR' ? line.investorPhone : null
+  const exec = line.deliveredAt ? { t: 'Təhvil verildi', c: 'ces-p-ok' }
+    : line.dispatchedAt ? { t: 'Göndərildi', c: 'ces-p-info' }
+    : line.equipmentDocsVerified ? { t: 'Sənəd OK', c: 'ces-p-warn' }
+    : { t: 'Gözləyir', c: 'ces-p-mute' }
+  const meta = [line.equipmentType, line.equipmentBrand, line.equipmentModel, line.equipmentPlateNumber].filter(Boolean)
+  return (
+    <div style={{ border: '1px solid var(--ces-line)', borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ces-ink)' }}>{line.equipmentName || '—'}</span>
+          {line.equipmentCode && <span className="mono" style={{ fontSize: 11, color: 'var(--ces-mute2)', marginLeft: 6 }}>({line.equipmentCode})</span>}
+        </div>
+        {own && <span className={clsx('ces-pill sm', own.pill)} style={{ flexShrink: 0 }}>{own.label}</span>}
+      </div>
+      {meta.length > 0 && (
+        <p style={{ fontSize: 11, color: 'var(--ces-muted)', margin: '4px 0 2px' }}>{meta.join(' · ')}</p>
+      )}
+      <InfoRow label="Sahib" value={ownerName} />
+      {ownerPhone && (
+        <InfoRow label="Telefon">
+          <a href={`tel:${ownerPhone}`} className="mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ces-gold-700)' }}>
+            <Phone size={11} />{ownerPhone}
+          </a>
+        </InfoRow>
+      )}
+      <InfoRow label="Operator">
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <User size={11} style={{ color: 'var(--ces-mute2)' }} />{line.operatorName || '—'}
+        </span>
+      </InfoRow>
+      <InfoRow label="Müddət" value={days ? `${days} ${unitLabel}` : '—'} />
+      {(line.startDate || line.endDate) && (
+        <InfoRow label="Tarix" value={`${line.startDate ? fmtDate(line.startDate) : '—'} → ${line.endDate ? fmtDate(line.endDate) : '—'}`} />
+      )}
+      <InfoRow label="Öd. (maya)">
+        <span className="mono" style={{ color: 'var(--ces-danger)', fontWeight: 700 }}>{fmtM(costTotal)}</span>
+      </InfoRow>
+      <InfoRow label="Al. (müştəri)">
+        <span className="mono" style={{ color: 'var(--ces-ok)', fontWeight: 700 }}>{fmtM(revTotal)}</span>
+      </InfoRow>
+      {Number(line.transportationPrice || 0) > 0 && (
+        <InfoRow label="Daşınma"><span className="mono">{fmtM(line.transportationPrice)}</span></InfoRow>
+      )}
+      <InfoRow label="İcra">
+        <span className={clsx('ces-pill sm', exec.c)}>{exec.t}</span>
+      </InfoRow>
+    </div>
+  )
+}
+
 // ─── Start Date Dialog ────────────────────────────────────────────────────────
 
 // ─── Məlumat Tab ──────────────────────────────────────────────────────────────
@@ -201,6 +265,14 @@ function InfoTab({ project, onEndDateUpdated }) {
         </Section>
       )}
 
+      {project.equipmentLines?.length > 0 ? (
+        <Section title={`Texnikalar (${project.equipmentLines.length})`} icon={Building2}>
+          {project.equipmentLines.map((line) => (
+            <EquipmentLineCard key={line.id} line={line} projectType={project.projectType} planDayCount={project.planDayCount} />
+          ))}
+          {project.planNotes && <InfoRow label="Koordinator qeydi" value={project.planNotes} />}
+        </Section>
+      ) : (<>
       <Section title="Texnika" icon={Building2}>
         <InfoRow label="Ad" value={project.equipmentName} />
         <InfoRow label="Kod">
@@ -310,6 +382,7 @@ function InfoTab({ project, onEndDateUpdated }) {
           {project.planNotes && <InfoRow label="Qeyd" value={project.planNotes} />}
         </Section>
       )}
+      </>)}
 
       <Section title="Tarixlər" icon={Calendar}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: '8px 0', borderBottom: '1px dashed var(--ces-line)' }}>
@@ -470,8 +543,11 @@ function FinanceTab({ project }) {
 
   const manualExp = (finances.expenses || []).reduce((s, e) => s + parseFloat(e.value || 0), 0)
   const manualRev = (finances.revenues || []).reduce((s, r) => s + parseFloat(r.value || 0), 0)
-  const planExpenses = parseFloat(project.planTransportationPrice || 0)
-                     + parseFloat(project.planOperatorPayment    || 0)
+  // Çoxlu texnika: daşınma bütün xətlər üzrə cəmlənir (operator haqqı plan səviyyəsində)
+  const planTransport = project.equipmentLines?.length > 0
+    ? project.equipmentLines.reduce((s, l) => s + parseFloat(l.transportationPrice || 0), 0)
+    : parseFloat(project.planTransportationPrice || 0)
+  const planExpenses = planTransport + parseFloat(project.planOperatorPayment || 0)
   const totalExp = manualExp + planExpenses
   const totalRev = manualRev
   const net = manualRev - (manualExp + planExpenses)
@@ -535,14 +611,14 @@ function FinanceTab({ project }) {
           <span className="mono" style={{ fontSize: 13, fontWeight: 800, color: 'var(--ces-danger)' }}>{fmtMoney(totalExp)} ₼</span>
         </div>
         <div>
-          {project.planTransportationPrice > 0 && (
+          {planTransport > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', background: 'var(--ces-gold-50)', borderBottom: '1px solid var(--ces-line-2)' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ces-graphite)' }}>
-                  Daşınma <span style={{ fontSize: 10, color: 'var(--ces-gold-700)' }}>(plan)</span>
+                  Daşınma <span style={{ fontSize: 10, color: 'var(--ces-gold-700)' }}>(plan{project.equipmentLines?.length > 1 ? ', cəmi' : ''})</span>
                 </p>
               </div>
-              <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-danger)' }}>{fmtMoney(project.planTransportationPrice)} ₼</span>
+              <span className="mono" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ces-danger)' }}>{fmtMoney(planTransport)} ₼</span>
             </div>
           )}
           {project.planOperatorPayment > 0 && (
@@ -733,9 +809,21 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
     ? Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / 86400000)
     : (project.planDayCount || project.dayCount || 0)
 
-  const planRevenue  = parseFloat(project.planEquipmentTotal || project.planEquipmentPrice || 0)
-  const planExpenses = parseFloat(project.planTransportationPrice || 0)
-                     + parseFloat(project.planOperatorPayment || 0)
+  // Çoxlu texnika: plan dəyərləri bütün xətlər üzrə cəmlənir
+  const _lines = project.equipmentLines || []
+  const _isMonthly = project.projectType === 'MONTHLY'
+  const _lineCost = (l) => {
+    const d = l.dayCount || project.planDayCount || effectiveDays || 0
+    const u = parseFloat(l.equipmentPrice || 0)
+    return (_isMonthly || !d) ? u : u * d
+  }
+  const planTransport = _lines.length > 0
+    ? _lines.reduce((s, l) => s + parseFloat(l.transportationPrice || 0), 0)
+    : parseFloat(project.planTransportationPrice || 0)
+  const planRevenue  = _lines.length > 0
+    ? _lines.reduce((s, l) => s + _lineCost(l), 0)
+    : parseFloat(project.planEquipmentTotal || project.planEquipmentPrice || 0)
+  const planExpenses = planTransport + parseFloat(project.planOperatorPayment || 0)
   const actualRevenue = parseFloat(project.totalRevenue || 0)
   const actualExpense = parseFloat(project.totalExpense || 0) + planExpenses
   const evacCost      = isCompleted ? parseFloat(project.evacuationCost || 0) : parseFloat(form.evacuationCost || 0)
@@ -827,9 +915,11 @@ function CompleteTab({ project, onCompleted, onSwitchToQaime }) {
         <SummaryRow label="Şirkət" value={project.companyName || '—'} />
         {project.projectName && <SummaryRow label="Layihə" value={project.projectName} />}
         {project.region && <SummaryRow label="Bölgə" value={project.region} />}
-        {project.equipmentName && (
+        {project.equipmentLines?.length > 1 ? (
+          <SummaryRow label="Texnika" value={`${project.equipmentLines.length} texnika: ${project.equipmentLines.map((l) => l.equipmentName).filter(Boolean).join(', ')}`} />
+        ) : project.equipmentName ? (
           <SummaryRow label="Texnika" value={`${project.equipmentName}${project.equipmentCode ? ` (${project.equipmentCode})` : ''}`} />
-        )}
+        ) : null}
         <SummaryRow label="Tip" value={PROJ_TYPE[project.projectType] || '—'} />
         <SummaryRow label="Başlanğıc" value={fmt(project.startDate ?? project.planStartDate)} />
         <SummaryRow label="Bitmə"     value={fmt(project.endDate ?? project.planEndDate)} />
