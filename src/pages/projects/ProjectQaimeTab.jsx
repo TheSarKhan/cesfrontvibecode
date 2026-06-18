@@ -31,28 +31,37 @@ function getDefaultForm() {
   }
 }
 
-// Layihənin texnika xətlərindən (və ya tək-texnikalı legacy layihədən) sətir formaları qur
-function buildInitialLines(project) {
+// Layihənin texnika xətlərindən (və ya tək-texnikalı legacy layihədən) sətir formaları qur.
+// billedTransportEqIds: artıq daşınması fakturalanmış texnika ID-ləri — təkrar pre-fill etməmək üçün.
+function buildInitialLines(project, billedTransportEqIds = new Set()) {
   const isDaily = project?.projectType === 'DAILY'
   const lines = project?.equipmentLines || []
   if (lines.length > 0) {
-    return lines.map((l, idx) => ({
-      lineId: l.id,
-      equipmentId: l.equipmentId ?? null,
-      equipmentName: l.equipmentName || '—',
-      equipmentCode: l.equipmentCode || '',
-      ownershipType: l.ownershipType,
-      planEquipmentPrice: l.equipmentPrice,            // sahibə (cost)
-      customerEquipmentPrice: l.customerEquipmentPrice, // müştəri tarifi
-      included: idx === 0,                              // ilk texnika default seçili
-      standardDays: '', extraDays: '', extraHours: '', overtimeRate: '1.0',
-      monthlyRate: l.customerEquipmentPrice != null ? String(l.customerEquipmentPrice) : '',
-      workingDaysInMonth: isDaily ? 1 : 26,
-      workingHoursPerDay: 9,
-      hasTransport: false,
-      transports: [],
-      aktFile: null, aktFileUploaded: false, aktFileName: null,
-    }))
+    return lines.map((l, idx) => {
+      // Daşınmanı plandan öncədən doldur — yalnız hələ fakturalanmayıbsa (ilk daşınma)
+      const planTransport = parseFloat(l.transportationPrice || 0)
+      const prefillTransport = planTransport > 0 && !(l.equipmentId && billedTransportEqIds.has(l.equipmentId))
+      return {
+        lineId: l.id,
+        equipmentId: l.equipmentId ?? null,
+        equipmentName: l.equipmentName || '—',
+        equipmentCode: l.equipmentCode || '',
+        ownershipType: l.ownershipType,
+        planEquipmentPrice: l.equipmentPrice,            // sahibə (cost)
+        customerEquipmentPrice: l.customerEquipmentPrice, // müştəri tarifi
+        planTransportationPrice: planTransport,           // plan daşınma (pre-fill mənbəyi)
+        included: idx === 0,                              // ilk texnika default seçili
+        standardDays: '', extraDays: '', extraHours: '', overtimeRate: '1.0',
+        monthlyRate: l.customerEquipmentPrice != null ? String(l.customerEquipmentPrice) : '',
+        workingDaysInMonth: isDaily ? 1 : 26,
+        workingHoursPerDay: 9,
+        hasTransport: prefillTransport,
+        transports: prefillTransport
+          ? [{ date: '', direction: 'Gediş-gəliş', amount: String(planTransport) }]
+          : [],
+        aktFile: null, aktFileUploaded: false, aktFileName: null,
+      }
+    })
   }
   // Legacy: tək-texnikalı layihə (xətt yoxdur) — sintetik tək sətir
   return [{
@@ -533,12 +542,22 @@ export default function ProjectQaimeTab({ project }) {
     }
   }
 
+  // Artıq daşınması fakturalanmış texnika ID-ləri (təkrar pre-fill etməmək üçün)
+  const billedTransportEqIds = useMemo(() => {
+    const s = new Set()
+    for (const inv of invoices) {
+      for (const t of (inv.transports || [])) if (t.equipmentId) s.add(t.equipmentId)
+      for (const l of (inv.lines || [])) if (l.equipmentId && parseFloat(l.transportAmount || 0) > 0) s.add(l.equipmentId)
+    }
+    return s
+  }, [invoices])
+
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
   function updateLine(idx, next) { setLineForms(arr => arr.map((l, i) => i === idx ? next : l)) }
 
   function resetForm() {
     setForm(getDefaultForm())
-    setLineForms(buildInitialLines(project))
+    setLineForms(buildInitialLines(project, billedTransportEqIds))
     setRatesUnlocked(false)
   }
 

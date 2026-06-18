@@ -15,7 +15,6 @@ export const projectsApi = {
   deleteRevenue: (id, revenueId) => api.delete(`/projects/${id}/revenues/${revenueId}`),
 
   complete: (id, data) => api.post(`/projects/${id}/complete`, data),
-  updateEndDate:   (id, data) => api.patch(`/projects/${id}/end-date`, data),
   updateStartDate: (id, data) => api.patch(`/projects/${id}/start-date`, data),
 
   // ── Ödəniş girişləri (CONTRACTOR / INVESTOR texnikası üçün) ──
