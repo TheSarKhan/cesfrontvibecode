@@ -13,6 +13,13 @@ import { fmtMoney } from './_constants'
 
 const fmt = fmtDate
 
+// Qaimənin hansı texnika(lar) üçün olduğu — toplu qaimədə sətir adları, əks halda tək texnika adı
+const invEquipmentLabel = (inv) => {
+  const names = (inv.lines || []).map(l => l.equipmentName).filter(Boolean)
+  if (names.length) return names.join(', ')
+  return inv.equipmentName || ''
+}
+
 const STATUS_TONE = {
   PENDING:   'info',
   PARTIAL:   'warn',
@@ -257,6 +264,9 @@ export default function DebitCreditPage() {
                                               <tr key={inv.id}>
                                                 <td>
                                                   <p className="font-bold" style={{ color: 'var(--ces-ink)' }}>{inv.invoiceNumber || inv.accountingId || `#${inv.id}`}</p>
+                                                  {invEquipmentLabel(inv) && (
+                                                    <p style={{ color: '#7d4ec9', fontWeight: 600 }}>🔧 {invEquipmentLabel(inv)}</p>
+                                                  )}
                                                   <p style={{ color: 'var(--ces-mute2)' }}>{fmt(inv.invoiceDate)}</p>
                                                 </td>
                                                 <td className="r font-medium num">{fmtMoney(inv.amount)}</td>
@@ -324,7 +334,9 @@ export default function DebitCreditPage() {
                                         <Select value={payForm.invoiceId} onChange={(e) => setPayForm({ ...payForm, invoiceId: e.target.value })}>
                                           <option value="">-- Ümumi ödəniş --</option>
                                           {item.invoices?.filter(inv => inv.remainingAmount > 0).map(inv => {
-                                            const label = inv.invoiceNumber || inv.accountingId || `#${inv.id}`
+                                            const base = inv.invoiceNumber || inv.accountingId || `#${inv.id}`
+                                            const eq = invEquipmentLabel(inv)
+                                            const label = eq ? `${base} — ${eq}` : base
                                             return (
                                               <option key={inv.id} value={inv.id}>
                                                 {label} ({fmtMoney(inv.remainingAmount)} qalıb)

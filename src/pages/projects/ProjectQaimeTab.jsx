@@ -902,8 +902,11 @@ export default function ProjectQaimeTab({ project }) {
             const periodLbl = periodLabel(inv.periodMonth, inv.periodYear)
             const statusCfg = STATUS_CFG[inv.status] || STATUS_CFG.DRAFT
             const StatusIcon = statusCfg.icon
-            const eqLabel = inv.equipmentCount > 1 ? `${inv.equipmentCount} texnika` : (inv.equipmentName || '')
             const hasLines = inv.lines?.length > 0
+            const eqNames = hasLines ? inv.lines.map(l => l.equipmentName).filter(Boolean) : []
+            const eqLabel = hasLines
+              ? (eqNames.length ? eqNames.join(', ') : `${inv.lines.length} texnika`)
+              : (inv.equipmentName || '')
             const aktReady = hasLines ? inv.lines.every(l => l.aktFileUploaded) : inv.aktFileUploaded
             const aktCount = hasLines ? inv.lines.filter(l => l.aktFileUploaded).length : (inv.aktFileUploaded ? 1 : 0)
             const aktTotal = hasLines ? inv.lines.length : 1

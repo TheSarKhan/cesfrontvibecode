@@ -647,7 +647,7 @@ export default function AccountingInvoicesPage() {
                           <div className="text-[14px] font-bold truncate" style={{ color: 'var(--ces-ink)' }}>
                             {inv.customerName || inv.contractorName || inv.companyName || (isIncome ? 'Müştəri' : 'Tərəf-müqabil')}
                           </div>
-                          {inv.equipmentName && (
+                          {!(inv.lines?.length > 0) && inv.equipmentName && (
                             <div className="text-[11.5px] mt-0.5 truncate" style={{ color: 'var(--ces-mute2)' }}>{inv.equipmentName}</div>
                           )}
                         </div>
@@ -664,8 +664,68 @@ export default function AccountingInvoicesPage() {
                         </div>
                       </div>
 
-                      {/* Period & days */}
-                      {(inv.periodMonth || inv.standardDays != null || inv.extraDays != null || inv.extraHours != null) && (
+                      {/* Toplu qaimə — hər texnika ayrıca sətir */}
+                      {inv.lines?.length > 0 && (
+                        <div className="overflow-hidden" style={{ borderRadius: '8px', border: '1px solid var(--ces-line)' }}>
+                          <div className="flex items-center justify-between px-2.5 py-1.5"
+                            style={{ background: 'var(--ces-graphite-50)', borderBottom: '1px solid var(--ces-line)' }}>
+                            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--ces-muted)' }}>
+                              Texnikalar ({inv.lines.length})
+                            </span>
+                          </div>
+                          {inv.lines.map((ln, i) => (
+                            <div key={ln.id || i} className="px-2.5 py-2"
+                              style={{ borderBottom: i < inv.lines.length - 1 ? '1px solid var(--ces-line-2)' : 'none' }}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--ces-ink)' }}>
+                                    {ln.equipmentName || 'Texnika'}
+                                    {ln.equipmentCode && (
+                                      <span className="ml-1.5 text-[10px] font-mono" style={{ color: 'var(--ces-mute2)' }}>{ln.equipmentCode}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10.5px] mt-0.5" style={{ color: 'var(--ces-muted)' }}>
+                                    {ln.periodMonth && ln.periodYear && (
+                                      <span className="font-semibold" style={{ color: 'var(--ces-gold-700)' }}>{fmtPeriod(ln.periodYear, ln.periodMonth)}</span>
+                                    )}
+                                    {ln.dayCount != null && <span>{ln.dayCount} gün</span>}
+                                    {ln.extraDays != null && parseFloat(ln.extraDays) > 0 && <span>+{ln.extraDays} gün</span>}
+                                    {ln.extraHours != null && parseFloat(ln.extraHours) > 0 && <span>+{ln.extraHours} saat</span>}
+                                    {ln.transportAmount != null && parseFloat(ln.transportAmount) > 0 && (
+                                      <span style={{ color: 'var(--ces-info)' }}>Daşınma {fmtMoney(ln.transportAmount)}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-[12.5px] font-bold num" style={{ color: 'var(--ces-ink)' }}>{fmtMoney(ln.lineTotal)}</div>
+                                  {isIncome && (ln.aktFileUploaded ? (
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const res = await accountingApi.downloadLineAkt(inv.id, ln.id)
+                                          const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
+                                          window.open(url, '_blank')
+                                          setTimeout(() => URL.revokeObjectURL(url), 5000)
+                                        } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl açıla bilmədi') }
+                                      }}
+                                      className="text-[10px] inline-flex items-center gap-0.5 mt-0.5"
+                                      style={{ color: 'var(--ces-info)' }}
+                                      title={ln.aktFileName}
+                                    >
+                                      <Paperclip size={9} /> Akt
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] inline-flex items-center gap-0.5 mt-0.5" style={{ color: 'var(--ces-warn)' }}>Akt yox</span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Period & days — yalnız tək-texnikalı (legacy) qaimədə; toplu qaimədə hər sətir öz dövrünü göstərir */}
+                      {!(inv.lines?.length > 0) && (inv.periodMonth || inv.standardDays != null || inv.extraDays != null || inv.extraHours != null) && (
                         <div
                           className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]"
                           style={{ background: 'var(--ces-surface)', border: '1px solid var(--ces-line)', borderRadius: '8px', padding: '7px 10px' }}
@@ -1239,6 +1299,49 @@ export default function AccountingInvoicesPage() {
                                           </div>
                                         </div>
                                       </div>
+                                      {inv.lines?.length > 0 && (
+                                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--ces-line)' }}>
+                                          <p className="text-[10.5px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--ces-muted)' }}>
+                                            Texnikalar ({inv.lines.length})
+                                          </p>
+                                          <div className="overflow-hidden" style={{ borderRadius: '8px', border: '1px solid var(--ces-line)', background: 'var(--ces-surface)' }}>
+                                            {inv.lines.map((ln, i) => (
+                                              <div key={ln.id || i} className="flex items-center justify-between gap-3 px-3 py-2"
+                                                style={{ borderBottom: i < inv.lines.length - 1 ? '1px solid var(--ces-line-2)' : 'none' }}>
+                                                <div className="min-w-0 flex-1">
+                                                  <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ces-ink)' }}>{ln.equipmentName || 'Texnika'}</span>
+                                                  {ln.equipmentCode && <span className="ml-1.5 text-[10.5px] font-mono" style={{ color: 'var(--ces-mute2)' }}>{ln.equipmentCode}</span>}
+                                                  <span className="ml-2 text-[11px]" style={{ color: 'var(--ces-muted)' }}>
+                                                    {ln.periodMonth && ln.periodYear ? fmtPeriod(ln.periodYear, ln.periodMonth) : ''}
+                                                    {ln.dayCount != null ? ` · ${ln.dayCount} gün` : ''}
+                                                    {ln.transportAmount != null && parseFloat(ln.transportAmount) > 0 ? ` · Daşınma ${fmtMoney(ln.transportAmount)}` : ''}
+                                                  </span>
+                                                </div>
+                                                <div className="flex items-center gap-3 shrink-0">
+                                                  {inv.type === 'INCOME' && (ln.aktFileUploaded ? (
+                                                    <button
+                                                      onClick={async (e) => {
+                                                        e.stopPropagation()
+                                                        try {
+                                                          const res = await accountingApi.downloadLineAkt(inv.id, ln.id)
+                                                          const url = URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' }))
+                                                          window.open(url, '_blank')
+                                                          setTimeout(() => URL.revokeObjectURL(url), 5000)
+                                                        } catch (err) { if (!err._toasted) toast.error(err?.response?.data?.message || 'Fayl açıla bilmədi') }
+                                                      }}
+                                                      className="text-[10.5px] inline-flex items-center gap-0.5" style={{ color: 'var(--ces-info)' }} title={ln.aktFileName}>
+                                                      <Paperclip size={10} /> Akt
+                                                    </button>
+                                                  ) : (
+                                                    <span className="text-[10.5px]" style={{ color: 'var(--ces-warn)' }}>Akt yox</span>
+                                                  ))}
+                                                  <span className="text-[12.5px] font-bold num" style={{ color: 'var(--ces-ink)' }}>{fmtMoney(ln.lineTotal)}</span>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                       {inv.type === 'INCOME' && (
                                         <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--ces-line)' }}>
                                           <span className="text-[10.5px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ces-muted)' }}>Akt:</span>
