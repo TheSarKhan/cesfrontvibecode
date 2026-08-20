@@ -2,6 +2,7 @@ import { Printer } from 'lucide-react'
 import cesLogo from '../../assets/filelogo.png'
 import { ModalShell } from './_shared'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { enumLabel } from '../../utils/enumLabel'
 
 const BANK_DETAILS = {
   bankName:      'International Bank of Azerbaijan (IBA)',
@@ -115,7 +116,7 @@ function BankRow({ label, value }) {
 }
 
 function PrintContent({ inv }) {
-  const typeLabel = TYPE_LABEL[inv.type] || inv.type
+  const typeLabel = TYPE_LABEL[inv.type] || enumLabel('InvoiceType', inv.type)
   const isIncome  = inv.type === 'INCOME'
   const isB1      = inv.type === 'CONTRACTOR_EXPENSE'
 

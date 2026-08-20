@@ -12,6 +12,7 @@ import { STATUS_CFG } from '../../constants/requests'
 import Pagination from '../../components/common/Pagination'
 import { fmtDate } from '../../utils/date'
 import PmRequestSlideOver from './PmRequestSlideOver'
+import { enumLabel } from '../../utils/enumLabel'
 
 const STAT_CARDS = [
   { id: 'ALL',                  label: 'Hamısı',           icon: FileText,       color: 'text-gray-500' },
@@ -232,7 +233,7 @@ export default function ProjectManagerPage() {
                 </tr>
               ) : (
                 data.content.map((r) => {
-                  const status = STATUS_CFG[r.status] || { label: r.status, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
+                  const status = STATUS_CFG[r.status] || { label: enumLabel('RequestStatus', r.status), cls: 'bg-gray-100 text-gray-600 border-gray-200' }
                   return (
                     <tr
                       key={r.requestId}

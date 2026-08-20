@@ -37,7 +37,7 @@ function StatusBadge({ status }) {
   if (!status) return null
   return (
     <span className={clsx("px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-tighter", STATUS_COLORS[status] || 'bg-gray-100 text-gray-600 border-gray-200')}>
-      {STATUS_LABELS[status] || status}
+      {STATUS_LABELS[status]}
     </span>
   )
 }

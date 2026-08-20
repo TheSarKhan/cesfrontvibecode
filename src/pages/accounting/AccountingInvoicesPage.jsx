@@ -27,6 +27,7 @@ import { validateFileUpload } from '../../utils/fileValidation'
 import { fmtDate, fmtPeriod } from '../../utils/date'
 import { PageHeader, Pill, Field, Input, Textarea, ModalShell, TableWrap } from './_shared'
 import { fmtMoney } from './_constants'
+import { enumLabel } from '../../utils/enumLabel'
 
 /* ─── Helpers ─── */
 const fmtD = fmtDate
@@ -1606,7 +1607,7 @@ export default function AccountingInvoicesPage() {
                       </td>
                       <td className="whitespace-nowrap" style={{ color: 'var(--ces-muted)' }}>{fmtD(p.paymentDate)}</td>
                       <td className="whitespace-nowrap" style={{ color: 'var(--ces-muted)' }}>{fmtD(p.dueDate)}</td>
-                      <td><Pill tone={PAYMENT_STATUS_TONE[p.status] || 'muted'} sm dot>{PAYMENT_STATUS_LABEL[p.status] || p.status}</Pill></td>
+                      <td><Pill tone={PAYMENT_STATUS_TONE[p.status] || 'muted'} sm dot>{PAYMENT_STATUS_LABEL[p.status] || enumLabel('PayableStatus', p.status)}</Pill></td>
                       <td style={{ color: 'var(--ces-muted)' }}>{METHOD_LABELS[p.paymentMethod] || '—'}</td>
                       <td className="r">
                         <div className="flex items-center gap-0.5 justify-end">
@@ -1827,4 +1828,3 @@ export default function AccountingInvoicesPage() {
     </div>
   )
 }
-

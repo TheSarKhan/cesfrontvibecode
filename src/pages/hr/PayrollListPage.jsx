@@ -6,6 +6,7 @@ import { hrApi } from '../../api/hr'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import NumberInput from '../../components/common/NumberInput'
+import { enumLabel } from '../../utils/enumLabel'
 
 const STATUS_CONFIG = {
   DRAFT:    { label: 'Layihə',     cls: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -125,7 +126,7 @@ export default function PayrollListPage() {
             ) : periods.length === 0 ? (
               <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">Hələ heç bir dövr yoxdur</td></tr>
             ) : periods.map(p => {
-              const s = STATUS_CONFIG[p.status] || { label: p.status, cls: 'bg-gray-100 text-gray-500' }
+              const s = STATUS_CONFIG[p.status] || { label: enumLabel('PayrollStatus', p.status), cls: 'bg-gray-100 text-gray-500' }
               const totalCompanyCost = (Number(p.totalGross || 0) + Number(p.totalEmployerContributions || 0))
               return (
                 <tr

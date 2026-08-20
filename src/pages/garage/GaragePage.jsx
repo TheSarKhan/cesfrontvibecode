@@ -28,6 +28,7 @@ import NumberInput from '../../components/common/NumberInput'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash, INSPECTION_THRESHOLDS } from '../../constants/garage'
 import { useGarageWebSocket } from '../../hooks/useGarageWebSocket'
+import { enumLabel } from '../../utils/enumLabel'
 
 const PAGE_SIZES = [15, 25, 50, 100]
 
@@ -178,11 +179,11 @@ function EquipmentCard({ item, firstImage, onOpen, onEdit, onDelete, canEdit, ca
         </div>
         <div className="space-y-0.5 text-[11.5px] text-[var(--ces-muted)] font-medium">
           {item.brand && <p>{item.brand} {item.model || ''}</p>}
-          {item.type && <p className="text-[var(--ces-mute2)]">{item.type}</p>}
+          {item.type && <p className="text-[var(--ces-mute2)]">{enumLabel(item.type)}</p>}
         </div>
         <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[var(--ces-line)]">
           <div className="flex items-center gap-2 text-[10.5px] font-semibold text-[var(--ces-muted)]">
-            <span>{OWN_LABEL[item.ownershipType] || '—'}</span>
+            <span>{OWN_LABEL[item.ownershipType] || enumLabel('OwnershipType', item.ownershipType)}</span>
             <span>·</span>
             <span className="flex items-center gap-0.5"><FileText size={9} />{item.documents?.length ?? 0}</span>
             <span className="flex items-center gap-0.5"><ImageIcon size={9} />{item.images?.length ?? 0}</span>
@@ -555,8 +556,8 @@ export default function GaragePage() {
       'İl':              e.manufactureYear || '',
       'Alış qiyməti':    e.purchasePrice || '',
       'Bazar dəyəri':    e.currentMarketValue || '',
-      'Status':          STATUS_CFG[e.status]?.label || e.status,
-      'Mülkiyyət':       OWN_LABEL[e.ownershipType] || '',
+      'Status':          STATUS_CFG[e.status]?.label || enumLabel('EquipmentStatus', e.status),
+      'Mülkiyyət':       OWN_LABEL[e.ownershipType] || enumLabel('OwnershipType', e.ownershipType),
       'Saxlanma yeri':   e.storageLocation || '',
       'Moto saatlar':    e.motoHours ?? '',
       'Qeyd':            e.notes || '',
@@ -1084,7 +1085,7 @@ export default function GaragePage() {
                         {/* Texniki məlumat — Növ, Brend, Model, İstehsal ili */}
                         <td className="py-3 px-3 align-top">
                           <div className="space-y-1">
-                            <KV k="Növ"    v={dash(item.type)} />
+                            <KV k="Növ"    v={item.type ? enumLabel(item.type) : '—'} />
                             <KV k="Brend"  v={dash(item.brand)} />
                             <KV k="Model"  v={dash(item.model)} />
                             <KV k="İl"     v={dash(item.manufactureYear)} mono />
@@ -1112,7 +1113,7 @@ export default function GaragePage() {
                         {/* Mülkiyyət — Tip + Sahib */}
                         <td className="py-3 px-3 align-top">
                           <div className="space-y-1">
-                            <KV k="Tip" v={OWN_LABEL[item.ownershipType] || '—'} gold />
+                            <KV k="Tip" v={OWN_LABEL[item.ownershipType] || enumLabel('OwnershipType', item.ownershipType)} gold />
                             {item.ownershipType === 'COMPANY' ? (
                               <p className="text-[11px] text-[var(--ces-muted)] italic">Şirkətin texnikası</p>
                             ) : (

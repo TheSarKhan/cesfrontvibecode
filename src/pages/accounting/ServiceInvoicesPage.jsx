@@ -206,7 +206,7 @@ export default function ServiceInvoicesPage() {
                             : <AlertTriangle size={11} style={{ color: 'var(--ces-danger)' }} />}
                           <span className="text-[10.5px] font-bold"
                             style={{ color: isAvailable ? 'var(--ces-ok)' : 'var(--ces-danger)' }}>
-                            {STATUS_LABELS[rec.statusAfter] || rec.statusAfter}
+                            {STATUS_LABELS[rec.statusAfter]}
                           </span>
                         </div>
                       )}

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { hrApi } from '../../api/hr'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
+import { enumLabel } from '../../utils/enumLabel'
 
 const TYPES = [
   { v: 'ANNUAL', label: 'İllik' },
@@ -118,7 +119,7 @@ export default function LeavesPage() {
             {loading ? <tr><td colSpan={7} className="text-center py-6 text-gray-400">Yüklənir...</td></tr>
               : (data.content || []).length === 0 ? <tr><td colSpan={7} className="text-center py-6 text-gray-400">Tələb yoxdur</td></tr>
               : data.content.map(l => {
-                const s = STATUSES[l.status] || { label: l.status, cls: 'bg-gray-100 text-gray-500' }
+                const s = STATUSES[l.status] || { label: enumLabel('LeaveStatus', l.status), cls: 'bg-gray-100 text-gray-500' }
                 const t = TYPES.find(x => x.v === l.type)?.label || l.type
                 return (
                   <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">

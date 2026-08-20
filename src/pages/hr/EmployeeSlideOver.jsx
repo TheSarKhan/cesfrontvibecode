@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X, Pencil, UserX, Mail, Phone, MapPin, CreditCard, Calendar, Briefcase, Hash, FileText, History } from 'lucide-react'
 import { hrApi } from '../../api/hr'
+import { enumLabel } from '../../utils/enumLabel'
 
 const STATUS_CONFIG = {
   ACTIVE:     { label: 'Aktiv',         cls: 'bg-green-100 text-green-700 border-green-200' },
@@ -25,7 +26,7 @@ export default function EmployeeSlideOver({ employee, onClose, onEdit, onTermina
     } catch { /* silent */ }
   }
 
-  const status = STATUS_CONFIG[employee.status] || { label: employee.status, cls: 'bg-gray-100 text-gray-500' }
+  const status = STATUS_CONFIG[employee.status] || { label: enumLabel('EmployeeStatus', employee.status), cls: 'bg-gray-100 text-gray-500' }
 
   return (
     <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose}>

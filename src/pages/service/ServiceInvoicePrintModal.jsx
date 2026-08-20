@@ -4,6 +4,7 @@ import { clsx } from 'clsx'
 import cesLogoUrl from '../../assets/filelogo.png'
 
 import { fmtDate } from '../../utils/date'
+import { enumLabel } from '../../utils/enumLabel'
 const fmt = fmtDate
 const fmtMoney = (v) => v != null
   ? parseFloat(v).toLocaleString('az-AZ', { minimumFractionDigits: 2 }) + ' ₼'
@@ -179,11 +180,11 @@ export default function ServiceInvoicePrintModal({ record, onClose }) {
             </div>
             <div class="info-item">
               <label>Status (əvvəl)</label>
-              <span class="status-badge">${statusLabel[record.statusBefore] || record.statusBefore || '—'}</span>
+              <span class="status-badge">${statusLabel[record.statusBefore] || enumLabel('EquipmentStatus', record.statusBefore) || '—'}</span>
             </div>
             <div class="info-item">
               <label>Status (sonra)</label>
-              <span class="status-badge">${statusLabel[record.statusAfter] || record.statusAfter || '—'}</span>
+              <span class="status-badge">${statusLabel[record.statusAfter] || enumLabel('EquipmentStatus', record.statusAfter) || '—'}</span>
             </div>
             ${record.notes ? `
             <div class="info-item" style="grid-column:1/-1;">

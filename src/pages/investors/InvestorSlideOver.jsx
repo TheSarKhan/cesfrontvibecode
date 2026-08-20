@@ -616,7 +616,7 @@ export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete,
                         <p className="text-[13.5px] font-bold truncate" style={{ color: 'var(--ces-ink)' }}>{eq.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[11px] font-mono" style={{ color: 'var(--ces-muted)' }}>{eq.equipmentCode}</span>
-                          {eq.type && <span className="text-[11px]" style={{ color: 'var(--ces-mute2)' }}>· {eq.type}</span>}
+                          {eq.type && <span className="text-[11px]" style={{ color: 'var(--ces-mute2)' }}>· {enumLabel(eq.type)}</span>}
                         </div>
                       </div>
                       <Pill tone={st.tone} sm dot>{st.label}</Pill>
@@ -737,7 +737,7 @@ export default function InvestorSlideOver({ investor, onClose, onEdit, onDelete,
                   PARTIAL:   { icon: AlertCircle,  tone: 'info',   label: 'Qismən' },
                   COMPLETED: { icon: CheckCircle2, tone: 'ok',     label: 'Tamamlandı' },
                   OVERDUE:   { icon: AlertCircle,  tone: 'danger', label: 'Gecikmiş' },
-                }[p.status] || { icon: Clock, tone: 'muted', label: p.status }
+                }[p.status] || { icon: Clock, tone: 'muted', label: enumLabel('PayableStatus', p.status) }
                 const StatusIcon = statusCfg.icon
                 return (
                   <div

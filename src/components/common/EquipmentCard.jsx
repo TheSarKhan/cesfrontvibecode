@@ -1,5 +1,6 @@
 import { Wrench, Eye } from 'lucide-react'
 import { clsx } from 'clsx'
+import { enumLabel } from '../../utils/enumLabel'
 
 /**
  * Texnika kartı — qarajdan gəlmiş equipment obyektini card formasında göstərir.
@@ -13,7 +14,7 @@ export default function EquipmentCard({ eq, selected, onSelect, onShowDetails, d
     UNDER_REPAIR:   { label: 'Təmirdə',  cls: 'bg-red-100 text-red-700' },
     DECOMMISSIONED: { label: 'Xaric',    cls: 'bg-gray-100 text-gray-600' },
   }
-  const stat = statusCfg[eq.status] || { label: eq.status, cls: 'bg-gray-100 text-gray-600' }
+  const stat = statusCfg[eq.status] || { label: enumLabel('EquipmentStatus', eq.status), cls: 'bg-gray-100 text-gray-600' }
 
   const cardStyle = selected
     ? { background: 'var(--ces-gold-50)', borderColor: 'var(--ces-gold)', boxShadow: '0 0 0 2px var(--ces-gold) inset' }

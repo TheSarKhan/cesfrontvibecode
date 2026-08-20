@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { PageHeader, Pill, TableWrap } from './_shared'
 import { fmtMoney } from './_constants'
+import { enumLabel } from '../../utils/enumLabel'
 
 const COLORS = ['#0f9d6a', '#c8932a', '#d4385a', '#2563c8', '#7d4ec9', '#e08a00', '#06b6d4', '#84cc16']
 
@@ -520,7 +521,7 @@ export default function AccountingReportsPage() {
                           <td className="r font-bold num" style={{ color: 'var(--ces-danger)' }}>{fmtMoney(r.remainingAmount)}</td>
                           <td>
                             <Pill tone={r.status === 'COMPLETED' ? 'ok' : r.status === 'OVERDUE' ? 'danger' : r.status === 'PARTIAL' ? 'info' : 'warn'} sm>
-                              {r.status}
+                              {enumLabel('ReceivableStatus', r.status)}
                             </Pill>
                           </td>
                           <td style={{ color: 'var(--ces-muted)' }}>{r.dueDate ? new Date(r.dueDate).toLocaleDateString('az-AZ') : '—'}</td>

@@ -265,7 +265,7 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
                             <p className="text-sm font-bold text-[var(--ces-ink)] truncate">{eq.name}</p>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[11px] font-mono font-semibold text-[var(--ces-mute2)]">{eq.equipmentCode}</span>
-                              {eq.type && <span className="text-[11px] text-[var(--ces-muted)]">· {eq.type}</span>}
+                              {eq.type && <span className="text-[11px] text-[var(--ces-muted)]">· {enumLabel(eq.type)}</span>}
                             </div>
                           </div>
                           <span className={clsx('px-2 py-0.5 rounded-full text-[11px] font-bold shrink-0', st.cls)}>{st.label}</span>
@@ -382,7 +382,7 @@ export default function ContractorSlideOver({ contractor, onClose, onEdit, onDel
                       PARTIAL:   { icon: AlertCircle,   cls: 'text-[var(--ces-info)] bg-[var(--ces-info-100)]',     label: 'Qismən' },
                       COMPLETED: { icon: CheckCircle2,  cls: 'text-[var(--ces-ok)] bg-[var(--ces-ok-100)]',         label: 'Tamamlandı' },
                       OVERDUE:   { icon: AlertCircle,   cls: 'text-[var(--ces-danger)] bg-[var(--ces-danger-100)]', label: 'Gecikmiş' },
-                    }[p.status] || { icon: Clock, cls: 'text-[var(--ces-muted)] bg-[var(--ces-graphite-100)]', label: p.status }
+                    }[p.status] || { icon: Clock, cls: 'text-[var(--ces-muted)] bg-[var(--ces-graphite-100)]', label: enumLabel('PayableStatus', p.status) }
                     const StatusIcon = statusCfg.icon
                     return (
                       <div key={p.id} className="rounded-[14px] border border-[var(--ces-line)] p-4 space-y-3 bg-[var(--ces-surface)] shadow-[0_1px_2px_rgba(58,58,58,0.06)]">

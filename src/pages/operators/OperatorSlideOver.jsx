@@ -7,6 +7,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import toast from 'react-hot-toast'
 import { validateFileUpload } from '../../utils/fileValidation'
+import { enumLabel } from '../../utils/enumLabel'
 
 const DOC_TYPES = [
   { key: 'DRIVING_LICENSE',    label: 'Sürücülük vəsiqəsi' },
@@ -351,7 +352,7 @@ export default function OperatorSlideOver({ operator: initial, onClose, onEdit, 
                 <div className="space-y-3">
                   <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-[var(--ces-muted)]">{projects.length} layihə</p>
                   {projects.map(p => {
-                    const s = PROJECT_STATUS[p.status] || { label: p.status, cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' }
+                    const s = PROJECT_STATUS[p.status] || { label: enumLabel('ProjectStatus', p.status), cls: 'bg-[var(--ces-graphite-100)] text-[var(--ces-muted)]' }
                     return (
                       <div key={p.projectId} className="rounded-[14px] border border-[var(--ces-line)] p-4 space-y-2.5 bg-[var(--ces-surface)] shadow-[0_1px_2px_rgba(58,58,58,0.06)]">
                         <div className="flex items-start justify-between gap-2">

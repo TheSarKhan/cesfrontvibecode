@@ -157,8 +157,8 @@ export default function CustomersPage() {
       'Ofis məsul':    c.officeContactPerson || '',
       'Ofis tel.':     c.officeContactPhone || '',
       'Ödəniş':        (c.paymentTypes || []).map(t => t === 'CASH' ? 'Nağd' : 'Köçürmə').join(' / '),
-      'Risk':          RISK_LABELS[c.riskLevel] || c.riskLevel || '',
-      'Status':        STATUS_LABELS[c.status] || c.status || '',
+      'Risk':          RISK_LABELS[c.riskLevel] || enumLabel('RiskLevel', c.riskLevel),
+      'Status':        STATUS_LABELS[c.status] || enumLabel('CustomerStatus', c.status),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     ws['!cols'] = [20,15,25,20,15,20,15,15,12,12].map(w => ({ wch: w }))

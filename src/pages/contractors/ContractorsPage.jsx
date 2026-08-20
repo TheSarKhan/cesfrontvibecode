@@ -13,6 +13,7 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
+import { enumLabel } from '../../utils/enumLabel'
 
 const RISK_CONFIG = {
   LOW:    { label: 'Aşağı',   cls: 'bg-[var(--ces-ok-100,#e8fbe5)] text-[var(--ces-ok)]' },
@@ -137,10 +138,10 @@ export default function ContractorsPage() {
       'Əlaqə şəxsi':   c.contactPerson || '',
       'Telefon':        c.phone || '',
       'Ünvan':          c.address || '',
-      'Ödəniş növü':   PAYMENT_LABEL[c.paymentType] || c.paymentType || '',
+      'Ödəniş növü':   PAYMENT_LABEL[c.paymentType] || enumLabel(c.paymentType),
       'Reytinq':        c.rating != null ? parseFloat(c.rating).toFixed(1) : '',
-      'Risk':           RISK_LABELS[c.riskLevel] || c.riskLevel || '',
-      'Status':         STATUS_LABELS[c.status] || c.status || '',
+      'Risk':           RISK_LABELS[c.riskLevel] || enumLabel('RiskLevel', c.riskLevel),
+      'Status':         STATUS_LABELS[c.status] || enumLabel('ContractorStatus', c.status),
       'Qeyd':           c.notes || '',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { garageApi } from '../../api/garage'
+import { enumLabel } from '../../utils/enumLabel'
 
 /**
  * Texnika haqqında tam məlumat modalı (Qaraj modulundan datalarla).
@@ -126,7 +127,7 @@ export default function EquipmentDetailsModal({ equipmentId, onClose }) {
               {/* Specs grid */}
               <SectionCard title="Texniki spesifikasiyalar" icon={Info}>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                  <Line label="Növ" value={data.type} />
+                  <Line label="Növ" value={enumLabel(data.type)} />
                   <Line label="Marka" value={data.brand} />
                   <Line label="Model" value={data.model} />
                   <Line label="İstehsal ili" value={data.manufactureYear} />
@@ -201,7 +202,7 @@ export default function EquipmentDetailsModal({ equipmentId, onClose }) {
                         </span>
                         {doc.documentType && (
                           <span className="text-[9px] uppercase mono px-1 py-0.5 rounded" style={{ background: 'var(--ces-graphite-100)', color: 'var(--ces-mute2)' }}>
-                            {doc.documentType}
+                            {enumLabel('DocumentType', doc.documentType)}
                           </span>
                         )}
                       </div>
@@ -239,7 +240,7 @@ function StatusBadge({ status }) {
     UNDER_REPAIR:   { label: 'Təmirdə',   cls: 'bg-red-100 text-red-700 border-red-200' },
     DECOMMISSIONED: { label: 'Xaric',     cls: 'bg-gray-100 text-gray-600 border-gray-200' },
   }
-  const c = cfg[status] || { label: status, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
+  const c = cfg[status] || { label: enumLabel('EquipmentStatus', status), cls: 'bg-gray-100 text-gray-600 border-gray-200' }
   return <span className={clsx('px-2 py-0.5 rounded-md text-[10px] font-bold border', c.cls)}>{c.label}</span>
 }
 
@@ -249,8 +250,7 @@ function OwnershipBadge({ ownership }) {
     CONTRACTOR: { label: 'Podratçı texnikası', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
     INVESTOR:   { label: 'Investor texnikası', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
   }
-  const c = cfg[ownership]
-  if (!c) return null
+  const c = cfg[ownership] || { label: enumLabel('OwnershipType', ownership), cls: 'bg-gray-100 text-gray-600 border-gray-200' }
   return <span className={clsx('px-2 py-0.5 rounded-md text-[10px] font-bold border', c.cls)}>{c.label}</span>
 }
 

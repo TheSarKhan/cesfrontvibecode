@@ -8,6 +8,7 @@ import { clsx } from 'clsx'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { STATUS_CFG, OWN_LABEL, inspectionCountdown } from '../../constants/garage'
 import { validateFileUpload } from '../../utils/fileValidation'
+import { enumLabel } from '../../utils/enumLabel'
 
 const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
@@ -1050,7 +1051,7 @@ export default function EquipmentSlideOver({ equipment, onClose, onEdit, onClone
                 <div className="grid grid-cols-2 gap-x-4 gap-y-4">
                   <InfoField label="Texnika kodu" value={equipment.equipmentCode} mono />
                   <InfoField label="Seriya nömrəsi" value={equipment.serialNumber} mono />
-                  <InfoField label="Növ / Kateqoriya" value={equipment.type} />
+                  <InfoField label="Növ / Kateqoriya" value={enumLabel(equipment.type)} />
                   <InfoField label="Brend" value={equipment.brand} />
                   <InfoField label="Model" value={equipment.model} />
                   <InfoField label="İstehsal ili" value={equipment.manufactureYear} />

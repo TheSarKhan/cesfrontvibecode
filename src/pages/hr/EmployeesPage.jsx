@@ -10,6 +10,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import EmployeeModal from './EmployeeModal'
 import EmployeeSlideOver from './EmployeeSlideOver'
 import Pagination from '../../components/common/Pagination'
+import { enumLabel } from '../../utils/enumLabel'
 
 const STATUS_CONFIG = {
   ACTIVE:     { label: 'Aktiv',         cls: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400' },
@@ -94,7 +95,7 @@ export default function EmployeesPage() {
       'Telefon': e.phone || '',
       'Email': e.email || '',
       'İşə qəbul': e.hireDate || '',
-      'Status': STATUS_CONFIG[e.status]?.label || e.status,
+      'Status': STATUS_CONFIG[e.status]?.label || enumLabel('EmployeeStatus', e.status),
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     ws['!cols'] = [12, 25, 14, 18, 18, 14, 14, 22, 12, 14].map(w => ({ wch: w }))
@@ -180,7 +181,7 @@ export default function EmployeesPage() {
               ) : data.content.length === 0 ? (
                 <tr><td colSpan={8} className="px-3 py-10 text-center text-gray-400">İşçi tapılmadı</td></tr>
               ) : data.content.map(e => {
-                const s = STATUS_CONFIG[e.status] || { label: e.status, cls: 'bg-gray-100 text-gray-500 border-gray-200' }
+                const s = STATUS_CONFIG[e.status] || { label: enumLabel('EmployeeStatus', e.status), cls: 'bg-gray-100 text-gray-500 border-gray-200' }
                 return (
                   <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onClick={() => setSlideOver(e)}>
                     <td className="px-3 py-2.5 text-gray-500 text-xs">{e.employeeCode || '—'}</td>

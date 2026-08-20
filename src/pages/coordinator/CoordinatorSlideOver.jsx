@@ -17,6 +17,7 @@ import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 import NumberInput from '../../components/common/NumberInput'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentDetailsModal from '../../components/common/EquipmentDetailsModal'
+import { enumLabel } from '../../utils/enumLabel'
 
 const PHASE_A_STATUS = 'COORDINATOR_NEGOTIATING'
 const PHASE_B_STATUSES = ['EXECUTION_READY', 'OPERATOR_ASSIGNED', 'EQUIPMENT_DISPATCHED', 'DELIVERED']
@@ -583,8 +584,8 @@ function ItemExecuteCard({ item, requestId, operators, canPut, canDispatch, canD
                     onClick={() => operatorsApi.previewDocument(opForDocs.id, d.id, d.fileName)}
                     className="flex items-center gap-1.5 w-full text-[11px] text-gray-600 dark:text-gray-300 hover:text-purple-600 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1">
                     <FileText size={11} className="text-purple-500 shrink-0" />
-                    <span className="truncate">{d.fileName || d.documentType}</span>
-                    {d.documentType && <span className="text-gray-400 shrink-0">· {d.documentType}</span>}
+                    <span className="truncate">{d.fileName || enumLabel('OperatorDocumentType', d.documentType)}</span>
+                    {d.documentType && <span className="text-gray-400 shrink-0">· {enumLabel('OperatorDocumentType', d.documentType)}</span>}
                     <Download size={10} className="ml-auto shrink-0 text-gray-400" />
                   </button>
                 ))}
@@ -624,7 +625,7 @@ function ItemExecuteCard({ item, requestId, operators, canPut, canDispatch, canD
                       className="flex items-center gap-1.5 w-full text-[11px] text-gray-600 dark:text-gray-300 hover:text-purple-600 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-1">
                       <FileText size={11} className="text-purple-500 shrink-0" />
                       <span className="truncate">{d.name}</span>
-                      {d.type && <span className="text-gray-400 shrink-0">· {d.type}</span>}
+                      {d.type && <span className="text-gray-400 shrink-0">· {enumLabel('RequestDocumentType', d.type)}</span>}
                       <Download size={10} className="ml-auto shrink-0 text-gray-400" />
                     </button>
                   ))}

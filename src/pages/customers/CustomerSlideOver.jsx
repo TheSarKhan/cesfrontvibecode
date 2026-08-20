@@ -15,6 +15,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import toast from 'react-hot-toast'
 import { validateFileUpload } from '../../utils/fileValidation'
+import { enumLabel } from '../../utils/enumLabel'
 
 const RISK_CONFIG = {
   LOW:    { label: 'Aşağı',  pill: 'ces-p-ok' },
@@ -356,7 +357,7 @@ export default function CustomerSlideOver({ customer, onClose, onEdit, onDelete,
                       PARTIAL:   { icon: AlertCircle,   pill: 'ces-p-info',   label: 'Qismən' },
                       COMPLETED: { icon: CheckCircle2,  pill: 'ces-p-ok',     label: 'Tamamlandı' },
                       OVERDUE:   { icon: AlertCircle,   pill: 'ces-p-danger', label: 'Gecikmiş' },
-                    }[r.status] || { icon: Clock, pill: 'ces-p-mute', label: r.status }
+                    }[r.status] || { icon: Clock, pill: 'ces-p-mute', label: enumLabel('ReceivableStatus', r.status) }
                     const StatusIcon = statusCfg.icon
                     return (
                       <div key={r.id} style={{ padding: 14, borderRadius: 14, border: '1px solid var(--ces-line)', background: 'var(--ces-surface)' }} className="space-y-2">

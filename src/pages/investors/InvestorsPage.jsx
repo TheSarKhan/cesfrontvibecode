@@ -13,6 +13,7 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
+import { enumLabel } from '../../utils/enumLabel'
 
 /* ─── Config / mapping ─── */
 const RISK_CONFIG = {
@@ -187,10 +188,10 @@ export default function InvestorsPage() {
       'Əlaqə şəxsi':  c.contactPerson || '',
       'Telefon':       c.contactPhone || '',
       'Ünvan':         c.address || '',
-      'Ödəniş növü':  PAYMENT_LABEL[c.paymentType] || c.paymentType || '',
+      'Ödəniş növü':  PAYMENT_LABEL[c.paymentType] || enumLabel(c.paymentType),
       'Reytinq':       c.rating != null ? parseFloat(c.rating).toFixed(1) : '',
-      'Risk':          RISK_CONFIG[c.riskLevel]?.label || c.riskLevel || '',
-      'Status':        STATUS_CONFIG[c.status]?.label  || c.status    || '',
+      'Risk':          RISK_CONFIG[c.riskLevel]?.label || enumLabel('RiskLevel', c.riskLevel),
+      'Status':        STATUS_CONFIG[c.status]?.label  || enumLabel('ContractorStatus', c.status),
       'Qeyd':          c.notes || '',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)

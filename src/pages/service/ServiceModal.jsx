@@ -9,6 +9,7 @@ import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import NumberInput from '../../components/common/NumberInput'
 import { onlyDigits } from '../../utils/validation'
+import { enumLabel } from '../../utils/enumLabel'
 
 const INSPECTION_TYPES = [
   'Texniki baxış',
@@ -224,7 +225,7 @@ export default function ServiceModal({ editing, initialEquipmentId, recordType =
               <option value="">— Texnika seçin —</option>
               {filteredEquipment.map(eq => (
                 <option key={eq.id} value={eq.id}>
-                  {eq.plateNumber ? `[${eq.plateNumber}] ` : ''}{eq.name} — {eq.status}
+                  {eq.plateNumber ? `[${eq.plateNumber}] ` : ''}{eq.name} — {enumLabel('EquipmentStatus', eq.status)}
                 </option>
               ))}
             </select>
