@@ -24,6 +24,8 @@ const auditEntityLabel = (entityType) => {
     .replace(/_/g, ' ')
 }
 
+const auditActionLabel = (action) => action ? String(action).replace(/_/g, ' ') : '—'
+
 const ENTITY_TYPES = [
   'API',
   'MÜŞTƏRİ', 'MÜŞTƏRİ_SƏNƏD', 'PODRATÇI', 'İNVESTOR', 'OPERATOR',
@@ -300,7 +302,7 @@ export default function AuditPage() {
                       <td>
                         <span className={clsx('ces-pill sm', cfg.pill)}>
                           <Icon size={11} />
-                          {log.action}
+                          {auditActionLabel(log.action)}
                         </span>
                       </td>
 
@@ -388,7 +390,7 @@ function AuditDetailModal({ log, onClose }) {
             <h3 className="flex items-center gap-2 flex-wrap">
               <span className={clsx('ces-pill sm', cfg.pill)}>
                 <Icon size={11} />
-                {log.action}
+                {auditActionLabel(log.action)}
               </span>
             </h3>
             <p className="truncate" title={log.entityLabel}>{log.entityLabel || '—'}</p>
