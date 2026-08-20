@@ -27,7 +27,7 @@ import { validateFileUpload } from '../../utils/fileValidation'
 import { fmtDate, fmtPeriod } from '../../utils/date'
 import { PageHeader, Pill, Field, Input, Textarea, ModalShell, TableWrap } from './_shared'
 import { fmtMoney } from './_constants'
-import { enumLabel } from '../../utils/enumLabel'
+import { enumLabel, humanizeKey } from '../../utils/enumLabel'
 
 /* ─── Helpers ─── */
 const fmtD = fmtDate
@@ -431,10 +431,10 @@ export default function AccountingInvoicesPage() {
   const exportTransactions = () => {
     const rows = filteredTransactions.map(t => ({
       'Növ':           t.type === 'INCOME' ? 'Gəlir' : 'Xərc',
-      'Kateqoriya':    CATEGORY_LABELS[t.category] || t.category,
+      'Kateqoriya':    CATEGORY_LABELS[t.category] || humanizeKey(t.category),
       'Məbləğ':        t.amount,
       'Tarix':         t.transactionDate,
-      'Ödəniş üsulu':  METHOD_LABELS[t.paymentMethod] || t.paymentMethod,
+      'Ödəniş üsulu':  METHOD_LABELS[t.paymentMethod] || humanizeKey(t.paymentMethod),
       'İstinad':       t.referenceNumber || '',
       'Açıqlama':      t.description || '',
     }))
@@ -1501,7 +1501,7 @@ export default function AccountingInvoicesPage() {
                           {t.type === 'INCOME' ? 'Gəlir' : 'Xərc'}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--ces-ink)' }}>{CATEGORY_LABELS[t.category] || t.category || '—'}</td>
+                      <td style={{ color: 'var(--ces-ink)' }}>{CATEGORY_LABELS[t.category] || humanizeKey(t.category) || '—'}</td>
                       <td>
                         <span className="text-[14px] font-bold num"
                           style={{ color: t.type === 'INCOME' ? 'var(--ces-ok)' : 'var(--ces-danger)' }}>
@@ -1509,7 +1509,7 @@ export default function AccountingInvoicesPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap" style={{ color: 'var(--ces-muted)' }}>{fmtD(t.transactionDate)}</td>
-                      <td style={{ color: 'var(--ces-muted)' }}>{METHOD_LABELS[t.paymentMethod] || t.paymentMethod || '—'}</td>
+                      <td style={{ color: 'var(--ces-muted)' }}>{METHOD_LABELS[t.paymentMethod] || humanizeKey(t.paymentMethod) || '—'}</td>
                       <td className="truncate max-w-[180px]" style={{ color: 'var(--ces-muted)' }}>{t.description || '—'}</td>
                       <td className="r">
                         <div className="flex items-center gap-0.5 justify-end">

@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import ApprovalDiffModal from './ApprovalDiffModal'
 import Pagination from '../../components/common/Pagination'
 import { clsx } from 'clsx'
-import { enumLabel } from '../../utils/enumLabel'
+import { enumLabel, humanizeKey } from '../../utils/enumLabel'
 
 const MODULE_LABEL = {
   CUSTOMER_MANAGEMENT: 'Müştərilər',
@@ -234,7 +234,7 @@ export default function ApprovalPage() {
                       style={op.status === 'PENDING' ? { background: 'rgba(255, 244, 220, .35)' } : undefined}
                     >
                       <td style={{ fontWeight: 600, color: 'var(--ces-ink)' }}>
-                        {MODULE_LABEL[op.moduleCode] || op.moduleCode}
+                        {MODULE_LABEL[op.moduleCode] || humanizeKey(op.moduleCode)}
                       </td>
                       <td>
                         <span className={clsx('ces-pill sm', getOpPill(op))}>

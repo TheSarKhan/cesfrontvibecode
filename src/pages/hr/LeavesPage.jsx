@@ -120,7 +120,7 @@ export default function LeavesPage() {
               : (data.content || []).length === 0 ? <tr><td colSpan={7} className="text-center py-6 text-gray-400">Tələb yoxdur</td></tr>
               : data.content.map(l => {
                 const s = STATUSES[l.status] || { label: enumLabel('LeaveStatus', l.status), cls: 'bg-gray-100 text-gray-500' }
-                const t = TYPES.find(x => x.v === l.type)?.label || l.type
+                const t = TYPES.find(x => x.v === l.type)?.label || enumLabel('LeaveType', l.type)
                 return (
                   <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-100">{l.employeeFullName}</td>

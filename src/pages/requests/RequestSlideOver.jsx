@@ -4,6 +4,7 @@ import { requestsApi } from '../../api/requests'
 import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/requests'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { enumLabel } from '../../utils/enumLabel'
 
 const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
@@ -57,8 +58,8 @@ function HistoryTab({ requestId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {logs.map((log) => {
-        const from = STATUS_CFG[log.oldStatus] || { label: log.oldStatus, pill: 'ces-p-mute' }
-        const to = STATUS_CFG[log.newStatus] || { label: log.newStatus, pill: 'ces-p-mute' }
+        const from = STATUS_CFG[log.oldStatus] || { label: enumLabel('RequestStatus', log.oldStatus), pill: 'ces-p-mute' }
+        const to = STATUS_CFG[log.newStatus] || { label: enumLabel('RequestStatus', log.newStatus), pill: 'ces-p-mute' }
         return (
           <div
             key={log.id}

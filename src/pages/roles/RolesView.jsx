@@ -13,6 +13,7 @@ import { useConfirm } from '../../components/common/ConfirmDialog'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
+import { humanizeKey } from '../../utils/enumLabel'
 
 // İcazə bayraqları → Azərbaycan etiketi, ikon və rəng kateqoriyası
 const PERMISSION_META = {
@@ -215,7 +216,7 @@ function RoleRow({ role, users, onEdit, onDelete, canEdit, canDelete }) {
                         marginBottom: 8,
                       }}
                     >
-                      {perm.moduleNameAz || perm.moduleCode}
+                      {perm.moduleNameAz || humanizeKey(perm.moduleCode)}
                     </div>
                     <div className="flex flex-wrap" style={{ gap: 6 }}>
                       {perm.actions.map((a) => (

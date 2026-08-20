@@ -11,6 +11,7 @@ import { STATUS_CFG } from '../../constants/requests'
 import Pagination from '../../components/common/Pagination'
 import { fmtDate } from '../../utils/date'
 import CoordinatorSlideOver from './CoordinatorSlideOver'
+import { enumLabel } from '../../utils/enumLabel'
 
 const STAT_CARDS = [
   { id: 'ALL',                      label: 'Hamısı',              icon: FileText,     color: 'text-gray-500' },
@@ -228,7 +229,7 @@ export default function CoordinatorPage() {
               ) : (
                 data.content.map((r) => {
                   const requestId = r.requestId
-                  const status = STATUS_CFG[r.requestStatus] || { label: r.requestStatus, cls: 'bg-gray-100 text-gray-600 border-gray-200' }
+                  const status = STATUS_CFG[r.requestStatus] || { label: enumLabel('RequestStatus', r.requestStatus), cls: 'bg-gray-100 text-gray-600 border-gray-200' }
                   return (
                     <tr
                       key={requestId}

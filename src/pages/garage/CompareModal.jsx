@@ -2,10 +2,11 @@ import { X, Scale } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { STATUS_CFG, OWN_LABEL, fmtMoney, fmtDate, dash } from '../../constants/garage'
+import { enumLabel } from '../../utils/enumLabel'
 
 const ROWS = [
   { label: 'Kod', fn: e => e.equipmentCode, mono: true },
-  { label: 'Növ', fn: e => e.type },
+  { label: 'Növ', fn: e => enumLabel(e.type) },
   { label: 'Brend', fn: e => e.brand },
   { label: 'Model', fn: e => e.model },
   { label: 'İstehsal ili', fn: e => e.manufactureYear, compare: 'max' },
@@ -15,7 +16,7 @@ const ROWS = [
   { label: 'Saat / KM', fn: e => dash(e.hourKmCounter) },
   { label: 'Amortizasiya', fn: e => e.depreciationRate != null ? `${e.depreciationRate}%` : '—' },
   { label: 'Status', fn: e => null, status: true },
-  { label: 'Mülkiyyət', fn: e => OWN_LABEL[e.ownershipType] || '—' },
+  { label: 'Mülkiyyət', fn: e => OWN_LABEL[e.ownershipType] || enumLabel('OwnershipType', e.ownershipType) },
   { label: 'Saxlanma yeri', fn: e => dash(e.storageLocation) },
   { label: 'Son baxış', fn: e => fmtDate(e.lastInspectionDate) },
   { label: 'Növbəti baxış', fn: e => fmtDate(e.nextInspectionDate) },

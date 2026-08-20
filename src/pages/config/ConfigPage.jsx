@@ -14,10 +14,12 @@ import TableSkeleton from '../../components/common/TableSkeleton'
 import EmptyState from '../../components/common/EmptyState'
 import Pagination from '../../components/common/Pagination'
 import { useSearchParams } from 'react-router-dom'
+import { humanizeKey } from '../../utils/enumLabel'
 
 export const CATEGORY_LABELS = {
   EQUIPMENT_BRAND:   'Texnika brendləri',
   EQUIPMENT_TYPE:    'Texnika növləri',
+  EQUIPMENT_DOCUMENT_TYPE: 'Texnika sənəd növləri',
   REGION:            'Bölgələr',
   TECH_PARAM:        'Texniki parametrlər',
   SAFETY_EQUIPMENT:  'Təhlükəsizlik avadanlıqları',
@@ -28,7 +30,7 @@ export const CATEGORY_LABELS = {
 
 const HIDDEN_CATEGORIES = new Set(['COMPANY_INFO', 'COMPANY_BANK_DETAILS', 'DOCUMENT_VAT_RATE'])
 
-const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat
+export const categoryLabel = (cat) => CATEGORY_LABELS[cat] || humanizeKey(cat)
 
 export default function ConfigPage() {
   const [tab, setTab] = useState('categories')

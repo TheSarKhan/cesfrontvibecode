@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { v, onlyDigits, digitKeyDown, makePasteHandler } from '../../utils/validation'
 import { clsx } from 'clsx'
-import { CATEGORY_LABELS } from './ConfigPage'
+import { categoryLabel } from './ConfigPage'
 
 const EMPTY = { category: '', key: '', value: '', description: '', sortOrder: 0, active: true }
 
@@ -119,7 +119,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
             <h3>{editing ? 'Elementi redaktə et' : 'Yeni element'}</h3>
             <p>
               {editing
-                ? `${CATEGORY_LABELS[editing.category] || editing.category} → ${editing.key}`
+                ? `${categoryLabel(editing.category)} → ${editing.key}`
                 : 'Kateqoriya və açar məlumatlarını doldurun'}
             </p>
           </div>
@@ -140,7 +140,7 @@ export default function ConfigItemModal({ editing, categories, currentCategory, 
                     className={clsx('ces-select flex-1', errors.category && 'is-error')}
                   >
                     <option value="">Seçin</option>
-                    {categories.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>)}
+                    {categories.map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}
                   </select>
                   <button
                     type="button"

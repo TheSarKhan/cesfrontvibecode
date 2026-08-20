@@ -17,6 +17,13 @@ import EmptyState from '../../components/common/EmptyState'
 import { usePageShortcuts } from '../../hooks/usePageShortcuts'
 import { fmtDateTime, timeAgo } from '../../utils/date'
 
+const auditEntityLabel = (entityType) => {
+  if (!entityType) return '—'
+  return String(entityType)
+    .replace(/^HR_/, 'HR ')
+    .replace(/_/g, ' ')
+}
+
 const ENTITY_TYPES = [
   'API',
   'MÜŞTƏRİ', 'MÜŞTƏRİ_SƏNƏD', 'PODRATÇI', 'İNVESTOR', 'OPERATOR',
@@ -298,7 +305,7 @@ export default function AuditPage() {
                       </td>
 
                       <td>
-                        <span className="ces-pill ces-p-mute sm">{log.entityType}</span>
+                        <span className="ces-pill ces-p-mute sm">{auditEntityLabel(log.entityType)}</span>
                       </td>
 
                       <td>
@@ -365,7 +372,7 @@ function AuditDetailModal({ log, onClose }) {
   const rows = [
     { label: 'Vaxt',       value: log.performedAt ? new Date(log.performedAt).toLocaleString('az-AZ') : '—', mono: true },
     { label: 'İstifadəçi', value: log.performedBy || '—' },
-    { label: 'Növ',        value: log.entityType || '—' },
+    { label: 'Növ',        value: auditEntityLabel(log.entityType) },
     { label: 'Element',    value: log.entityLabel || '—' },
     { label: 'Element ID', value: log.entityId != null ? String(log.entityId) : '—', mono: true },
   ]
