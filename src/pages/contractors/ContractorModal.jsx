@@ -72,7 +72,7 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
   }
 
   const inputCls = (field) => clsx(
-    'w-full px-3.5 py-2.5 text-sm border rounded-[11px] bg-white text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none transition-all',
+    'w-full px-3.5 py-2.5 text-sm border rounded-[11px] bg-[var(--ces-surface)] text-[var(--ces-ink)] placeholder-[var(--ces-mute2)] focus:outline-none transition-all',
     errors[field]
       ? 'border-[var(--ces-danger)] focus:border-[var(--ces-danger)] focus:ring-[3px] focus:ring-[rgba(212,56,90,0.12)]'
       : 'border-[var(--ces-line)] focus:border-[var(--ces-graphite)] focus:ring-[3px] focus:ring-[rgba(58,58,58,0.1)]'

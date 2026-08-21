@@ -862,6 +862,7 @@
 .ces-select:hover { border-color: var(--ces-gold); }
 .ces-select:focus { outline: none; border-color: var(--ces-gold); box-shadow: 0 0 0 3px var(--ces-gold-100); }
 .ces-select.sm { padding: 7px 10px; font-size: 13px; border-radius: 8px; min-height: 36px; }
+select option { background-color: var(--ces-surface); color: var(--ces-ink); }
 
 /* Pill / badge */
 .ces-pill {

@@ -159,7 +159,7 @@ function Select({ value, onChange, options }) {
       className="w-full appearance-none cursor-pointer transition-all"
       style={{
         padding: '11px 36px 11px 13px',
-        background: `#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2.4' stroke-linecap='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center`,
+        background: `var(--ces-surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b6b6b' stroke-width='2.4' stroke-linecap='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center`,
         border: `1px solid ${focused ? 'var(--ces-graphite)' : 'var(--ces-line)'}`,
         borderRadius: '11px',
         minHeight: '44px',
@@ -170,7 +170,7 @@ function Select({ value, onChange, options }) {
       }}
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
+        <option key={o.value} value={o.value} style={{ background: 'var(--ces-surface)', color: 'var(--ces-ink)' }}>{o.label}</option>
       ))}
     </select>
   )
