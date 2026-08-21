@@ -14,4 +14,10 @@ export const requestsApi = {
   bulkUpdateNotes: (ids, notes) => api.post('/requests/bulk-update-notes', { ids, notes }),
   bulkUpdateRegion: (ids, region) => api.post('/requests/bulk-update-region', { ids, region }),
   delete: (id) => api.delete(`/requests/${id}`),
+
+  // Avtomatik Şablonlar (PDF)
+  downloadHandoverActUrl: (id) => `/requests/${id}/templates/handover-act/pdf`,
+  downloadPriceProtocolUrl: (id) => `/requests/${id}/templates/price-protocol/pdf`,
+  autoAttachHandoverAct: (id) => api.post(`/requests/${id}/templates/auto-attach-handover-act`),
+  autoAttachPriceProtocol: (id) => api.post(`/requests/${id}/templates/auto-attach-price-protocol`),
 }

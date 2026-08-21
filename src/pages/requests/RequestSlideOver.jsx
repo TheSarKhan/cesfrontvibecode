@@ -5,6 +5,7 @@ import { STATUS_CFG, PROJECT_TYPES, fmtDate, dash } from '../../constants/reques
 import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { enumLabel } from '../../utils/enumLabel'
+import WorkflowStepper from '../../components/common/WorkflowStepper'
 
 const TABS = [
   { id: 'info', label: 'Məlumat', icon: Info },
@@ -160,6 +161,7 @@ export default function RequestSlideOver({ request, onClose }) {
         <div className="ces-drawer-body" style={{ padding: 0 }}>
           {tab === 'info' && (
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <WorkflowStepper status={request.status} />
               <div>
                 <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <Building2 size={11} /> Müştəri

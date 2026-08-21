@@ -6,6 +6,8 @@ import { documentCheckApi } from '../../api/documentCheck'
 import { useAuthStore } from '../../store/authStore'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import ReasonPromptModal from '../../components/common/ReasonPromptModal'
+import { requestsApi } from '../../api/requests'
+import WorkflowStepper from '../../components/common/WorkflowStepper'
 
 const STAT_CARDS = [
   { id: 'ALL',     label: 'Hamısı',     icon: Files,     color: 'text-gray-500' },
@@ -425,6 +427,7 @@ function CheckSlideOver({ requestId, canPost, canDelete, canComplete, confirm, o
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <WorkflowStepper status="ACCOUNTING_DOCS_CHECK" />
           {hasPerLine ? (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Texnika üzrə sənədlər</p>
@@ -579,7 +582,37 @@ function DocSection({ title, type, uploaded, doc, fileRef, onUpload, onDelete, r
         <div className="text-xs text-gray-400">Hələ yüklənməyib</div>
       )}
       {canPost && (
-        <>
+        <div className="space-y-2">
+          {type === 'PRICE_PROTOCOL' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await requestsApi.autoAttachPriceProtocol(requestId)
+                    toast.success('Qiymət protokolu avtomatik yaradıldı və sənədlərə bağlandı', { icon: '✨' })
+                    onUpload(null) // trigger reload
+                  } catch {
+                    toast.error('Protokol yaradılarkən xəta baş verdi')
+                  }
+                }}
+                disabled={busy}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-1.5"
+              >
+                <span>✨</span> Avtomatik Protokol Yarat
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const base = import.meta.env.VITE_API_BASE_URL || 'https://api.ces.invorent.com/api'
+                  window.open(`${base}/requests/${requestId}/templates/price-protocol/pdf`, '_blank')
+                }}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-amber-500/40 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <FileText size={13} /> Protokolu Çap Et (PDF)
+              </button>
+            </div>
+          )}
           <input
             ref={fileRef}
             type="file"
@@ -594,11 +627,11 @@ function DocSection({ title, type, uploaded, doc, fileRef, onUpload, onDelete, r
           <button
             onClick={() => fileRef.current?.click()}
             disabled={busy}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-dashed border-amber-300 disabled:opacity-50 transition-colors"
           >
-            <Upload size={13} /> {doc ? 'Yenidən yüklə' : 'Yüklə'}
+            <Upload size={13} /> {doc ? 'Kompüterdən Yenidən Yüklə' : 'Kompüterdən Fayl Yüklə'}
           </button>
-        </>
+        </div>
       )}
     </div>
   )

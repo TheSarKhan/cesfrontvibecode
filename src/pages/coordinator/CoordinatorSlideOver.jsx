@@ -16,6 +16,8 @@ import { useEscapeKey } from '../../hooks/useEscapeKey'
 import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 import NumberInput from '../../components/common/NumberInput'
 import { useAuthStore } from '../../store/authStore'
+import { requestsApi } from '../../api/requests'
+import WorkflowStepper from '../../components/common/WorkflowStepper'
 import EquipmentDetailsModal from '../../components/common/EquipmentDetailsModal'
 import { enumLabel } from '../../utils/enumLabel'
 
@@ -849,6 +851,21 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, canPost,
     }
   }
 
+  const [generatingAct, setGeneratingAct] = useState(false)
+
+  const handleAutoAttachAct = async () => {
+    setGeneratingAct(true)
+    try {
+      await requestsApi.autoAttachHandoverAct(requestId)
+      toast.success('Təhvil-təslim aktı avtomatik generasiya edildi və plana bağlandı', { icon: '✨' })
+      onSaved?.()
+    } catch {
+      toast.error('Akt yaradılarkən xəta baş verdi')
+    } finally {
+      setGeneratingAct(false)
+    }
+  }
+
   // Sənədi blob olaraq endir/aç (JWT header axios ilə getsin deyə — düz <a href> token daşımır)
   const handleOpenDoc = async (doc) => {
     try {
@@ -1272,7 +1289,34 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, canPost,
               </div>
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleAutoAttachAct}
+                  disabled={!canPost || generatingAct || !dispatched}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  {generatingAct ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>✨</span>
+                  )}
+                  {generatingAct ? 'Generasiya olunur...' : 'Avtomatik Akt Yarat'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const base = import.meta.env.VITE_API_BASE_URL || 'https://api.ces.invorent.com/api'
+                    window.open(`${base}/requests/${requestId}/templates/handover-act/pdf`, '_blank')
+                  }}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg border border-purple-500/40 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <FileText size={13} />
+                  Aktı Çap Et (PDF)
+                </button>
+              </div>
+
               <input
                 ref={actFileRef}
                 type="file"
@@ -1284,10 +1328,10 @@ function ExecuteTab({ data, requestId, canPut, canDispatch, canDeliver, canPost,
               <button
                 onClick={() => actFileRef.current?.click()}
                 disabled={!canPost || uploadingAct || !dispatched}
-                className="w-full px-3 py-2 text-xs font-semibold rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600 text-gray-500 hover:border-purple-400 hover:text-purple-600 disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:text-gray-500 transition-colors inline-flex items-center justify-center gap-1.5"
+                className="w-full px-3 py-1.5 text-xs font-medium rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-purple-400 hover:text-purple-600 disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-1.5"
               >
-                <Upload size={13} />
-                {uploadingAct ? 'Yüklənir...' : 'Aktı yüklə'}
+                <Upload size={12} />
+                {uploadingAct ? 'Yüklənir...' : 'Kompüterdən Fayl Yüklə'}
               </button>
               {!dispatched ? (
                 <p className="text-[10px] text-gray-400 inline-flex items-center gap-1">
@@ -1483,6 +1527,7 @@ export default function CoordinatorSlideOver({ requestId, onClose, onChanged }) 
             <Spinner />
           ) : tab === 'info' ? (
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <WorkflowStepper status={data.status} />
               {/* Müştəri */}
               <div>
                 <p className="ces-sec-label mb-3 inline-flex items-center gap-1.5">

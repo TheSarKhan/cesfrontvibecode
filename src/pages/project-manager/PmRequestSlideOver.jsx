@@ -18,6 +18,7 @@ import ReasonPromptModal from '../../components/common/ReasonPromptModal'
 import { useAuthStore } from '../../store/authStore'
 import EquipmentCard from '../../components/common/EquipmentCard'
 import EquipmentDetailsModal from '../../components/common/EquipmentDetailsModal'
+import WorkflowStepper from '../../components/common/WorkflowStepper'
 
 const TERMINAL_STATUSES = ['REJECTED', 'PM_APPROVED', 'ACCOUNTING_DOCS_CHECK', 'EXECUTION_READY',
   'OPERATOR_ASSIGNED', 'EQUIPMENT_DISPATCHED', 'DELIVERED']
@@ -566,9 +567,93 @@ function ShortlistTab({ data, editable, requestId, onSaved }) {
     )
   }
 
+  const quickAddEquipment = (eq) => {
+    const partyType = eq.ownershipType || 'COMPANY'
+    const contractorId = eq.ownerContractorId || null
+    let investorId = null
+    if (partyType === 'INVESTOR' && eq.ownerInvestorVoen) {
+      const inv = investors.find((i) => i.voen === eq.ownerInvestorVoen)
+      if (inv) investorId = inv.id
+    }
+
+    setRows((currentRows) => {
+      const existingIdx = currentRows.findIndex(
+        (r) =>
+          r.partyType === partyType &&
+          (partyType !== 'CONTRACTOR' || r.contractorId === contractorId) &&
+          (partyType !== 'INVESTOR' || r.investorId === investorId)
+      )
+
+      if (existingIdx >= 0) {
+        return currentRows.map((r, i) => {
+          if (i !== existingIdx) return r
+          if (r.equipmentIds.includes(eq.id)) return r
+          return { ...r, equipmentIds: [...r.equipmentIds, eq.id] }
+        })
+      } else {
+        const key = `new-${newKeyRef.current++}`
+        return [
+          ...currentRows,
+          {
+            key,
+            partyType,
+            contractorId,
+            investorId,
+            equipmentIds: [eq.id],
+            itemIdByEq: {},
+            notes: '',
+            search: '',
+          },
+        ]
+      }
+    })
+    toast.success(`"${eq.name}" shortlist-ə əlavə edildi`, { icon: '✨' })
+  }
+
   // Editable view
+  const availableEquipments = useMemo(() => {
+    return equipments.filter((e) => e.status === 'AVAILABLE' || !e.status)
+  }, [equipments])
+
   return (
     <div className="flex flex-col gap-3">
+      {/* 💡 Ağıllı Tövsiyələr (Smart Equipment Matcher) */}
+      {availableEquipments.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 mb-1">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-amber-500 flex items-center gap-1.5">
+              <span>💡</span> Sərbəst Qaraj Texnikaları (Ağıllı Tövsiyə):
+            </span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {availableEquipments.length} mövcud texnika
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+            {availableEquipments.slice(0, 8).map((eq) => {
+              const isAdded = rows.some((r) => r.equipmentIds.includes(eq.id))
+              return (
+                <button
+                  key={eq.id}
+                  type="button"
+                  onClick={() => quickAddEquipment(eq)}
+                  disabled={isAdded}
+                  className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all ${
+                    isAdded
+                      ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-default'
+                      : 'bg-slate-900/80 hover:bg-amber-500/10 text-slate-200 hover:text-amber-300 border-slate-700 hover:border-amber-500/40 shadow-sm'
+                  }`}
+                >
+                  <span className="font-medium">{eq.name}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">({eq.equipmentCode})</span>
+                  <span className="text-[10px] text-amber-500/80 font-bold ml-0.5">
+                    {isAdded ? '✓' : '+ Əlavə et'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {rows.map((row, idx) => {
         const baseEquipments = filterEquipmentsForRow(row)
         const shownEquipments = visibleEquipmentsForRow(row)
@@ -1587,6 +1672,7 @@ export default function PmRequestSlideOver({ requestId, onClose, onChanged }) {
             <Spinner />
           ) : tab === 'info' ? (
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <WorkflowStepper status={data.status} />
               {/* Müştəri */}
               <div>
                 <p className="ces-sec-label" style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>

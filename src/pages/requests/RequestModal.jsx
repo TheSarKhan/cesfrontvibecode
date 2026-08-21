@@ -1,6 +1,6 @@
 import DateInput from '../../components/common/DateInput'
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
-import { X, Plus, Trash2, Search, MapPin, ChevronRight, ChevronLeft, Check, Building2, FolderKanban, Settings2, ClipboardList, Pencil } from 'lucide-react'
+import { X, Plus, Trash2, Search, MapPin, ChevronRight, ChevronLeft, Check, Building2, FolderKanban, Settings2, ClipboardList, Pencil, Send } from 'lucide-react'
 import { requestsApi } from '../../api/requests'
 import { customersApi } from '../../api/customers'
 import { PROJECT_TYPES } from '../../constants/requests'
@@ -280,8 +280,14 @@ export default function RequestModal({ editing, onClose, onSaved }) {
         await requestsApi.update(editing.id, payload)
         toast.success('Sorğu yeniləndi')
       } else {
-        await requestsApi.create(payload)
-        toast.success('Sorğu yaradıldı')
+        const createRes = await requestsApi.create(payload)
+        const newId = createRes.data?.data?.id || createRes.data?.id
+        if (autoSubmitToPm && newId) {
+          await requestsApi.sendToCoordinator(newId)
+          toast.success('Sorğu yaradıldı və Layihə Menecerinə göndərildi')
+        } else {
+          toast.success('Sorğu yaradıldı')
+        }
       }
       onSaved()
     } catch (err) {
@@ -682,12 +688,36 @@ export default function RequestModal({ editing, onClose, onSaved }) {
               Davam et
               <ChevronRight size={14} />
             </button>
-          ) : (
-            <button type="button" onClick={handleSubmit} disabled={loading} className="ces-btn ces-btn-primary">
+          ) : editing ? (
+            <button type="button" onClick={() => handleSubmit(false)} disabled={loading} className="ces-btn ces-btn-primary">
               {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {editing ? 'Yadda saxla' : 'Sorğu yarat'}
+              Yadda saxla
               <Check size={14} />
             </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => handleSubmit(false)} disabled={loading} className="ces-btn ces-btn-secondary">
+                {loading && <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />}
+                Qaralama Saxla
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSubmit(true)}
+                disabled={loading}
+                className="ces-btn ces-btn-primary"
+                style={{
+                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  border: 'none',
+                  boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)',
+                }}
+              >
+                {loading && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                <Send size={14} />
+                Yadda saxla və PM-ə Göndər
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, CheckCircle, AlertCircle } from 'lucide-react'
+import { X, CheckCircle, AlertCircle, Wrench, Gauge, FileText } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import toast from 'react-hot-toast'
 import { useConfirm } from '../../components/common/ConfirmDialog'
@@ -13,6 +13,9 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
     evacuationCost: '',
     scheduledHours: '',
     actualHours: '',
+    finalHourKmCounter: '',
+    returnNotes: '',
+    requiresInspection: false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -32,7 +35,11 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
       return
     }
 
-    if (!(await confirm({ title: 'Layihəni bağla', message: 'Layihəni bağlamaq istəyirsiniz? Bu əməliyyat geri alına bilməz.', confirmText: 'Bağla' }))) return
+    if (!(await confirm({
+      title: 'Layihəni bağla və Qaraja qaytar',
+      message: 'Layihə bağlanacaq və texnika qaraja sərbəst (AVAILABLE) statusla qaytarılacaq. Təsdiq edirsiniz?',
+      confirmText: 'Bağla və Qaytar'
+    }))) return
 
     setSaving(true)
     try {
@@ -41,7 +48,16 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
         scheduledHours: parseFloat(form.scheduledHours),
         actualHours: parseFloat(form.actualHours),
       })
-      toast.success('Layihə uğurla bağlandı. Mühasibatlığa yönləndirildi.')
+
+      if (form.finalHourKmCounter) {
+        await projectsApi.returnToGarage(project.id, {
+          finalHourKmCounter: parseFloat(form.finalHourKmCounter),
+          returnNotes: form.returnNotes?.trim() || null,
+          requiresInspection: form.requiresInspection,
+        })
+      }
+
+      toast.success('Layihə tamamlandı və texnika qaraja qaytarıldı', { icon: '🏁' })
       onSaved()
       onClose()
     } catch {
@@ -56,13 +72,13 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
 
   return (
     <div className="ces-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="ces-modal" style={{ maxWidth: 480 }}>
+      <div className="ces-modal" style={{ maxWidth: 520 }}>
         <div className="ces-m-head">
           <div className="ces-m-ic" style={{ background: '#e8fbe5', color: 'var(--ces-ok)' }}>
             <CheckCircle size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <h3>Layihəni bitir</h3>
+            <h3>Layihəni bitir və Qaraja qaytar</h3>
             <p className="mono truncate">{project.projectCode || project.requestCode} · {project.companyName}</p>
           </div>
           <button onClick={onClose} className="ces-modal-x" type="button" aria-label="Bağla">
@@ -77,7 +93,7 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
               <AlertCircle size={18} />
             </div>
             <p style={{ fontSize: 12.5, color: 'var(--ces-gold-700)', lineHeight: 1.55 }}>
-              Layihəni bağladıqdan sonra <strong>Mühasibatlıq</strong> moduluna avtomatik yönləndiriləcək. Bu əməliyyat geri alına bilməz.
+              Layihəni bağladıqdan sonra <strong>Mühasibatlıq</strong> moduluna avtomatik yönləndiriləcək və texnika qarajda sərbəstləşdiriləcək.
             </p>
           </div>
 
@@ -126,9 +142,56 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
             </div>
           </div>
 
+          {/* Demobilization / Garage Return Section */}
+          <div className="p-3.5 rounded-xl bg-slate-900/40 border border-slate-800 space-y-3 mt-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+              <Gauge size={14} className="text-amber-500" />
+              <span>Demobilizasiya və Qaraj Qayıdışı</span>
+            </div>
+
+            <div className="ces-field">
+              <label>Yekun Sayğac Göstəricisi (Saat / KM)</label>
+              <div className="ces-input">
+                <NumberInput
+                  decimal
+                  className="mono"
+                  value={form.finalHourKmCounter}
+                  onChange={(e) => set('finalHourKmCounter', e.target.value)}
+                  placeholder="Texnikanın cari sayğacı (məs: 1450)"
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div className="ces-field">
+              <label>Qaraja Təhvil Qeydi</label>
+              <div className="ces-input">
+                <input
+                  type="text"
+                  value={form.returnNotes}
+                  onChange={(e) => set('returnNotes', e.target.value)}
+                  placeholder="Texnikanın vəziyyəti, çatışmazlıqlar və s."
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={form.requiresInspection}
+                onChange={(e) => set('requiresInspection', e.target.checked)}
+                className="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0"
+              />
+              <span className="flex items-center gap-1">
+                <Wrench size={12} className="text-amber-400" />
+                Texniki servis və ya baxış tələb olunur (IN_INSPECTION)
+              </span>
+            </label>
+          </div>
+
           {/* Summary preview */}
           {(diff !== null || form.evacuationCost) && (
-            <div className="ces-card" style={{ padding: 14 }}>
+            <div className="ces-card" style={{ padding: 14, marginTop: 12 }}>
               <p className="ces-sec-label" style={{ marginBottom: 10 }}>Xülasə</p>
               {diff !== null && (
                 <div className="ces-card-row">
@@ -164,7 +227,7 @@ export default function ProjectCompleteModal({ project, onClose, onSaved }) {
             {saving
               ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <CheckCircle size={15} />}
-            {saving ? 'Bağlanır...' : 'Layihəni bağla'}
+            {saving ? 'Tamamlanır...' : 'Layihəni bağla və Qaytar'}
           </button>
         </div>
       </div>

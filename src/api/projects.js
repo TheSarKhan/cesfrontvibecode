@@ -6,7 +6,6 @@ export const projectsApi = {
   getById: (id) => api.get(`/projects/${id}`),
 
   contractDownloadUrl: (id) => `/projects/${id}/contract`,
-  // QEYD: uploadContract silindi — layihə mühasibat OK + Əməliyyatların təsdiqi ilə ACTIVE olur.
 
   getFinances: (id) => api.get(`/projects/${id}/finances`),
   addExpense: (id, data) => api.post(`/projects/${id}/expenses`, data),
@@ -15,6 +14,7 @@ export const projectsApi = {
   deleteRevenue: (id, revenueId) => api.delete(`/projects/${id}/revenues/${revenueId}`),
 
   complete: (id, data) => api.post(`/projects/${id}/complete`, data),
+  returnToGarage: (id, data) => api.post(`/projects/${id}/return-to-garage`, data),
   updateStartDate: (id, data) => api.patch(`/projects/${id}/start-date`, data),
 
   // ── Ödəniş girişləri (CONTRACTOR / INVESTOR texnikası üçün) ──
