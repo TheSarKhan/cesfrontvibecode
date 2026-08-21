@@ -14,7 +14,9 @@ import { useSearchParams } from 'react-router-dom'
 const STATUS_CONFIG = {
   PENDING:   { label: 'Gözləmədə', pill: 'ces-p-info' },
   ACTIVE:    { label: 'Aktiv',     pill: 'ces-p-ok' },
+  PAUSED:    { label: 'Dayandırılıb', pill: 'ces-p-warn' },
   COMPLETED: { label: 'Bağlanıb', pill: 'ces-p-mute' },
+  CANCELLED: { label: 'Xitam verilib', pill: 'ces-p-danger' },
 }
 
 const PROJ_TYPE = { DAILY: 'Günlük', MONTHLY: 'Aylıq' }

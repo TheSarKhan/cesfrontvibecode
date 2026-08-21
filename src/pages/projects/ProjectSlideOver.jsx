@@ -4,11 +4,12 @@ import {
   FileText, Plus, Trash2,
   TrendingUp, TrendingDown, Calendar,
   AlertCircle, Phone, User, MapPin, Building2,
-  Clock, FolderKanban
+  Clock, FolderKanban, AlertTriangle
 } from 'lucide-react'
 import { projectsApi } from '../../api/projects'
 import { accountingApi } from '../../api/accounting'
 import ProjectQaimeTab from './ProjectQaimeTab'
+import ProjectIncidentsTab from './ProjectIncidentsTab'
 import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
@@ -20,14 +21,17 @@ import PrintButton from '../../components/common/PrintButton'
 const STATUS_CONFIG = {
   PENDING:   { label: 'Gözləmədə', pill: 'ces-p-info' },
   ACTIVE:    { label: 'Aktiv',     pill: 'ces-p-ok' },
+  PAUSED:    { label: 'Dayandırılıb', pill: 'ces-p-warn' },
   COMPLETED: { label: 'Bağlanmış', pill: 'ces-p-mute' },
+  CANCELLED: { label: 'Xitam verilib', pill: 'ces-p-danger' },
 }
 
 const TABS = [
-  { id: 'info',     label: 'Məlumat',   icon: Info },
-  { id: 'finance',  label: 'Maliyyə',   icon: DollarSign },
-  { id: 'qaime',    label: 'Qaimələr',  icon: FileText },
-  { id: 'complete', label: 'Bağlanış',  icon: CheckCircle },
+  { id: 'info',      label: 'Məlumat',               icon: Info },
+  { id: 'finance',   label: 'Maliyyə',               icon: DollarSign },
+  { id: 'qaime',     label: 'Qaimələr',              icon: FileText },
+  { id: 'incidents', label: 'Dayanma & İnsidentlər', icon: AlertTriangle },
+  { id: 'complete',  label: 'Bağlanış',              icon: CheckCircle },
 ]
 
 const OWNERSHIP_CFG = {
@@ -1047,6 +1051,7 @@ export default function ProjectSlideOver({ project, onClose, onSaved }) {
           )}
           {activeTab === 'finance' && <FinanceTab project={project} />}
           {activeTab === 'qaime' && <ProjectQaimeTab project={project} />}
+          {activeTab === 'incidents' && <ProjectIncidentsTab project={project} onReload={onSaved} />}
           {activeTab === 'complete' && (
             <CompleteTab project={project} onCompleted={onSaved} onSwitchToQaime={() => setActiveTab('qaime')} />
           )}

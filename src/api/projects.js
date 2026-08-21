@@ -22,4 +22,14 @@ export const projectsApi = {
   addPaymentEntry:    (id, data)  => api.post(`/projects/${id}/payment-entries`, data),
   deletePaymentEntry: (id, entId) => api.delete(`/projects/${id}/payment-entries/${entId}`),
   closePayment:       (id)        => api.post(`/projects/${id}/payment-entries/close`),
+
+  // ── İnsident, Dayanma və Texnika Əvəzləmə ──
+  pause:               (id, data)    => api.post(`/projects/${id}/pause`, data),
+  resume:              (id, data)    => api.post(`/projects/${id}/resume`, data),
+  swapEquipment:       (id, data)    => api.post(`/projects/${id}/equipment-swap`, data),
+  earlyTerminate:      (id, data)    => api.post(`/projects/${id}/early-terminate`, data),
+  getDowntimes:        (id)          => api.get(`/projects/${id}/downtimes`),
+  getEquipmentSwaps:   (id)          => api.get(`/projects/${id}/equipment-swaps`),
+  downloadDowntimeActUrl: (id, dtId) => `/projects/${id}/downtimes/${dtId}/act/pdf`,
+  downloadEquipmentSwapActUrl: (id, swId) => `/projects/${id}/equipment-swaps/${swId}/act/pdf`,
 }
