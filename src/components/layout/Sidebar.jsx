@@ -7,6 +7,7 @@ import { useNotificationStore } from '../../store/notificationStore'
 import { useThemeStore } from '../../store/themeStore'
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { dashboardApi } from '../../api/dashboard'
+import { approvalApi } from '../../api/approval'
 import UserAvatar from '../common/UserAvatar'
 // Light → logo white.png; Dark & Galactic → logo2.png (galactic-də ağ BG mix-blend ilə silinir)
 import logoLight from '../../assets/logo white.png'
@@ -28,11 +29,34 @@ export default function Sidebar({ collapsed, onToggle }) {
   const [pendingCount, setPendingCount] = useState(0)
   const approvalQueueVersion = useNotificationStore((s) => s.approvalQueueVersion)
 
+  const hasApprovalAccess = Boolean(
+    user?.hasApproval
+      || user?.role === 'Administrator'
+      || user?.role === 'CEO'
+      || user?.roleNames?.includes('Administrator')
+      || user?.roleNames?.includes('CEO')
+      || user?.permissions?.some((p) => typeof p === 'string' && p.startsWith('OPERATIONS_APPROVAL'))
+  )
+
   useEffect(() => {
-    dashboardApi.getStats()
-      .then(r => setPendingCount(r.data?.data?.pendingApprovals ?? r.data?.pendingApprovals ?? 0))
-      .catch(() => {})
-  }, [approvalQueueVersion])
+    if (!hasApprovalAccess) {
+      setPendingCount(0)
+      return
+    }
+
+    if (hasPermission('DASHBOARD', 'GET') || user?.role === 'Administrator' || user?.role === 'CEO') {
+      dashboardApi.getStats()
+        .then(r => setPendingCount(r.data?.data?.pendingApprovals ?? r.data?.pendingApprovals ?? 0))
+        .catch(() => {})
+    } else {
+      approvalApi.getQueue()
+        .then(r => {
+          const list = r.data?.data || r.data || []
+          setPendingCount(Array.isArray(list) ? list.length : 0)
+        })
+        .catch(() => {})
+    }
+  }, [approvalQueueVersion, hasApprovalAccess, hasPermission, user])
 
   // hasPermission Zustand-da sabit referansdır — icazələr dəyişəndə (refetchMe sonrası)
   // yenidən hesablanması üçün user.permissions-ı asılılığa daxil edirik.
