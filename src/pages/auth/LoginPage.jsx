@@ -7,6 +7,8 @@ import toast from 'react-hot-toast'
 import logoLight from '../../assets/logo white.png'
 import logoDark from '../../assets/logo2.png'
 
+import { getFirstAccessibleRoute } from '../../constants/navigation'
+
 const SESSION_KEY = 'login_form_draft'
 
 export default function LoginPage() {
@@ -50,7 +52,9 @@ export default function LoginPage() {
     try {
       await login(form)
       sessionStorage.removeItem(SESSION_KEY)
-      navigate('/', { replace: true })
+      const currentUser = useAuthStore.getState().user
+      const target = getFirstAccessibleRoute(currentUser)
+      navigate(target, { replace: true })
     } catch (err) {
       const msg = err?.response?.data?.message || 'Email və ya şifrə yanlışdır'
       setError(msg)

@@ -510,7 +510,16 @@ export default function ApprovalDiffModal({ operationId, onClose, onActionDone }
     load()
   }, [operationId])
 
-  const canAct = user?.hasApproval && detail?.status === 'PENDING'
+  const canAct = Boolean(
+    (user?.hasApproval
+      || user?.role === 'Administrator'
+      || user?.role === 'CEO'
+      || user?.roleNames?.includes('Administrator')
+      || user?.roleNames?.includes('CEO')
+      || user?.permissions?.some(p => typeof p === 'string' && p.startsWith('OPERATIONS_APPROVAL'))
+      || user?.permissions?.includes('ALL_MODULES'))
+    && detail?.status === 'PENDING'
+  )
 
   const handleApprove = async () => {
     setActing(true)

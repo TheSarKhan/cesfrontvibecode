@@ -192,3 +192,33 @@ export const NAV_ITEMS = [
     section: 'system',
   },
 ]
+
+export function getFirstAccessibleRoute(user) {
+  if (!user) return '/login'
+
+  const role = user.role || (Array.isArray(user.roleNames) ? user.roleNames[0] : '')
+  const roleNames = Array.isArray(user.roleNames) ? user.roleNames : [role].filter(Boolean)
+  const permissions = Array.isArray(user.permissions) ? user.permissions : []
+
+  // Administrator or CEO -> full access to Dashboard
+  if (roleNames.some(r => r === 'Administrator' || r === 'CEO' || r === 'Admin')) {
+    return '/'
+  }
+
+  // If user has DASHBOARD permission
+  if (permissions.some(p => typeof p === 'string' && p.startsWith('DASHBOARD:'))) {
+    return '/'
+  }
+
+  // Find first accessible item from NAV_ITEMS
+  for (const item of NAV_ITEMS) {
+    if (item.path === '/') continue
+    if (!item.module) return item.path
+    if (permissions.some(p => typeof p === 'string' && p.startsWith(item.module + ':'))) {
+      return item.path
+    }
+  }
+
+  return '/profile'
+}
+

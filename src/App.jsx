@@ -37,9 +37,30 @@ import EmployeesPage from './pages/hr/EmployeesPage'
 import PayrollListPage from './pages/hr/PayrollListPage'
 import PayrollDetailPage from './pages/hr/PayrollDetailPage'
 import TaxConfigPage from './pages/hr/TaxConfigPage'
-import PositionsPage from './pages/hr/PositionsPage'
 import AttendancePage from './pages/hr/AttendancePage'
 import LeavesPage from './pages/hr/LeavesPage'
+import { useAuthStore } from './store/authStore'
+import { getFirstAccessibleRoute } from './constants/navigation'
+
+function DashboardIndexRoute() {
+  const user = useAuthStore((s) => s.user)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+
+  const role = user?.role || (Array.isArray(user?.roleNames) ? user.roleNames[0] : '')
+  const roleNames = Array.isArray(user?.roleNames) ? user.roleNames : [role].filter(Boolean)
+  const isAdmin = roleNames.some((r) => r === 'Administrator' || r === 'CEO' || r === 'Admin')
+
+  if (isAdmin || hasPermission('DASHBOARD', 'GET')) {
+    return <DashboardPage />
+  }
+
+  const target = getFirstAccessibleRoute(user)
+  if (target && target !== '/') {
+    return <Navigate to={target} replace />
+  }
+
+  return <DashboardPage />
+}
 
 export default function App() {
   return (
@@ -63,7 +84,7 @@ export default function App() {
         {/* Protected */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route index element={<DashboardPage />} />
+            <Route index element={<DashboardIndexRoute />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="contractors" element={<ContractorsPage />} />
             <Route path="investors" element={<InvestorsPage />} />
