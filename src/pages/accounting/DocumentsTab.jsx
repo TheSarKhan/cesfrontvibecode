@@ -58,7 +58,7 @@ export default function DocumentsTab({ onCreateNew, refreshKey }) {
       toast.success('Sənəd silindi')
       load()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinərkən xəta baş verdi')
     }
   }
 

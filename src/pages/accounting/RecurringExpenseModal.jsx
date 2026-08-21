@@ -93,7 +93,7 @@ export default function RecurringExpenseModal({ editing, onClose, onSaved }) {
       else { await accountingApi.createRecurring(payload); toast.success('Daimi ödəniş yaradıldı') }
       onSaved()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Daimi ödəniş yadda saxlanılarkən xəta baş verdi')
     } finally { setSaving(false) }
   }
 

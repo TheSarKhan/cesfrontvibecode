@@ -102,13 +102,13 @@ export default function DebitCreditPage() {
   const handleDeletePayment = async (recId, paymentId) => {
     if (!window.confirm('Bu ödənişi silmək istədiyinizə əminsiniz?')) return
     try { await accountingApi.deleteReceivablePayment(recId, paymentId); toast.success('Ödəniş silindi'); await loadSingle(recId) }
-    catch { toast.error('Silmə zamanı xəta') }
+    catch (err) { if (!err?._toasted) toast.error(err?.response?.data?.message || 'Ödəniş silinərkən xəta baş verdi') }
   }
 
   const handleComplete = async (recId) => {
     if (!window.confirm('Borcu tam olaraq bağlamaq istəyirsiniz?')) return
     try { await accountingApi.completeReceivable(recId); toast.success('Debitor tam olaraq yekunlaşdırıldı'); await loadSingle(recId) }
-    catch { toast.error('Xəta baş verdi') }
+    catch (err) { if (!err?._toasted) toast.error(err?.response?.data?.message || 'Borc yekunlaşdırılarkən xəta baş verdi') }
   }
 
 

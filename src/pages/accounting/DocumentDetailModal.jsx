@@ -76,7 +76,7 @@ export default function DocumentDetailModal({ docId, onClose, onDeleted }) {
       toast.success('Sənəd silindi')
       onDeleted?.()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Sənəd silinərkən xəta baş verdi')
     }
   }
 

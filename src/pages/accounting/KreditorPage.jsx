@@ -107,13 +107,13 @@ export default function KreditorPage() {
   const handleDeletePayment = async (payableId, paymentId) => {
     if (!window.confirm('Bu ödənişi silmək istədiyinizə əminsiniz?')) return
     try { await accountingApi.deletePayablePayment(payableId, paymentId); toast.success('Ödəniş silindi'); await loadSingle(payableId) }
-    catch { toast.error('Silmə zamanı xəta') }
+    catch (err) { if (!err?._toasted) toast.error(err?.response?.data?.message || 'Ödəniş silinərkən xəta baş verdi') }
   }
 
   const handleComplete = async (payableId) => {
     if (!window.confirm('Borcu tam olaraq bağlamaq istəyirsiniz?')) return
     try { await accountingApi.completePayable(payableId); toast.success('Kreditor tam olaraq yekunlaşdırıldı'); await loadSingle(payableId) }
-    catch { toast.error('Xəta baş verdi') }
+    catch (err) { if (!err?._toasted) toast.error(err?.response?.data?.message || 'Kreditor yekunlaşdırılarkən xəta baş verdi') }
   }
 
 

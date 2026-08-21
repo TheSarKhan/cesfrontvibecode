@@ -293,7 +293,7 @@ export default function AccountingInvoicesPage() {
       toast.success('Sahələr yeniləndi')
       loadInvoices()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə sahələri yenilənərkən xəta baş verdi')
     } finally { setInlineSaving(false) }
   }
 
@@ -317,13 +317,17 @@ export default function AccountingInvoicesPage() {
       await accountingApi.approve(inv.id)
       toast.success('Qaimə təsdiqləndi')
       loadAll(); loadInvoices()
-    } catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+    } catch (err) {
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə təsdiqlənərkən xəta baş verdi')
+    }
   }
 
   const handleReturnToProject = async (inv) => {
     if (!(await confirm({ title: 'Layihəyə geri göndər', message: `"${inv.accountingId || inv.invoiceNumber || `#${inv.id}`}" layihəyə geri qaytarılsın?` }))) return
     try { await accountingApi.returnToProject(inv.id); toast.success('Qaimə geri qaytarıldı'); loadAll(); loadInvoices() }
-    catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+    catch (err) {
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə layihəyə geri qaytarılarkən xəta baş verdi')
+    }
   }
 
   const handleReturnToDraft = async (inv) => {
@@ -332,13 +336,15 @@ export default function AccountingInvoicesPage() {
       toast.success('Qaimə DRAFT-a çevrildi')
       loadAll(); loadInvoices()
       setInvoiceModal({ open: true, editing: res.data.data, defaultType: null, preProject: null })
-    } catch (err) { toast.error(err?.response?.data?.message || 'Xəta baş verdi') }
+    } catch (err) {
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə DRAFT-a çevrilərkən xəta baş verdi')
+    }
   }
 
   /* ── Pending helpers ── */
   const getPendingForm = (invId, inv) => pendingForms[invId] ?? {
     invoiceNumber: inv?.invoiceNumber || '',
-    invoiceDate:   inv?.invoiceDate   || '',
+    invoiceDate:   inv?.invoiceDate   ? inv.invoiceDate.slice(0, 10) : '',
     notes:         inv?.notes         || '',
   }
   const setPendingField = (invId, field, value) => {
@@ -357,7 +363,7 @@ export default function AccountingInvoicesPage() {
       toast.success('Sahələr saxlanıldı')
       loadAll()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə saxlanılarkən xəta baş verdi')
     } finally {
       setPendingSaving(prev => ({ ...prev, [inv.id]: false }))
     }
@@ -378,7 +384,7 @@ export default function AccountingInvoicesPage() {
       setPendingForms(prev => { const n = { ...prev }; delete n[inv.id]; return n })
       loadAll(); loadInvoices()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə təsdiqlənərkən xəta baş verdi')
     } finally {
       setPendingSaving(prev => ({ ...prev, [inv.id]: false }))
     }
@@ -408,7 +414,7 @@ export default function AccountingInvoicesPage() {
       })
       loadAll(); loadInvoices()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimələr təsdiqlənərkən xəta baş verdi')
       loadAll(); loadInvoices()
     } finally {
       const reset = all.reduce((acc, inv) => ({ ...acc, [inv.id]: false }), {})

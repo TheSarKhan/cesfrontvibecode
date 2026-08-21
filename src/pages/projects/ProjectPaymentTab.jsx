@@ -58,7 +58,7 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
       setNote('')
       load()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Ödəniş əlavə edilərkən xəta baş verdi')
     } finally {
       setAdding(false)
     }
@@ -87,7 +87,7 @@ export default function ProjectPaymentTab({ project, planAmount, readOnly }) {
       toast.success('Ödəniş bağlandı')
       load()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Ödəniş bağlanarkən xəta baş verdi')
     } finally {
       setClosing(false)
     }

@@ -134,8 +134,10 @@ export default function ContractorModal({ editing, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       if (err?.isPending) { onClose?.(); return }
-      const msg = err?.response?.data?.message || 'Xəta baş verdi'
-      toast.error(msg)
+      if (!err?._toasted) {
+        const msg = err?.response?.data?.message || err?.message || 'Yadda saxlanılarkən xəta baş verdi'
+        toast.error(msg)
+      }
     } finally {
       setLoading(false)
     }

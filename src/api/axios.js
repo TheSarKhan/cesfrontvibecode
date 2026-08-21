@@ -18,7 +18,79 @@ const PUBLIC_ENDPOINTS = [
   '/auth/verify-otp',
   '/auth/reset-password',
   '/auth/refresh',
+  '/system/report-error',
 ]
+
+// ── Global error message extractor ─────────────────────────────────────────
+export function extractErrorMessage(error, fallback = 'Gözlənilməz xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.') {
+  if (!error) return fallback
+
+  // 1. Backend ApiResponse error message
+  if (error.response?.data?.message && typeof error.response.data.message === 'string') {
+    return error.response.data.message
+  }
+
+  // 2. Validation errors
+  if (error.response?.data?.errors) {
+    const errs = error.response.data.errors
+    if (Array.isArray(errs)) {
+      return errs.map((e) => (typeof e === 'string' ? e : e.message || e.defaultMessage || JSON.stringify(e))).join('; ')
+    }
+    if (typeof errs === 'object') {
+      return Object.values(errs).filter(Boolean).join('; ')
+    }
+  }
+
+  // 3. HTTP status codes
+  const status = error.response?.status
+  if (status === 400) {
+    return 'Daxil edilən məlumatlar natamam və ya yanlışdır. Zəhmət olmasa xanaları yoxlayın.'
+  }
+  if (status === 401) {
+    return 'Giriş sessiyanızın müddəti bitib. Zəhmət olmasa yenidən daxil olun.'
+  }
+  if (status === 403) {
+    return 'Bu əməliyyatı icra etmək üçün səlahiyyətiniz yoxdur.'
+  }
+  if (status === 404) {
+    return 'Axtarılan məlumat və ya səhifə tapılmadı.'
+  }
+  if (status === 409) {
+    return 'Məlumat ziddiyyəti: Bu qeyd artıq mövcuddur və ya digər məlumatlarla bağlıdır.'
+  }
+  if (status === 413) {
+    return 'Yüklənən faylın həcmi çox böyükdür (Maksimum limit: 50MB).'
+  }
+  if (status === 415) {
+    return 'Dəstəklənməyən fayl formatı.'
+  }
+  if (status === 422) {
+    return 'Məlumat emal edilə bilmədi: Yanlış status və ya məntiqi qayda pozuntusu.'
+  }
+  if (status === 429) {
+    return 'Həddindən artıq sorğu göndərilib. Zəhmət olmasa bir qədər sonra yenidən cəhd edin.'
+  }
+  if (status === 500) {
+    return 'Serverdə daxili xəta baş verdi. Zəhmət olmasa daha sonra yenidən cəhd edin və ya administratora müraciət edin.'
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return 'Server müvəqqəti olaraq əlçatan deyil və ya yenidən başladılır. Zəhmət olmasa az sonra yenidən yoxlayın.'
+  }
+
+  // 4. Network / Timeout
+  if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    return 'Sorğu vaxtı bitdi. İnternet bağlantınızı və ya serverin vəziyyətini yoxlayın.'
+  }
+  if (error.message === 'Network Error' || !error.response) {
+    return 'Serverlə əlaqə yaradılmadı. İnternet bağlantınızı və ya serverin aktivliyini yoxlayın.'
+  }
+
+  if (typeof error.message === 'string' && error.message.trim()) {
+    return error.message
+  }
+
+  return fallback
+}
 
 // ── Request interceptor: token yoxla, lazımsa refresh et ─────────────────────
 axiosInstance.interceptors.request.use(
@@ -160,9 +232,23 @@ axiosInstance.interceptors.response.use(
 
     // Global error toast — 401 və isPending xaric bütün xətalar üçün
     if (!error.isPending && !originalRequest?._suppressToast) {
-      const msg = error.response?.data?.message || 'Xəta baş verdi. Yenidən cəhd edin.'
-      toast.error(msg)
+      const msg = extractErrorMessage(error)
+      const errorReport = {
+        errorMessage: msg,
+        pageUrl: typeof window !== 'undefined' ? window.location.pathname + window.location.search : '',
+        requestUrl: originalRequest?.url || '',
+        requestMethod: (originalRequest?.method || 'GET').toUpperCase(),
+        httpStatus: status || 0,
+        errorDetails: error.response?.data ? JSON.stringify(error.response.data) : (error.stack || error.message || ''),
+        timestamp: new Date().toLocaleString('az-AZ'),
+      }
+
+      toast.error(msg, {
+        duration: 7000,
+        errorReport,
+      })
       error._toasted = true
+      error._errorMessage = msg
     }
 
     return Promise.reject(error)

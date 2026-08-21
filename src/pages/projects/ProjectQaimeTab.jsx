@@ -657,7 +657,7 @@ export default function ProjectQaimeTab({ project }) {
       setShowForm(false)
       load()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə yaradılarkən xəta baş verdi')
     } finally { setSaving(false) }
   }
 
@@ -702,7 +702,7 @@ export default function ProjectQaimeTab({ project }) {
       resetForm()
       load()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Xəta baş verdi')
+      if (!err?._toasted) toast.error(err?.response?.data?.message || 'Qaimə yenidən göndərilərkən xəta baş verdi')
     } finally { setSaving(false) }
   }
 
