@@ -26,7 +26,7 @@ export const systemApi = {
         // ignore parse error
       }
 
-      const res = await axiosInstance.post('/api/v1/system/report-error', payload, {
+      const res = await axiosInstance.post('/system/report-error', payload, {
         _suppressToast: true, // do not recursively toast if reporting itself fails
       })
       return res.data
