@@ -8,6 +8,7 @@ import { clsx } from 'clsx'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import NumberInput from '../../components/common/NumberInput'
+import { configApi } from '../../api/config'
 
 const OWNERSHIP_TYPES = [
   { value: 'COMPANY', label: 'Şirkət', desc: 'Şirkətin öz texnikası' },
@@ -87,7 +88,29 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
   const [initialForm, setInitialForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
+  const [availableSafetyTypes, setAvailableSafetyTypes] = useState(safetyTypes || [])
+  const [availableDocTypes, setAvailableDocTypes] = useState(documentTypes || [])
   const { confirm, ConfirmDialog } = useConfirm()
+
+  useEffect(() => {
+    if (safetyTypes && safetyTypes.length > 0) {
+      setAvailableSafetyTypes(safetyTypes)
+    } else {
+      configApi.getActiveByCategory('SAFETY_EQUIPMENT')
+        .then(r => setAvailableSafetyTypes(r.data?.data || r.data || []))
+        .catch(() => {})
+    }
+  }, [safetyTypes])
+
+  useEffect(() => {
+    if (documentTypes && documentTypes.length > 0) {
+      setAvailableDocTypes(documentTypes)
+    } else {
+      configApi.getActiveByCategory('EQUIPMENT_DOCUMENT_TYPE')
+        .then(r => setAvailableDocTypes(r.data?.data || r.data || []))
+        .catch(() => {})
+    }
+  }, [documentTypes])
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm)
 
@@ -246,10 +269,6 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
 
       const storage = form.storageLocation?.trim() ?? ''
       if (!storage) errs.storageLocation = 'Saxlanma yeri tələb olunur'
-
-      if (safetyTypes.length > 0 && (form.safetyEquipmentIds?.length ?? 0) === 0) {
-        errs.safetyEquipmentIds = 'Ən azı bir təhlükəsizlik avadanlığı seçilməlidir'
-      }
     }
 
     if (s === 3) {
@@ -440,14 +459,16 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                 </Field>
               </div>
 
-              {safetyTypes.length > 0 && (
+              {availableSafetyTypes.length > 0 && (
                 <div>
                   <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-2">
-                    Təhlükəsizlik avadanlıqları <span className="text-[var(--ces-danger)]">*</span>
+                    Təhlükəsizlik avadanlıqları
+                    <span className="ml-1 text-[11px] font-normal text-[var(--ces-mute2)]">(opsional)</span>
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {safetyTypes.map((st) => {
+                    {availableSafetyTypes.map((st) => {
                       const checked = (form.safetyEquipmentIds || []).includes(st.id)
+                      const label = st.key || st.value || st.itemKey || 'Avadanlıq'
                       return (
                         <label key={st.id} className={clsx(
                           'flex items-center gap-2 cursor-pointer rounded-[10px] border p-2.5 transition-all text-[13px]',
@@ -462,7 +483,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                               if (errors.safetyEquipmentIds) setErrors(p => ({ ...p, safetyEquipmentIds: undefined }))
                             }}
                             className="accent-[var(--ces-ok)] w-4 h-4" />
-                          {st.key}
+                          {label}
                         </label>
                       )
                     })}
@@ -473,15 +494,16 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                 </div>
               )}
 
-              {documentTypes.length > 0 && (
+              {availableDocTypes.length > 0 && (
                 <div>
                   <label className="block text-[13px] font-semibold text-[var(--ces-ink)] mb-2">
                     Məcburi sənədlər
                     <span className="ml-1 text-[11px] font-normal text-[var(--ces-mute2)]">(koordinator yoxlamasında istifadə olunur)</span>
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {documentTypes.map((dt) => {
+                    {availableDocTypes.map((dt) => {
                       const checked = (form.requiredDocumentIds || []).includes(dt.id)
+                      const label = dt.key || dt.value || dt.itemKey || 'Sənəd'
                       return (
                         <label key={dt.id} className={clsx(
                           'flex items-center gap-2 cursor-pointer rounded-[10px] border p-2.5 transition-all text-[13px]',
@@ -495,7 +517,7 @@ export default function EquipmentModal({ editing, onClose, onSaved, contractors 
                               set('requiredDocumentIds', checked ? ids.filter(id => id !== dt.id) : [...ids, dt.id])
                             }}
                             className="accent-[var(--ces-gold)] w-4 h-4" />
-                          {dt.key}
+                          {label}
                         </label>
                       )
                     })}
