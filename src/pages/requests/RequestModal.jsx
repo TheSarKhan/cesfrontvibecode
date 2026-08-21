@@ -259,7 +259,7 @@ export default function RequestModal({ editing, onClose, onSaved }) {
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (autoSubmitToPm = false) => {
     const e0 = validate(0), e1 = validate(1), e2 = validate(2)
     if (Object.keys(e0).length) { setStep(0); setErrors(e0); return }
     if (Object.keys(e1).length) { setStep(1); setErrors(e1); return }
