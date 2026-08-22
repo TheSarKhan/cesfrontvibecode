@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import { clsx } from 'clsx'
 import { fmtDate } from '../../utils/date'
 import NumberInput from '../../components/common/NumberInput'
+import DateInput from '../../components/common/DateInput'
 import { useConfirm } from '../../components/common/ConfirmDialog'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import PrintButton from '../../components/common/PrintButton'
@@ -153,7 +154,7 @@ function EquipmentLineCard({ line, projectType, planDayCount }) {
 
 // ─── Məlumat Tab ──────────────────────────────────────────────────────────────
 
-function InfoTab({ project }) {
+function InfoTab({ project, onEndDateUpdated }) {
   const [editingStartDate, setEditingStartDate] = useState(false)
   const [startDate, setStartDate] = useState(project.startDate?.substring(0, 10) || '')
   const [savingStartDate, setSavingStartDate] = useState(false)
@@ -169,7 +170,7 @@ function InfoTab({ project }) {
       await projectsApi.updateStartDate(project.id, { startDate })
       toast.success('Başlanğıc tarixi yeniləndi')
       setEditingStartDate(false)
-      onEndDateUpdated()
+      onEndDateUpdated?.()
     } catch {
     } finally {
       setSavingStartDate(false)
