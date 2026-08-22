@@ -31,7 +31,7 @@ const TABS = [
   { id: 'info',      label: 'Məlumat',               icon: Info },
   { id: 'finance',   label: 'Maliyyə',               icon: DollarSign },
   { id: 'qaime',     label: 'Qaimələr',              icon: FileText },
-  { id: 'incidents', label: 'Dayanma & İnsidentlər', icon: AlertTriangle },
+  // { id: 'incidents', label: 'Dayanma & İnsidentlər', icon: AlertTriangle }, // Müvəqqəti gizlədilib
   { id: 'complete',  label: 'Bağlanış',              icon: CheckCircle },
 ]
 
